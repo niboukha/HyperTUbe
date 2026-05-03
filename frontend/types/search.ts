@@ -19,16 +19,27 @@ export interface Movie {
   year?: string
 }
 
-
-export interface User {
+export type MovieResult = {
+  type: "movie"
   id: number
-  username: string
-  avatar: string | null
+  title: string
+  year?: string
+  rating?: number | null
+  poster_path?: string | null
+  backdrop_path?: string | null
+  overview?: string
 }
 
+
+export type UserResult = {
+  type: "user"
+  id: string
+  username?: string
+  avatar?: string
+}
 export type SearchResult =
-  | { type: "movie"; data: Movie }
-  | { type: "user"; data: User }
+  | { type: "movie"; data: MovieResult }
+  | { type: "user"; data: UserResult }
   
 export interface MovieCard {
   id: number
