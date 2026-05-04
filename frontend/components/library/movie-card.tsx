@@ -14,6 +14,7 @@ export default function MovieCard({ movie }: { movie: MovieResult }) {
             src={`https://image.tmdb.org/t/p/w342${movie.poster_path}`}
             alt={movie.title}
             fill
+            sizes="360px"
             className="object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : (

@@ -6,9 +6,9 @@ import { X, Star, TrendingUp, Clock } from "lucide-react"
 import { MovieResult } from "@/types/search"
 import { GENRES } from "@/constants/search-bar"
 import { useSearchParams } from "next/navigation"
-import MovieCard from "@/components/library-components/movie-card"
-import FilterPill from "@/components/library-components/filter-pill"
-import { FilterDropdown, YearInput } from "@/components/library-components/utils"
+import MovieCard from "@/components/library/movie-card"
+import FilterPill from "@/components/library/filter-pill"
+import { FilterDropdown, YearInput } from "@/components/library/utils"
 
 
 type SortOption = "popular" | "rating" | "newest" | "oldest"
@@ -53,10 +53,16 @@ export default function LibraryPage() {
     const fetchMovies = async () => {
       setLoading(true)
       try {
-        const q = urlQuery || "popular"
-        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`)
+        const endpoint = urlQuery
+          ? `/api/search?q=${encodeURIComponent(urlQuery)}`
+          : `/api/movies/top`
+        const res = await fetch(endpoint)
         const data = await res.json()
-        let results: MovieResult[] = (data.results ?? []).filter((r: MovieResult) => r.type === "movie")
+
+        console.log("Fetched movies before filtering:", data)
+
+        let results: MovieResult[] = (data ?? []).filter((r: MovieResult) => r.type === "movie")
+
 
         if (filters.minRating > 0) {
           results = results.filter((m) => (m.rating ?? 0) >= filters.minRating)

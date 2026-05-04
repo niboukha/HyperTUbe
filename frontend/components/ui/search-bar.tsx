@@ -68,7 +68,7 @@ export default function SearchBar({ open: externalOpen, onOpenChange, inline = f
         const data = await res.json()
 
         if (!ignore) {
-          setMovies((data.results ?? []).filter(r => r.type === "movie"))
+          setMovies((data ?? []).filter(r => r.type === "movie"))
         }
       } catch {
         if (!ignore) setMovies([])

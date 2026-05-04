@@ -8,10 +8,10 @@ export async function GET(req: Request) {
     { next: { revalidate: 300 } }
   )
   const data = await res.json()
+  const BLOCKED_GENRES = new Set([10749, 27, 53])
 
   const results = (data.results ?? [])
     .filter((r: any) => r.media_type === "movie" || r.media_type === "person")
-    .slice(0, 10)
     .map((r: any) => ({
       type: r.media_type === "person" ? "user" : "movie",
       id: r.id,
@@ -25,5 +25,5 @@ export async function GET(req: Request) {
       vote_count: r.vote_count,
     }))
 
-  return Response.json({ results })
+  return Response.json( results ?? [] )
 }

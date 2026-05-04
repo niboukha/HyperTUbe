@@ -15,6 +15,7 @@ import { Badge } from "../ui/badge"
 import { itemVariants } from "@/lib/annimations/hero-variants"
 import { formatVotes, getReleaseYear } from "@/lib/utils/movie"
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip"
+import { CarouselSkeleton } from "../carousel/CarouselSkeleton"
 
 type MovieRowProps = {
   title: string
@@ -24,6 +25,7 @@ type MovieRowProps = {
 export default function PrimeRow({ title, endpoint }: MovieRowProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(0)
   const [movies, setMovies] = useState<MovieCard[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetchMovies = async () => {
@@ -37,11 +39,16 @@ export default function PrimeRow({ title, endpoint }: MovieRowProps) {
         console.error("Fetch error:", err)
         setMovies([])
       }
+      finally {
+        setLoading(false)
+      }
     }
     fetchMovies()
   }, [endpoint])
 
   const { scrollRef, canScrollLeft, canScrollRight, checkScroll, scroll, startAutoScroll, stopAutoScroll } = useCarousel()
+  
+  if (loading) return <CarouselSkeleton title={title} /> 
   
   return (
     <section >

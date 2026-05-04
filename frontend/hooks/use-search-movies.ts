@@ -41,7 +41,7 @@ export function useSearchMovies(query: string) {
         const data = await res.json()
 
         if (!ignore) {
-          cache.current.set(query, data.results)
+          cache.current.set(query, data)
           setState({
             data: data.results,
             loading: false,
