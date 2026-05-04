@@ -161,8 +161,6 @@ export default function VedioDetails()
   
     return (
       <main>
-        <TopBar/>
-        {/* image section or hero section */}
         <div
           className="relative h-screen bg-cover bg-center "
             style={{
@@ -338,7 +336,7 @@ export default function VedioDetails()
         <div className="  absolute inset-0 bg-linear-to-t from-background via-transparent to-background/5" />
 
         </div>
-        <div className=" !pt-10 min-h-screen bg-[#0E0E10] !px-4  md:!px-16   !py-2 ">
+        <div className="  !pt-10   !h-fit bg-[#0E0E10] !px-4  md:!px-16   !py-2 ">
           <div className=" !space-y-10 ">
             <div className="flex items-center gap-3">
               <div className="w-1 h-6 bg-[#BD0404] " />
@@ -394,8 +392,8 @@ export default function VedioDetails()
                 </div>
               </div>
           </div>
+        <Footer/>
         </div>
-        {/* <Footer/> */}
       </main>
     )
 }

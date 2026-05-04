@@ -8,7 +8,7 @@ export default function Overview({ text }) {
     <div className="max-w-full">
       <p
         className={`
-          text-slate-300 leading-relaxed text-sm
+          text-slate-300  text-sm
           ${expanded ? "" : "line-clamp-4"}
         `}
       >
