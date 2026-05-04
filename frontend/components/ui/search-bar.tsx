@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Search, X, Clock, TrendingUp, Star, Film, Hash } from "lucide-react"
+import { Search, X, Clock, TrendingUp, Star, Film, Hash, Users } from "lucide-react"
 import { useDebounce } from "@/hooks/useDebounce"
 import { useRouter, usePathname } from "next/navigation"
 import Image from "next/image"
-import { GENRES, MOCK_USERS, TRENDING } from "@/constants/search-bar"
-import { MovieResult, SearchResult, UserResult } from "@/types/search"
+import { GENRES, TRENDING } from "@/constants/search-bar"
+import { MovieResult, UserResult } from "@/types/search"
 import { getRecentSearches, saveRecentSearch, removeRecentSearch, highlightMatch } from "@/lib/utils/search-bar"
+import { MOCK_USERS } from "@/lib/mock-data"
 
 
 type Props = {
@@ -44,9 +45,9 @@ export default function SearchBar({ open: externalOpen, onOpenChange, inline = f
 
   // Filter mock users by query
   const matchedUsers = useMemo(() => {
-    if (!query) return []
+    const q = query || "popular"
     return MOCK_USERS.filter((u) =>
-      u.username.toLowerCase().includes(query.toLowerCase())
+      u.username?.toLowerCase().includes(q.toLowerCase())
     ).slice(0, 3)
   }, [query])
 
@@ -202,20 +203,20 @@ export default function SearchBar({ open: externalOpen, onOpenChange, inline = f
   // ── Dropdown panel content ─────────────────────────────────────────────────
 
   const dropdownContent = (
-    <div className="absolute right-0 top-full z-40 w-full mt-2">
+    <div className="z-40 w-full p-2!">
       {isEmpty ? (
         <>
           {recentSearches.length > 0 && (
-            <div className="mb-4!">
+            <div className="mb-4! border border-red-400">
               <SectionHeading icon={<Clock className="h-3 w-3" />} label="Recent" />
               <div className="flex flex-col gap-0.5">
                 {recentSearches.map((term, i) => (
                   <div
                     key={i}
                     onClick={() => handleSelectRecent(term)}
-                    className="flex items-center justify-between px-2! py-1.5! rounded-[6px] cursor-pointer hover:bg-white/8 group transition-colors"
+                    className="flex items-center justify-between px-2! py-1.5! rounded-[6px] cursor-pointer hover:bg-white/10 group transition-colors"
                   >
-                    <span className="text-sm text-white/60 group-hover:text-white/90 transition-colors">{term}</span>
+                    <span className="text-sm text-white group-hover:text-white/90 transition-colors">{term}</span>
                     <button
                       onClick={(e) => handleRemoveRecent(e, term)}
                       className="opacity-0 group-hover:opacity-100 text-white/30 hover:text-white/70 transition-all"
@@ -228,23 +229,23 @@ export default function SearchBar({ open: externalOpen, onOpenChange, inline = f
             </div>
           )}
 
-          <div className="mb-4!">
+          <div className="mb-4! border border-blue-400">
             <SectionHeading icon={<TrendingUp className="h-3 w-3" />} label="Trending" />
             <div className="flex flex-col gap-0.5">
               {TRENDING.map((term, i) => (
                 <div
                   key={i}
                   onClick={() => { setQuery(term); inputRef.current?.focus() }}
-                  className="flex items-center gap-3 px-2! py-1.5! rounded-[6px] cursor-pointer hover:bg-white/8 group transition-colors"
+                  className="flex items-center gap-3 px-2! py-1.5! rounded-[6px] cursor-pointer hover:bg-white/10 group transition-colors"
                 >
                   <span className="text-[11px] text-white/20 w-4 text-right font-mono">{i + 1}</span>
-                  <span className="text-sm text-white/60 group-hover:text-white/90 transition-colors">{term}</span>
+                  <span className="text-sm text-white group-hover:text-white/90 transition-colors">{term}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          <div>
+          <div className="border border-green-400">
             <SectionHeading icon={<Hash className="h-3 w-3" />} label="Browse genres" />
             <div className="flex flex-wrap gap-1.5 px-2!">
               {GENRES.map((genre) => (
@@ -254,7 +255,7 @@ export default function SearchBar({ open: externalOpen, onOpenChange, inline = f
           </div>
         </>
       ) : movies.length === 0 && matchedUsers.length === 0 && !loading ? (
-        <div className="px-4! py-10! text-center">
+        <div className="px-4! py-10! text-center border border-yellow-400 rounded-md">
           <p className="text-white/30 text-sm">
             No results for <span className="text-white/50">`{query}`</span>
           </p>
@@ -263,18 +264,18 @@ export default function SearchBar({ open: externalOpen, onOpenChange, inline = f
       ) : (
         <>
           {topMovies.length > 0 && (
-            <div className="mb-4!">
+            <div className="mb-4! border border-yellow-400">
               <SectionHeading icon={<Film className="h-3 w-3" />} label="Top results" />
-              <div className="flex gap-2 overflow-x-auto pb-1!" style={{ scrollbarWidth: "none" }}>
+              <div className="flex gap-2 overflow-x-auto pb-1! border border-pink-400" style={{ scrollbarWidth: "none" }}>
                 {topMovies.map((movie, i) => (
                   <div
                     key={movie.id}
                     onClick={() => handleSelectMovie(movie)}
-                    className={`shrink-0 w-28 cursor-pointer rounded-[6px] overflow-hidden border transition-all duration-150 hover:scale-105 hover:border-white/20 ${
+                    className={`shrink-0 w-28 cursor-pointer rounded-md overflow-hidden border transition-all duration-150 hover:scale-105 hover:border-white/30 ${
                       activeIndex === i ? "border-white/25 scale-105" : "border-white/8"
                     }`}
                   >
-                    <div className="aspect-[2/3] bg-white/5 relative">
+                    <div className="aspect-2/3 bg-white/5 relative">
                       {movie.poster_path ? (
                         <Image
                           src={`https://image.tmdb.org/t/p/w200${movie.poster_path}`}
@@ -311,18 +312,18 @@ export default function SearchBar({ open: externalOpen, onOpenChange, inline = f
           )}
 
           {listMovies.length > 0 && (
-            <div className="mb-4!">
+            <div className="mb-4! border border-blue-400">
               <SectionHeading label="Movies" />
               <div className="flex flex-col gap-0.5">
                 {listMovies.map((movie, i) => (
                   <div
                     key={movie.id}
                     onClick={() => handleSelectMovie(movie)}
-                    className={`flex items-center gap-3 px-2! py-1.5! rounded-[6px] cursor-pointer transition-all duration-100 ${
+                    className={`flex items-center gap-3 px-2! py-1.5! rounded-md cursor-pointer transition-all duration-100 ${
                       activeIndex === topMovies.length + i ? "bg-white/10" : "hover:bg-white/6"
                     }`}
                   >
-                    <div className="w-9 h-12 shrink-0 rounded-[4px] bg-white/5 overflow-hidden relative">
+                    <div className="w-9 h-12 shrink-0 rounded-md bg-white/5 overflow-hidden relative">
                       {movie.poster_path ? (
                         <Image
                           src={`https://image.tmdb.org/t/p/w92${movie.poster_path}`}
@@ -357,8 +358,8 @@ export default function SearchBar({ open: externalOpen, onOpenChange, inline = f
           )}
 
           {matchedUsers.length > 0 && (
-            <div className="mb-4!">
-              <SectionHeading label="Users" />
+            <div className="mb-4! border border-green-400">
+              <SectionHeading label="Users" icon={<Users className="h-3 w-3" />} />
               <div className="flex flex-col gap-0.5">
                 {matchedUsers.map((user) => (
                   <div
@@ -366,7 +367,7 @@ export default function SearchBar({ open: externalOpen, onOpenChange, inline = f
                     onClick={() => handleSelectUser(user)}
                     className="flex items-center gap-3 px-2! py-1.5! rounded-[6px] cursor-pointer hover:bg-white/6 transition-all"
                   >
-                    <div className="w-8 h-8 shrink-0 rounded-full overflow-hidden relative bg-white/10">
+                    <div className="w-8 h-8 shrink-0 rounded-md overflow-hidden relative bg-white/10">
                       <Image src={user.avatar} alt={user.username} fill className="object-cover" />
                     </div>
                     <p className="text-sm text-white/80">
@@ -396,7 +397,7 @@ export default function SearchBar({ open: externalOpen, onOpenChange, inline = f
   if (inline) {
     return (
       <div className="relative w-full" ref={containerRef}>
-        <div className="flex items-center gap-2 rounded-[10px] px-3! py-2.5! border border-white/15 bg-white/6 backdrop-blur-md text-white focus-within:border-white/30 focus-within:bg-white/8 transition-all duration-200">
+        <div className="flex items-center gap-2 rounded-[10px] px-3! py-2.5! border border-white/15 bg-white/6 backdrop-blur-md text-white focus-within:border-white/30 focus-within:bg-white/10 transition-all duration-200 border border-red-700">
           <Search className="h-4 w-4 text-white/35 shrink-0" />
           <input
             ref={inputRef}
@@ -407,7 +408,7 @@ export default function SearchBar({ open: externalOpen, onOpenChange, inline = f
           />
           <div className="flex items-center gap-2">
             {loading && (
-              <div className="w-3 h-3 border border-white/20 border-t-white/60 rounded-full animate-spin" />
+              <div className="w-3 h-3 border border-white/30 border-t-white/60 rounded-full animate-spin" />
             )}
             {query && (
               <button onClick={() => setQuery("")} className="text-white/40 hover:text-white transition-colors">
@@ -428,11 +429,11 @@ export default function SearchBar({ open: externalOpen, onOpenChange, inline = f
         <button
           onClick={openSearch}
           aria-label="Open search"
-          className="flex items-center gap-2 rounded-[8px] border h-8! px-2! backdrop-blur-2xl! border-white/20 bg-white/8 text-white/60 hover:text-white hover:border-white/30 hover:bg-white/12 transition-all duration-200 hover:scale-105"
+          className="flex items-center gap-2 rounded-[8px] border h-8! px-2! backdrop-blur-2xl! backdrop-saturate-150! border-white/30 bg-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all duration-200 hover:scale-105"
         >
-          <Search className="h-4 w-4" />
-          <span className="hidden md:block text-xs text-white/40">Search</span>
-          <kbd className="hidden md:flex items-center gap-0.5 text-[10px] text-white/25 border border-white/15 rounded px-1 py-0.5 font-mono">
+          <Search className="h-5 w-5" />
+          <span className="hidden md:block text-xs text-white">Search</span>
+          <kbd className="hidden md:flex items-center gap-0.5 text-[10px] text-white border border-white/15 rounded px-1 py-0.5 font-mono">
             /
           </kbd>
         </button>
@@ -452,7 +453,7 @@ export default function SearchBar({ open: externalOpen, onOpenChange, inline = f
           >
             <div role="combobox" aria-expanded={open} aria-haspopup="listbox" className="relative">
               <div
-                className="flex items-center gap-2 rounded-t-[10px] px-3! py-2! border border-white/20 bg-black/60 backdrop-blur-xl text-white focus-within:border-white/35 transition-all duration-200"
+                className="flex items-center gap-2 rounded-t-md px-3! py-2! border border-white/30 bg-white/10 backdrop-blur-2xl backdrop-saturate-150! text-white focus-within:border-white/35 transition-all duration-200"
                 style={{
                   boxShadow: "0 0 0 1px rgba(255,255,255,0.08), 0 0 20px rgba(255,255,255,0.04)",
                 }}
@@ -470,14 +471,14 @@ export default function SearchBar({ open: externalOpen, onOpenChange, inline = f
                 />
                 <div className="flex items-center gap-2">
                   {loading && (
-                    <div className="w-3 h-3 border border-white/20 border-t-white/60 rounded-full animate-spin" />
+                    <div className="w-3 h-3 border border-white/30 border-t-white/60 rounded-full animate-spin" />
                   )}
                   {query && (
                     <button onClick={() => setQuery("")} className="text-white/40 hover:text-white transition-colors">
                       <X className="h-3.5 w-3.5" />
                     </button>
                   )}
-                  <kbd className="text-[10px] text-white/20 border border-white/10 rounded px-1 py-0.5 font-mono">
+                  <kbd className="text-[10px] text-white/20 border border-white/30 rounded px-1 py-0.5 font-mono">
                     ESC
                   </kbd>
                 </div>
@@ -490,7 +491,7 @@ export default function SearchBar({ open: externalOpen, onOpenChange, inline = f
                 transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
                 role="listbox"
                 aria-label="Search results"
-                className="rounded-b-[10px] border border-t-0 border-white/20 bg-black/75 backdrop-blur-xl overflow-hidden"
+                className="rounded-b-md border border-t-0 border-white/30 bg-white/10 backdrop-blur-2xl backdrop-saturate-150! overflow-hidden absolute right-0 left-0 mt-0!"
                 style={{ maxHeight: "520px", overflowY: "auto" }}
               >
                 {dropdownContent}
@@ -513,7 +514,7 @@ function SectionHeading({
   label: string
 }) {
   return (
-    <div className="flex items-center gap-2 px-2! mb-2!">
+    <div className="flex items-center gap-2 mb-2!">
       {icon && <span className="text-white/30">{icon}</span>}
       <span className="text-[11px] font-medium text-white/30 uppercase tracking-wider">{label}</span>
     </div>
@@ -524,9 +525,11 @@ function GenrePill({ genre, onClick }: { genre: string; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="text-xs text-white/50 border border-white/10 bg-white/5 hover:bg-white/12 hover:text-white/90 hover:border-white/20 px-2.5! py-1! rounded-full transition-all duration-150"
+      className="text-xs text-white/50 border border-white/30 bg-white/5 hover:bg-white/10 hover:text-white/90 hover:border-white/30 px-2.5! py-1! rounded-full transition-all duration-150"
     >
       {genre}
     </button>
   )
 }
+
+

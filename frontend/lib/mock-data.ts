@@ -1,4 +1,4 @@
-import type { Movie, User, SearchResult } from "@/types/search"
+import type { Movie, UserResult, SearchResult } from "@/types/search"
 
 export const mockMovies: Movie[] = [
   {
@@ -21,39 +21,45 @@ export const mockMovies: Movie[] = [
   },
 ]
 
-export const mockUsers: User[] = [
+
+export const MOCK_USERS : UserResult[] = [
   {
     id: 1,
     username: "Tohn_doe",
     avatar: "avatars/Name=chicken.svg",
+    "type": "user",
   },
   {
     id: 2,
     username: "Tinephile",
     avatar: "avatars/Name=fluffyblue.svg",
+    "type": "user",
   },
   {
     id: 3,
     username: "Tovie_lover",
     avatar: "avatars/Name=red.svg",
+    "type": "user",
+  },
+  {
+    id: 4,
+    username: "Cinephile42",
+    avatar: "avatars/Name=green.svg",
+    "type": "user",
+  },
+  {
+    id: 5,
+    username: "ReelCritic",
+    avatar: "avatars/Name=yellow.svg",
+    "type": "user",
+  },
+  {
+    id: 6,
+    username: "FilmGeek_Lila",
+    avatar: "avatars/Name=blue.svg",
+    "type": "user",
   },
 ]
-
-export function searchMock(query: string): SearchResult[] {
-  if (!query) return []
-
-  const q = query.toLowerCase()
-
-  const movieResults: SearchResult[] = mockMovies
-    .filter((m) => m.title?.toLowerCase().includes(q))
-    .map((m) => ({ type: "movie", data: m }))
-
-  const userResults: SearchResult[] = mockUsers
-    .filter((u) => u.username.toLowerCase().includes(q))
-    .map((u) => ({ type: "user", data: u }))
-
-  return [...userResults, ...movieResults]
-}
 
 export const continueWatchingMovies = [
   {
@@ -138,7 +144,6 @@ export const continueWatchingMovies = [
   },
 ];
 
-const IMAGE_BASE = "https://image.tmdb.org/t/p/w780"
 
 export function mapTrendingToContinueWatching(tmdbMovies: Movie[] = []) {
   return tmdbMovies.map((movie: Movie) => {

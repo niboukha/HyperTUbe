@@ -13,7 +13,7 @@ export async function GET(req: Request) {
     .filter((r: any) => r.media_type === "movie" || r.media_type === "person")
     .slice(0, 10)
     .map((r: any) => ({
-      type: r.media_type,
+      type: r.media_type === "person" ? "user" : "movie",
       id: r.id,
       title: r.title || r.name,
       year: r.release_date?.slice(0, 4) || r.first_air_date?.slice(0, 4),
@@ -21,6 +21,8 @@ export async function GET(req: Request) {
       poster_path: r.poster_path || r.profile_path,
       backdrop_path: r.backdrop_path,
       overview: r.overview,
+      availability: Math.random() > 0.5 ? "free" : "premium",
+      vote_count: r.vote_count,
     }))
 
   return Response.json({ results })

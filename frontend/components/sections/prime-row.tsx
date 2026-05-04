@@ -231,9 +231,9 @@ export default function PrimeRow({ title, endpoint }: MovieRowProps) {
                           </TooltipTrigger>
                           <TooltipContent>
                             <p className="whitespace-nowrap
-                              text-[10px] font-medium text-white bg-[#2a2a2a]
-                              px-2! py-1! rounded-lg border border-white/10
-                              pointer-events-none z-50 shadow-lg"
+                                text-sm font-medium text-background bg-white
+                                px-2! py-2! rounded-lg border border-white/10
+                                pointer-events-none z-50 shadow-lg"
                             >
                               More details about {movie.title}
                             </p>
@@ -255,8 +255,8 @@ export default function PrimeRow({ title, endpoint }: MovieRowProps) {
                           <TooltipContent>
                               <p
                                 className="whitespace-nowrap
-                                text-[10px] font-medium text-white bg-[#2a2a2a]
-                                px-2! py-1! rounded-lg border border-white/10
+                                text-sm font-medium text-background bg-white
+                                px-2! py-2! rounded-lg border border-white/10
                                 pointer-events-none z-50 shadow-lg"
                               >
                                 Add {movie.title} to your list

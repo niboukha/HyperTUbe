@@ -1,3 +1,4 @@
+
 export interface Movie {
   id: number
   title: string
@@ -28,15 +29,18 @@ export type MovieResult = {
   poster_path?: string | null
   backdrop_path?: string | null
   overview?: string
+  release_date?: string
+  availability: "free" | "premium"
+  vote_count?: number
 }
-
 
 export type UserResult = {
   type: "user"
-  id: string
+  id: number
   username?: string
   avatar?: string
 }
+
 export type SearchResult =
   | { type: "movie"; data: MovieResult }
   | { type: "user"; data: UserResult }

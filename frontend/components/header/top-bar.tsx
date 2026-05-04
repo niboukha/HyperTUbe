@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import Logo from "@/components/ui/logo"
-import SearchBar from "@/components/ui/search-bar"
+import SearchBar from "../search/search-bar"
 import { Language, languages } from "@/constants/languages"
 import NavLinks from "./nav-links"
 import ProfileMenu from "./profile-menu"
 import MobileToggle from "./mobile-toggle"
 import LanguageMenu from "./language-menu"
+import { usePathname } from "next/navigation"
 
 export default function TopBar() {
   const [currentLang, setCurrentLang] = useState<Language>(languages[0])
@@ -18,6 +19,9 @@ export default function TopBar() {
   const [hidden, setHidden] = useState(false)
   const ticking = useRef(false)
   const lastScrollY = useRef(0)
+  const pathname = usePathname()
+
+  const isLibrary = pathname.startsWith("/library")
 
   useEffect(() => {
     const handleScroll = () => {
@@ -40,6 +44,10 @@ export default function TopBar() {
     window.addEventListener("scroll", handleScroll, { passive: true })
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
+
+  // On library page keep search forced open and header always visible
+  // const effectiveOpen = isLibrary ? true : searchOpen
+  // const effectiveHidden = isLibrary ? false : hidden
 
   return (
     <motion.header
@@ -97,7 +105,8 @@ export default function TopBar() {
               >
                 <SearchBar
                   open={searchOpen}
-                  onOpenChange={setSearchOpen}
+                  onOpenChange={isLibrary ? undefined : setSearchOpen}
+                  isLibraryMode={isLibrary}
                 />
               </motion.div>
           </AnimatePresence>

@@ -1,6 +1,5 @@
 import { TMDB_GENRE_LABELS } from "@/lib/tmdb-genres"
 import { Movie } from "@/types/search"
-import { run } from "node:test"
 
 const TMDB_BASE = "https://api.themoviedb.org/3"
 const API_KEY = process.env.TMDB_KEY

@@ -31,9 +31,11 @@ export function TooltipButton({ label, onClick, children, className }: Props) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 4 }}
             transition={{ duration: 0.15 }}
-            className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap
-              text-[10px] font-medium text-white bg-[#2a2a2a]
-              px-2! py-1! rounded-lg border border-white/10
+            className="absolute -top-10 left-1/2 -translate-x-1/2
+              text-[10px]
+              whitespace-nowrap
+              text-sm font-medium text-background bg-white
+              px-2! py-2! rounded-lg border border-white/10
               pointer-events-none z-50 shadow-lg"
           >
             {label}
