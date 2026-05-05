@@ -16,6 +16,7 @@ import { itemVariants } from "@/lib/annimations/hero-variants"
 import { formatVotes, getReleaseYear } from "@/lib/utils/movie"
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip"
 import { CarouselSkeleton } from "../carousel/CarouselSkeleton"
+import HeaderTitle from '../ui/header-title';
 
 type MovieRowProps = {
   title: string
@@ -48,26 +49,23 @@ export default function PrimeRow({ title, endpoint }: MovieRowProps) {
 
   const { scrollRef, canScrollLeft, canScrollRight, checkScroll, scroll, startAutoScroll, stopAutoScroll } = useCarousel()
   
-  if (loading) return <CarouselSkeleton title={title} /> 
+  if (loading)
+    return <CarouselSkeleton title={title} isprime={true} /> 
   
   return (
-    <section >
+    <section className="flex flex-col gap-1">
       {/* Header */}
-      <h2 className="text-lg md:text-xl font-title text-text-primary tracking-tight">
-        <span className="text-accent-red font-extrabold pr-2!">|</span>
-      
-        {title}
-      </h2>
+      <HeaderTitle title={title} />
 
       <div className="relative">
         <div
-          className={` absolute left-0 bottom-0 h-100! w-20! z-40 flex items-center justify-center transition-opacity duration-200 ${canScrollLeft ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+          className={` absolute left-0 bottom-1 h-100! w-20! z-40 flex items-center justify-center transition-opacity duration-200 ${canScrollLeft ? "opacity-100" : "opacity-0 pointer-events-none"}`}
           onMouseEnter={() => startAutoScroll("left")}
           onMouseLeave={stopAutoScroll}
         >
           <TooltipButton
             onClick={() => scroll("left")}
-            className="w-10 h-21 flex items-center justify-center text-text-primary hover:bg-text-primary/5 hover:backdrop-blur-[10px] transition-all duration-200 hover:scale-125"
+            className="w-20 h-100 flex items-center justify-center text-text-primary hover:bg-text-primary/5 hover:backdrop-blur-[2px] transition-all duration-200"
             label="Scroll Left"
           >
             <ChevronLeft className="w-8 h-8" />
@@ -75,13 +73,13 @@ export default function PrimeRow({ title, endpoint }: MovieRowProps) {
         </div>
 
         <div
-            className={` absolute right-0 bottom-0 h-100! w-20! z-40 flex items-center justify-center transition-opacity duration-200 ${canScrollRight ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+            className={` absolute right-0 bottom-1 h-100! w-20! z-40 flex items-center justify-center transition-opacity duration-200 ${canScrollRight ? "opacity-100" : "opacity-0 pointer-events-none"}`}
             onMouseEnter={() => startAutoScroll("right")}
             onMouseLeave={stopAutoScroll}
           >
             <TooltipButton
               onClick={() => scroll("right")}
-              className="w-10 h-21 flex items-center justify-center text-text-primary hover:bg-text-primary/5 hover:backdrop-blur-[10px] transition-all duration-200 hover:scale-125"
+              className="w-20 h-100 flex items-center justify-center text-text-primary hover:bg-text-primary/5 hover:backdrop-blur-[2px] transition-all duration-200"
               label="Scroll Right"
             >
               <ChevronRight className="w-8 h-8" />

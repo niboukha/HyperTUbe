@@ -37,7 +37,7 @@ export default function ContinueWatching( { title = "Continue Watching" }: { tit
       try {
         const res = await fetch("/api/movies?type=trending")
         const data = await res.json()
-        console.log("Continue Watching movies:", data)
+        // console.log("Continue Watching movies:", data)
         setMovies(mapTrendingToContinueWatching(data.results ?? []))
       } catch {
         setMovies([]) // On error, just show an empty list
@@ -74,7 +74,7 @@ export default function ContinueWatching( { title = "Continue Watching" }: { tit
               transition={{ type: "spring", stiffness: 300, damping: 24, mass: 0.8 }}
             >
               <div
-                className="relative w-70 md:w-75 aspect-video rounded-md overflow-hidden cursor-pointer"
+                className="relative w-60 md:w-65 aspect-video rounded-md overflow-hidden cursor-pointer"
               >
                 <Image
                   src={movie.backdrop_path || "/placeholder.jpg"}

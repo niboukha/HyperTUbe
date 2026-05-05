@@ -3,8 +3,9 @@ import { useRef, useState, useCallback } from "react"
 export type HoverOrigin = "left" | "center" | "right"
 
 export type HoverState = {
-  index: number
-  origin: HoverOrigin
+  index: number   // position in array — used by portal for positioning
+  id: number      // movie id — used for identity
+  origin: "left" | "center" | "right"
   rect: DOMRect
 } | null
 
@@ -18,15 +19,15 @@ export function useHoverPortal() {
       timeoutRef.current = null
     }
   }
-
-  const handleMouseEnter = useCallback((e: React.MouseEvent<HTMLDivElement>, index: number) => {
+    
+  const handleMouseEnter = useCallback((e: React.MouseEvent<HTMLDivElement>, index: number, id?: number) => {
     clearHoverTimeout()
     const rect = e.currentTarget.getBoundingClientRect()
     const screenW = window.innerWidth
     let origin: HoverOrigin = "center"
     if (rect.left < screenW * 0.25) origin = "left"
     else if (rect.right > screenW * 0.75) origin = "right"
-    setHover({ index, origin, rect })
+    setHover({ index, id: id ?? index, origin, rect })
   }, [])
 
   const handleMouseLeave = useCallback(() => {
@@ -34,7 +35,7 @@ export function useHoverPortal() {
   }, [])
 
   const getPortalStyle = useCallback((rect: DOMRect, origin: HoverOrigin) => {
-    const scale = 1.22
+    const scale = 1.15
     const scaledW = rect.width * scale
     const scaledH = rect.height * scale
     const xShift =

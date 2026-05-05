@@ -60,15 +60,19 @@ export default function CarouselPortal({
         >
           {/* Image */}
           <div className="relative w-full aspect-video rounded-t-[6px] overflow-hidden">
-            <Image
-              src={image}
-              alt={title}
-              fill
-              priority
-              sizes="380px"
-              className="object-cover"
-              style={{ transform: "scale(1.06)", transition: "transform 0.5s ease" }}
-            />
+            {image ? (
+              <Image
+                src={image}
+                alt={title}
+                fill
+                sizes="360px"
+                className="object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <span className="text-white/15 text-4xl">🎬</span>
+              </div>
+            )}
             
             {/* <div className="absolute inset-0 bg-linear-to-t from-black/90 via-black/20 to-transparent" /> */}
 

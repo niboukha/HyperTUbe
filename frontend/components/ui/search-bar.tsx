@@ -207,7 +207,7 @@ export default function SearchBar({ open: externalOpen, onOpenChange, inline = f
       {isEmpty ? (
         <>
           {recentSearches.length > 0 && (
-            <div className="mb-4! border border-red-400">
+            <div className="mb-4!">
               <SectionHeading icon={<Clock className="h-3 w-3" />} label="Recent" />
               <div className="flex flex-col gap-0.5">
                 {recentSearches.map((term, i) => (
@@ -397,7 +397,7 @@ export default function SearchBar({ open: externalOpen, onOpenChange, inline = f
   if (inline) {
     return (
       <div className="relative w-full" ref={containerRef}>
-        <div className="flex items-center gap-2 rounded-[10px] px-3! py-2.5! border border-white/15 bg-white/6 backdrop-blur-md text-white focus-within:border-white/30 focus-within:bg-white/10 transition-all duration-200 border border-red-700">
+        <div className="flex items-center gap-2 rounded-[10px] px-3! py-2.5! border border-white/15 bg-white/6 backdrop-blur-md text-white focus-within:border-white/30 focus-within:bg-white/10 transition-all duration-200">
           <Search className="h-4 w-4 text-white/35 shrink-0" />
           <input
             ref={inputRef}

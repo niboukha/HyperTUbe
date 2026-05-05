@@ -43,7 +43,7 @@ export default function MovieRow({ title, endpoint }: MovieRowProps) {
           : data?.results ?? []
 
         const mapped = mapToCards(results)
-        console.log("Fetched movies:", mapped)
+        // console.log("Fetched movies:", mapped)
         setMovies(mapped)
       } catch (err) {
         console.error("Fetch error:", err)
@@ -80,9 +80,9 @@ export default function MovieRow({ title, endpoint }: MovieRowProps) {
                     ? { filter: "brightness(0.8)" }
                     : { scale: 1, filter: "brightness(1)" }
                 }
-                transition={{ type: "spring", stiffness: 300, damping: 24, mass: 0.8 }}
+                transition={{type: "spring", stiffness: 300, damping: 24, mass: 0.8 }}
               >
-                <div className="relative w-70 md:w-75 aspect-video rounded-md overflow-hidden cursor-pointer">
+                <div className="relative w-60 md:w-65 aspect-video rounded-md overflow-hidden cursor-pointer">
                   <Image
                     src={movie.backdrop_path || "/placeholder.jpg"}
                     alt={movie.title || "movie"}
@@ -91,7 +91,7 @@ export default function MovieRow({ title, endpoint }: MovieRowProps) {
                     sizes="300px"
                     className="object-cover"
                   />
-                  <div className="absolute inset-0 bg-linear-to-t from-background/50 via-background/10 to-transparent" />
+                  {/* <div className="absolute inset-0 bg-linear-to-t from-background/50 via-background/10 to-transparent" /> */}
                 </div>
               </motion.div>
             )

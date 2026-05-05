@@ -40,10 +40,10 @@ export async function GET(req: Request) {
   if (genre) {
     const genreId = GENRE_NAME_TO_ID[genre.toLowerCase()]
     if (!genreId) return Response.json({ error: `Unknown genre: ${genre}` }, { status: 400 })
-    tmdbUrl = `${TMDB_BASE}/discover/movie?with_genres=${genreId}&sort_by=popularity.desc&api_key=${API_KEY}&language=en-US`
+    tmdbUrl = `${TMDB_BASE}/discover/movie?with_genres=${genreId}&sort_by=popularity.desc&api_key=${API_KEY}&language=en-US&include_adult=false`
   } else {
     const path = ENDPOINTS[type] ?? ENDPOINTS.trending
-    tmdbUrl = `${TMDB_BASE}${path}?api_key=${API_KEY}&language=en-US`
+    tmdbUrl = `${TMDB_BASE}${path}?api_key=${API_KEY}&language=en-US&include_adult=false`
   }
 
   const tmdbRes = await fetch(tmdbUrl, { next: { revalidate: 3600 } })
@@ -56,8 +56,17 @@ export async function GET(req: Request) {
   
   const movies = tmdbData.results ?? []
 
+  const BLOCKED_GENRES = new Set([10749, 27, 53])
+  const filtredmovies = movies.filter((movie: any) => {
+      if (!movie.genre_ids) return true
+
+      return !movie.genre_ids.some((id: number) =>
+        BLOCKED_GENRES.has(id)
+      )
+    })
+    
   const enriched = await Promise.all(
-    movies.map(async (movie: Movie) => {
+    filtredmovies.map(async (movie: Movie) => {
       const year = movie.release_date?.slice(0, 4) ?? ""
       const isFree = await checkFreeAvailability(movie.title, year)
       return {

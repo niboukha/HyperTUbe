@@ -4,9 +4,11 @@ import { motion } from "framer-motion"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { useCarousel } from "./use-carousel"
 import { containerVariants } from "@/lib/annimations/continue-watching-variants"
+import Head from "next/head"
+import HeaderTitle from "../ui/header-title"
 
 type Props = {
-  title: string
+  title?: string
   children: React.ReactNode
 }
 
@@ -14,34 +16,31 @@ export default function Carousel({ title, children }: Props) {
   const { scrollRef, canScrollLeft, canScrollRight, checkScroll, scroll, startAutoScroll, stopAutoScroll } = useCarousel()
 
   return (
-    <section className="overflow-hidden">
-      <h2 className="text-lg md:text-xl font-title text-text-primary tracking-tight mb-1!">
-        <span className="text-accent-red font-extrabold pr-2!">|</span>
-        {title}
-      </h2>
+    <section className="overflow-hidden flex flex-col gap-1">
+      {title && <HeaderTitle title={title} />}
 
       <div className="relative">
         <div
-          className={`absolute left-0 top-1/2 -translate-y-1/2 h-45! w-20! z-40 flex items-center justify-center transition-opacity duration-200 ${canScrollLeft ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+          className={`absolute left-0 top-1/2 -translate-y-1/2 h-37! w-15! z-40 flex items-center justify-center transition-opacity duration-200 ${canScrollLeft ? "opacity-100" : "opacity-0 pointer-events-none"}`}
           onMouseEnter={() => startAutoScroll("left")}
           onMouseLeave={stopAutoScroll}
         >
           <button
             onClick={() => scroll("left")}
-            className="w-10 h-21 flex items-center justify-center text-text-primary hover:bg-text-primary/5 hover:backdrop-blur-[10px] transition-all duration-200 hover:scale-125"
+            className="w-15 h-37 flex items-center justify-center text-text-primary hover:bg-text-primary/5 hover:backdrop-blur-[2px] transition-all duration-200"
           >
             <ChevronLeft className="w-8 h-8" />
           </button>
         </div>
 
         <div
-          className={`absolute right-0 top-1/2 -translate-y-1/2 h-45! w-20! z-40 flex items-center justify-center transition-opacity duration-200 ${canScrollRight ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+          className={`absolute right-0 top-1/2 -translate-y-1/2 h-37! w-15! z-40 flex items-center justify-center transition-opacity duration-200 ${canScrollRight ? "opacity-100" : "opacity-0 pointer-events-none"}`}
           onMouseEnter={() => startAutoScroll("right")}
           onMouseLeave={stopAutoScroll}
         >
           <button
             onClick={() => scroll("right")}
-            className="w-10 h-21 flex items-center justify-center text-text-primary hover:bg-text-primary/5 hover:backdrop-blur-[10px] transition-all duration-200 hover:scale-125"
+            className="w-15 h-37 flex items-center justify-center text-text-primary hover:bg-text-primary/5 hover:backdrop-blur-[2px] transition-all duration-200"
           >
             <ChevronRight className="w-8 h-8" />
           </button>
