@@ -53,15 +53,18 @@ export default function History()
 
     return(
         <div className="relative !mt-15 md:!mb-15   bg-[#0E0E10] min-h-screen">
-            <div className="absolute  inset-0 top-[2%] !px-4 md:!px-16 !space-y-4 ">
-                <div className="flex items-center gap-3">
-                    <div className="w-1 h-6 bg-[#BD0404] " />
-                    <h3 className="text-white text-lg !font-medium">
-                    History
+            <div className=" absolute  flex flex-col    items-center  inset-0 top-[2%] !px-4 md:!px-16 !space-y-4 ">
+              {/* <div>
+                
+              </div> */}
+                <div className="w-6xl  flex justify-start  items-center gap-3 flex ">
+                    <div className="w-1 h-6 bg-[#BD0404]  " />
+                    <h3 className="text-white text-lg !font-medium ">
+                    Today
                     </h3>
                 </div>
 
-                <div className="flex flex-col gap-3 px-4 md:px-12 py-6 ">
+                <div className="flex flex-col  justify-center  items-center gap-3 px-4 md:px-12 py-6 ">
                     {historyData.map((item) => (
                         <HistoryCard key={item.id} {...item}/>
                     ))}

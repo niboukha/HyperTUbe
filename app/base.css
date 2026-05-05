@@ -44,6 +44,7 @@ opacity: 1;
 
 
 .kenburns {
+
   animation: kenburns 8s ease-in-out infinite;
   background-position: center;
 }

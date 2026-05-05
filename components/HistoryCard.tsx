@@ -17,7 +17,7 @@ export default function HistoryCard({
   release_date, vote_average, progress, runtimeLeft
 }: HistoryCardProps) {
   return (
-    <div className="flex flex-col sm:flex-row  items-center md:items-start full max-h-[350px] min-h-[200px]  h-[500px] md:h-[200px] bg-[#333333] rounded-sm border border-white/10 overflow-hidden cursor-pointer hover:border-white/30 transition-colors">
+    <div className= "min-w-6xl  max-w-6xl flex flex-col sm:flex-row  items-center md:items-start full max-h-[350px] min-h-[200px]  h-[500px] md:h-[200px] bg-[#333333] rounded-sm border border-white/10 overflow-hidden cursor-pointer hover:border-white/30 transition-colors">
       
       <div className="relative  h-[200px] ">
         <div className="relative  w-[300px] md:w-[300px]   h-full !rounded-md overflow-hidden !p-4 "  >
@@ -44,7 +44,7 @@ export default function HistoryCard({
       <div className="flex-1  h-full flex flex-col justify-between !p-4 min-w-0">
         <div>
           <div className="flex items-start justify-between gap-2 mb-1.5">
-            <p className="text-[15px] font-medium text-white truncate">{title}</p>
+            <p className="text-md font-bold text-white truncate font-[BebasNeue] ">{title}</p>
             <span className="text-xs text-white/50 whitespace-nowrap flex-shrink-0">{runtimeLeft}</span>
           </div>
           <p className="text-xs text-white/50 line-clamp-2 leading-relaxed max-w-xl">{overview}</p>

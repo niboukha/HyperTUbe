@@ -102,7 +102,7 @@ useEffect(() => {
         </div>
       </div>
       
-      <ul className=" width:100% h-screen border-4 ">
+      <ul className=" width:100% h-screen border-4  ">
         {movies.map((item,index) => {
         const isFullscreen = index === 0 || index === 1;
         const thumbIndex = index - 2;
@@ -111,7 +111,7 @@ useEffect(() => {
         const positionStyle = isFullscreen
           ? { left: 0, top: 0, width: '100%', height: '100%', borderRadius: 0, boxShadow: 'none' }
           : isMobile
-          ?{display:'none'}
+          ?{display:'none',}
           : { 
               left: `calc(52% + ${thumbIndex * 240}px)`, 
               opacity: isHidden ? 0 : 1 ,
@@ -122,8 +122,8 @@ useEffect(() => {
                 onMouseEnter={() => setIsPaused(true)}
                 onMouseLeave={() => setIsPaused(false)}
                 key={item?.id} 
-                className={`  bg-center bg-cover absolute flex  top-[75%] md:top-[50%]  
-                ${!isFullscreen ? ' rounded-md width:[200px] height:[300px] transition-all duration-300   cursor-pointer' : 'kenburns'}`}
+                className={`  bg-no-repeat bg-center bg-cover absolute flex   md:top-[50%]  
+                ${(!isFullscreen) ? '  rounded-md width:[200px] height:[300px] transition-all duration-300   cursor-pointer' : ( isFullscreen && !isMobile) ? "kenburns":"" }`}
                 style={{ backgroundImage: `url(https://image.tmdb.org/t/p/original${item.backdrop_path}) `  ,...positionStyle}}
                 initial={{ opacity: 0, y: -60 }}
                 animate={{ opacity: 1, y: 0 }}
