@@ -42,8 +42,6 @@ export const GENRES = [
   "Fantasy",
   "Crime",
   "Mystery",
-  "Documentary",
-  "Drama",
   "Family",
   "Thriller",
   "History",

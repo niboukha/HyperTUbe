@@ -1,6 +1,6 @@
 import { TMDB_GENRE_MAP } from "@/constants/search-bar"
 
-const BLOCKED_GENRE_IDS = new Set([10749, 18, 53])
+const BLOCKED_GENRE_IDS = new Set([10749, 18, 53, 99])
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
