@@ -13,7 +13,7 @@ export default function Home() {
 
         <PrimeRow title="Prime Exclusive" endpoint="/api/movies?type=prime" />
         
-        <MoviesRow title="Trending"   endpoint="/api/movies?type=trending&genre=Sci-Fi" />
+        {/* <MoviesRow title="Trending"   endpoint="/api/movies?type=trending&genre=Sci-Fi" />
 
         <MoviesRow title="Top Rated"  endpoint="/api/movies?type=top" />
         
@@ -23,7 +23,7 @@ export default function Home() {
         
         <MoviesRow title="Horror"     endpoint="/api/movies?type=popular&genre=Horror" />
         
-        <MoviesRow title="War"     endpoint="/api/movies?type=popular&genre=War" />
+        <MoviesRow title="War"     endpoint="/api/movies?type=popular&genre=War" /> */}
         
       </div>
     </div>

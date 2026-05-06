@@ -8,7 +8,7 @@ type Props = {
 
 export function MovieGrid({ movies }: Props) {
   return (
-    <motion.div layout className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3!">
+    <motion.div layout className="grid gap-2! [grid-template-columns:repeat(auto-fit,minmax(230px,1fr))]">
       <AnimatePresence mode="popLayout">
         {movies.map((movie, i) => (
           <motion.div
