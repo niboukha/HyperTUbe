@@ -4,81 +4,77 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { MovieResult } from "@/types/search"
 import { Filters, MIN_YEAR, CURRENT_YEAR } from "@/components/library/filter-bar"
 
-export function applyClientFilters(results: MovieResult[], filters: Filters): MovieResult[] {
-  let out = [...results]
+// Build URL with ALL filters pushed to server
+function buildUrl(q: string, page: number, filters: Filters): string {
+  const p = new URLSearchParams()
+  p.set("page", String(page))
 
-  if (filters.genres.length > 0)
-    out = out.filter((m) =>
-      Array.isArray(m.genre) && filters.genres.some((g) => m.genre!.includes(g))
-    )
-
-  if (filters.minRating > 0)
-    out = out.filter((m) => (m.rating ?? 0) >= filters.minRating)
-
-  if (filters.yearRange[0] !== MIN_YEAR || filters.yearRange[1] !== CURRENT_YEAR)
-    out = out.filter((m) => {
-      const y = Number(m.year ?? 0)
-      return y >= filters.yearRange[0] && y <= filters.yearRange[1]
-    })
-
-  switch (filters.sort) {
-    case "rating": out.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)); break
-    case "newest": out.sort((a, b) => Number(b.year ?? 0) - Number(a.year ?? 0)); break
-    case "oldest": out.sort((a, b) => Number(a.year ?? 0) - Number(b.year ?? 0)); break
+  if (q) {
+    p.set("q", q)
+    return `/api/movies?${p}`
   }
 
-  return out
-}
+  // Genre filter -> server-side discover
+  if (filters.genres.length > 0) {
+    p.set("genre", filters.genres[0]) // TMDB genre ID
+  }
 
-function buildUrl(q: string, page: number, filters: Filters): string {
-  if (!q && filters.genres.length > 0)
-    return `/api/search?genre=${encodeURIComponent(filters.genres[0])}&page=${page}`
-  if (q)
-    return `/api/search?q=${encodeURIComponent(q)}&page=${page}`
-  return `/api/movies/top?page=${page}`
+  // Rating filter -> server-side
+  if (filters.minRating > 0) {
+    p.set("minRating", String(filters.minRating))
+  }
+
+  // Year range -> server-side
+  if (filters.yearRange[0] !== MIN_YEAR) {
+    p.set("yearFrom", String(filters.yearRange[0]))
+  }
+  if (filters.yearRange[1] !== CURRENT_YEAR) {
+    p.set("yearTo", String(filters.yearRange[1]))
+  }
+
+  // Sort -> server-side
+  const sortMap: Record<string, string> = {
+    popular: "popularity.desc",
+    rating:  "vote_average.desc",
+    newest:  "primary_release_date.desc",
+    oldest:  "primary_release_date.asc",
+  }
+  if (filters.sort && sortMap[filters.sort]) {
+    p.set("sort", sortMap[filters.sort])
+  }
+
+  return `/api/movies?${p}`
 }
 
 export function useLibraryMovies(urlQuery: string, filters: Filters) {
-  const [rawAccumulated, setRawAccumulated] = useState<MovieResult[]>([])
-  const [page, setPage]                     = useState(1)
-  const [totalPages, setTotalPages]         = useState(1)
-  const [loading, setLoading]               = useState(false)
-  const [loadingMore, setLoadingMore]       = useState(false)
+  const [movies, setMovies]         = useState<MovieResult[]>([])
+  const [page, setPage]             = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [loading, setLoading]       = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
 
-  const [suggestions, setSuggestions]             = useState<MovieResult[]>([])
-  const [suggPage, setSuggPage]                   = useState(1)
-  const [suggTotalPages, setSuggTotalPages]        = useState(1)
-  const [loadingMoreSugg, setLoadingMoreSugg]      = useState(false)
+  // Suggestions shown when main results are empty
+  const [suggestions, setSuggestions]       = useState<MovieResult[]>([])
+  const [suggPage, setSuggPage]             = useState(1)
+  const [suggTotalPages, setSuggTotalPages] = useState(1)
+  const [loadingMoreSugg, setLoadingMoreSugg] = useState(false)
 
   const abortRef     = useRef<AbortController | null>(null)
   const abortSuggRef = useRef<AbortController | null>(null)
 
-  const movies  = applyClientFilters(rawAccumulated, filters)
   const hasMore = page < totalPages
-
-  // isEmpty = active search/genre filter returned nothing
   const isEmpty = !loading && movies.length === 0 && (!!urlQuery || filters.genres.length > 0)
-
   const suggHasMore = suggPage < suggTotalPages
 
-  const suggst = applyClientFilters(suggestions, filters)
-
-  // Fetch suggestions page 1 when isEmpty first becomes true 
+  // ── Suggestions when main results empty ────────────────────────────────
   useEffect(() => {
-    if (!isEmpty) 
-    {
-    //   Reset suggestions when leaving empty state so they're fresh next time
-    //   setSuggestions([])
-    //   setSuggPage(1)
-    //   setSuggTotalPages(1)
-      return
-    }
+    if (!isEmpty) return
 
     abortSuggRef.current?.abort()
-    const controller = new AbortController()
-    abortSuggRef.current = controller
+    const ctrl = new AbortController()
+    abortSuggRef.current = ctrl
 
-    fetch("/api/movies/top?page=1", { signal: controller.signal })
+    fetch("/api/movies?page=1", { signal: ctrl.signal })
       .then((r) => r.json())
       .then((data) => {
         setSuggestions((data.results ?? []).filter((r: MovieResult) => r.type === "movie"))
@@ -87,74 +83,67 @@ export function useLibraryMovies(urlQuery: string, filters: Filters) {
       })
       .catch(() => {})
 
-    return () => controller.abort()
+    return () => ctrl.abort()
   }, [isEmpty])
 
-  //  Load more suggestions (called by InfiniteScroll in empty state) 
   const loadMoreSuggestions = useCallback(async () => {
     if (loadingMoreSugg || suggPage >= suggTotalPages) return
-    const nextPage = suggPage + 1
+    const next = suggPage + 1
     setLoadingMoreSugg(true)
     try {
-      const res  = await fetch(`/api/movies/top?page=${nextPage}`)
-      const data = await res.json()
+      const data = await fetch(`/api/movies?page=${next}`).then((r) => r.json())
       setSuggestions((prev) => {
         const ids = new Set(prev.map((m) => m.id))
         return [...prev, ...(data.results ?? []).filter((m: MovieResult) => !ids.has(m.id))]
       })
-      setSuggPage(nextPage)
+      setSuggPage(next)
       setSuggTotalPages(data.totalPages ?? suggTotalPages)
-    } catch {
-      // silently fail
     } finally {
       setLoadingMoreSugg(false)
     }
   }, [loadingMoreSugg, suggPage, suggTotalPages])
 
-  //  Main fetch — resets on query change 
+  // ── Main fetch — resets when query or filters change ───────────────────
   useEffect(() => {
     abortRef.current?.abort()
-    const controller = new AbortController()
-    abortRef.current = controller
+    const ctrl = new AbortController()
+    abortRef.current = ctrl
 
     const run = async () => {
       setLoading(true)
+      setMovies([])
       setPage(1)
-      setRawAccumulated([])
       try {
-        const res  = await fetch(buildUrl(urlQuery, 1, filters), { signal: controller.signal })
-        const data = await res.json()
-        const raw  = (data.results ?? []).filter((r: MovieResult) => r.type === "movie")
-        setRawAccumulated(raw)
+        const data = await fetch(buildUrl(urlQuery, 1, filters), {
+          signal: ctrl.signal,
+        }).then((r) => r.json())
+
+        setMovies((data.results ?? []).filter((r: MovieResult) => r.type === "movie"))
         setTotalPages(data.totalPages ?? 1)
       } catch (err) {
-        if ((err as Error).name !== "AbortError") setRawAccumulated([])
+        if ((err as Error).name !== "AbortError") setMovies([])
       } finally {
         setLoading(false)
       }
     }
 
     const t = setTimeout(run, urlQuery ? 300 : 0)
-    return () => { clearTimeout(t); controller.abort() }
+    return () => { clearTimeout(t); ctrl.abort() }
   }, [urlQuery, filters])
 
-  //  Load more search results 
+  // ── Load more ──────────────────────────────────────────────────────────
   const loadMore = useCallback(async () => {
     if (loadingMore || page >= totalPages) return
-    const nextPage = page + 1
+    const next = page + 1
     setLoadingMore(true)
     try {
-      const res  = await fetch(buildUrl(urlQuery, nextPage, filters))
-      const data = await res.json()
-      const raw  = (data.results ?? []).filter((r: MovieResult) => r.type === "movie")
-      setRawAccumulated((prev) => {
+      const data = await fetch(buildUrl(urlQuery, next, filters)).then((r) => r.json())
+      setMovies((prev) => {
         const ids = new Set(prev.map((m) => m.id))
-        return [...prev, ...raw.filter((m: MovieResult) => !ids.has(m.id))]
+        return [...prev, ...(data.results ?? []).filter((m: MovieResult) => !ids.has(m.id))]
       })
-      setPage(nextPage)
+      setPage(next)
       setTotalPages(data.totalPages ?? totalPages)
-    } catch {
-      // silently fail
     } finally {
       setLoadingMore(false)
     }
@@ -168,12 +157,10 @@ export function useLibraryMovies(urlQuery: string, filters: Filters) {
     hasMore,
     page,
     totalPages,
-    // suggestion-specific
     suggestions,
     isEmpty,
     loadMoreSuggestions,
     loadingMoreSugg,
     suggHasMore,
-    suggst,
   }
 }

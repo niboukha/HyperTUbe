@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { MovieCard } from "@/types/search"
-import { Movie } from "@/types/search"
-import { mapToCards } from "@/lib/mock-data"
+import { MovieResult } from "@/types/search"
 import Image from "next/image"
 import { Plus, ChevronLeft, ChevronRight } from "lucide-react"
 import { useCarousel } from "../carousel/use-carousel"
@@ -13,10 +11,11 @@ import { Button } from "../ui/button"
 import { TooltipButton } from "../ui/tool-tip-button"
 import { Badge } from "../ui/badge"
 import { itemVariants } from "@/lib/annimations/hero-variants"
-import { formatVotes, getReleaseYear } from "@/lib/utils/movie"
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip"
 import { CarouselSkeleton } from "../carousel/CarouselSkeleton"
 import HeaderTitle from '../ui/header-title';
+import { getMovieDetails } from "../hero/hero-content"
+import { TMDB_GENRE_LABELS } from "@/lib/tmdb-genres"
 
 type MovieRowProps = {
   title: string
@@ -25,8 +24,9 @@ type MovieRowProps = {
 
 export default function PrimeRow({ title, endpoint }: MovieRowProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(0)
-  const [movies, setMovies] = useState<MovieCard[]>([])
+  const [movies, setMovies] = useState<MovieResult[]>([])
   const [loading, setLoading] = useState(true)
+  const [duration, setDuration] = useState<string>("")
 
   useEffect(() => {
     const fetchMovies = async () => {
@@ -34,8 +34,8 @@ export default function PrimeRow({ title, endpoint }: MovieRowProps) {
         const res = await fetch(endpoint)
         if (!res.ok) throw new Error("Failed to fetch")
         const data = await res.json()
-        const results: Movie[] = Array.isArray(data) ? data : data?.results ?? []
-        setMovies(mapToCards(results))
+        const results: MovieResult[] = Array.isArray(data) ? data : data?.results ?? []
+        setMovies(results)
       } catch (err) {
         console.error("Fetch error:", err)
         setMovies([])
@@ -46,6 +46,31 @@ export default function PrimeRow({ title, endpoint }: MovieRowProps) {
     }
     fetchMovies()
   }, [endpoint])
+  
+  useEffect(() => {
+    if (activeIndex === null) return
+
+    const movie = movies[activeIndex]
+    if (!movie) return
+
+    const id = movie.id
+
+    async function load() {
+      const data = await getMovieDetails(id)
+
+      if (!data.runtime) {
+        setDuration("N/A")
+        return
+      }
+
+      const h = Math.floor(data.runtime / 60)
+      const m = data.runtime % 60
+
+      setDuration(`${h}h ${m}m`)
+    }
+
+    load()
+  }, [activeIndex, movies])
 
   const { scrollRef, canScrollLeft, canScrollRight, checkScroll, scroll, startAutoScroll, stopAutoScroll } = useCarousel()
   
@@ -86,7 +111,7 @@ export default function PrimeRow({ title, endpoint }: MovieRowProps) {
             </TooltipButton>
         </div>
 
-                {canScrollLeft && (
+        {canScrollLeft && (
           <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-10 z-30 bg-linear-to-r from-background to-transparent" />
         )}
         {canScrollRight && (
@@ -111,8 +136,7 @@ export default function PrimeRow({ title, endpoint }: MovieRowProps) {
         >
           {movies.map((movie, index) => {
             const isActive = index === activeIndex
-            const releaseYear = getReleaseYear(movie.release_date)
-
+            // const releaseYear = getReleaseYear(movie.release_date)
             return (
               <motion.div
                 key={movie.id}
@@ -272,23 +296,27 @@ export default function PrimeRow({ title, endpoint }: MovieRowProps) {
 
                       {/* Meta */}
                       <motion.div variants={itemVariants} className="flex flex-wrap items-center gap-2! md:gap-2! mb-2!">
+                          <Badge variant="secondary" className="bg-accent-gold text-foreground border-0 text-sm font-bold! rounded-md p-1!">
+                              TMDb
+                          </Badge>
                           <Badge variant="link" className=" text-text-muted text-xs gap-1 rounded-md">
-                              {movie.rating?.toFixed(1) || "N/A"} ({formatVotes(movie.vote_count || 0)})
+                              {movie.rating}
                           </Badge>
                           <span className="text-text-muted/50 hidden md:inline">|</span>
                           <Badge variant="link" className=" text-text-muted text-xs rounded-md">
-                              {releaseYear}
+                              {movie.year}
                           </Badge>
                           <span className="text-text-muted/50 hidden md:inline">|</span>
                           <Badge variant="link" className=" text-text-muted text-xs rounded-md">
-                              2h 15m
+                              {duration}
                           </Badge>
                           <span className="text-text-muted/50 hidden md:inline">|</span>
-                          <Badge variant="link" className=" text-text-muted text-xs rounded-md">
-                              Action
-                          </Badge>
+                          {movie.genre?.map((id: number) => (
+                              <Badge key={id} variant="link" className="text-text-muted text-xs rounded-md">
+                                  {TMDB_GENRE_LABELS[id]}
+                              </Badge>
+                          ))}
                       </motion.div>
-
                     </motion.div>
                   )}
                 </AnimatePresence>

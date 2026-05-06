@@ -9,7 +9,7 @@ import { HoverState } from "./use-hover-portal"
 
 type Props = {
   hover: HoverState
-  image: string
+  image: string | null
   title: string
   year?: string | null
   rating?: number | null
@@ -19,6 +19,7 @@ type Props = {
   onMouseEnter: () => void
   onMouseLeave: () => void
   infoPanel: React.ReactNode
+  duration?: string
 }
 
 export default function CarouselPortal({
@@ -27,6 +28,7 @@ export default function CarouselPortal({
   title,
   year,
   rating,
+  duration,
   availability,
   progress,
   getPortalStyle,
@@ -37,12 +39,12 @@ export default function CarouselPortal({
   const portalRoot = typeof window !== "undefined" ? document.getElementById("hover-root") : null
   if (!portalRoot || !hover) return null
 
-  const genres = [
-    { id: "all", label: "All" },
-    { id: "28", label: "Action" },
-    { id: "35", label: "Comedy" },
-    { id: "18", label: "Drama" }
-  ] // Add genres if you have them in the API, and display them like Prime Video with small pills
+  // const genres = [
+  //   { id: "all", label: "All" },
+  //   { id: "28", label: "Action" },
+  //   { id: "35", label: "Comedy" },
+  //   { id: "18", label: "Drama" }
+  // ] // Add genres if you have them in the API, and display them like Prime Video with small pills
 
   return createPortal(
     <AnimatePresence>
@@ -69,7 +71,7 @@ export default function CarouselPortal({
                 className="object-cover transition-transform duration-500 group-hover:scale-105"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center">
+              <div className="w-full h-full flex items-center justify-center bg-background object-cover transition-transform duration-500 group-hover:scale-105">
                 <span className="text-white/15 text-4xl">🎬</span>
               </div>
             )}
@@ -79,7 +81,7 @@ export default function CarouselPortal({
             {/* Availability badge — top left like Prime */}
             {availability && (
               <div className="absolute top-1 right-2">
-                <span className={`text-[10px] font-bold px-1.5! py-0.5! rounded-[6px] ${
+                <span className={`text-[8px] font-bold px-1! py-0.5! rounded-[5px] ${
                   availability === "free"
                     ? "bg-[#16a34a] text-white"
                     : "bg-[#eab308] text-white"
@@ -132,25 +134,10 @@ export default function CarouselPortal({
                 <div className="flex items-center gap-1 text-text-primary/40">
                   <span className="text-text-primary/20 text-xs">•</span>
                   <Clock className="w-3 h-3" />
-                  <span className="text-xs">2h 15m</span>
+                  <span className="text-xs">{duration}</span>
                 </div>
               {/* )} */}
             </div>
-
-            {/* Genre pills */}
-            {/* {genres.length > 0 && ( */}
-              {/* <div className="flex items-center gap-1.5 flex-wrap">
-                {genres.map((genre) => (
-                  <span
-                    key={genre.id}
-                    className="text-[10px] text-text-primary/60 border border-text-primary/15 px-1.5! py-0.5! rounded-full bg-text-primary/5"
-                  >
-                    {genre.label}
-                  </span>
-                ))}
-              </div> */}
-            {/* )} */}
-
             {/* Custom slot per card type */}
             {infoPanel}
           </div>

@@ -21,6 +21,16 @@ export default function MovieCard({ movie }: { movie: MovieResult }) {
   const hoveredMovie = hover ? movie : null
   const isHovered = hover?.index === movie.id
 
+  const imagePath = movie.backdrop_path || movie.poster_path
+  const image = imagePath
+    ? `https://image.tmdb.org/t/p/w342${imagePath}`
+    : null
+
+  const hoveredimagepath = hoveredMovie?.backdrop_path || hoveredMovie?.poster_path || null
+
+  const hoveredimage = hoveredimagepath ? `https://image.tmdb.org/t/p/w342${hoveredimagepath}`
+    : null
+
   return (
     <>
       <motion.div
@@ -39,9 +49,9 @@ export default function MovieCard({ movie }: { movie: MovieResult }) {
         transition={{ type: "spring", stiffness: 300, damping: 24, mass: 0.8 }}
       >
         <div className="relative w-60 md:w-65 aspect-video rounded-md overflow-hidden cursor-pointer">
-          {movie.backdrop_path || movie.poster_path ? (
+          {image ? (
             <Image
-              src={`https://image.tmdb.org/t/p/w342${movie.backdrop_path || movie.poster_path}`}
+              src={image}
               alt={movie.title}
               fill
               sizes="360px"
@@ -52,17 +62,17 @@ export default function MovieCard({ movie }: { movie: MovieResult }) {
               <span className="text-white/15 text-4xl">🎬</span>
             </div>
           )}
-          <div className="absolute top-0.5! right-3! flex items-center gap-1 bg-black/60 backdrop-blur-sm rounded px-1! py-0.5! text-[10px] text-yellow-400/90">
+          <div className="absolute top-0.5! right-6! flex items-center gap-1 bg-black/60 backdrop-blur-sm rounded px-1! py-0.5! text-[10px] text-yellow-400/90">
             <Star className="h-2.5 w-2.5 fill-yellow-400/90" />
             {movie.rating?.toFixed(1)}
           </div>
-        </div>
+        </div> 
       </motion.div>
 
       {hoveredMovie && (
         <CarouselPortal
           hover={hover}
-          image={`https://image.tmdb.org/t/p/w342${movie.backdrop_path || movie.poster_path}`}
+          image={ hoveredimage }
           title={hoveredMovie.title}
           year={hoveredMovie.year}
           rating={hoveredMovie.rating}

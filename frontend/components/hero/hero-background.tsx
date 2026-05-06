@@ -6,12 +6,12 @@ import { Skeleton } from "../ui/skeleton"
 import HeroImage from "./hero-image"
 import { HeroContent } from "./hero-content"
 import HeroDots from "./hero-dots"
-import { Movie } from "@/types/search"
+import { MovieResult } from "@/types/search"
 
 const AUTOPLAY_DURATION = 10000
 
-export function HeroBackground() {
-  const [movies, setMovies] = useState<Movie[]>([])
+export default function HeroBackground() {
+  const [movies, setMovies] = useState<MovieResult[]>([])
   const [activeSlide, setActiveSlide] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [progress, setProgress] = useState(0)

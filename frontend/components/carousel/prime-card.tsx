@@ -3,11 +3,11 @@
 import { motion } from "framer-motion"
 import Image from "next/image"
 import { Play } from "lucide-react"
-import { Movie } from "@/types/movie"
+import { MovieResult } from "@/types/search"
 
-export default function PrimeCard({ movie, active } : { movie: Movie, active: boolean }) {
+export default function PrimeCard({ movie, active } : { movie: MovieResult, active: boolean }) {
   return (
-    <div className="relative h-[320px] rounded-xl overflow-hidden bg-black">
+    <div className="relative h-80 rounded-xl overflow-hidden bg-background">
 
       {/* IMAGE */}
       <Image
@@ -54,7 +54,7 @@ export default function PrimeCard({ movie, active } : { movie: Movie, active: bo
             className={`ml-2 px-2 py-0.5 rounded text-[10px] ${
               movie.availability === "free"
                 ? "bg-blue-500 text-white"
-                : "bg-yellow-400 text-black"
+                : "bg-yellow-400 text-background"
             }`}
           >
             {movie.availability}
@@ -66,7 +66,7 @@ export default function PrimeCard({ movie, active } : { movie: Movie, active: bo
         </p>
 
         <button className="mt-3 w-8 h-8 rounded-full bg-white flex items-center justify-center">
-          <Play className="w-4 h-4 text-black fill-black ml-0.5" />
+          <Play className="w-4 h-4 text-background fill-background ml-0.5" />
         </button>
       </motion.div>
     </div>

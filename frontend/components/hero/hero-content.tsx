@@ -3,19 +3,49 @@ import { containerVariants, itemVariants } from "@/lib/annimations/hero-variants
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Play, Plus, Flame } from "lucide-react"
-import { Movie } from "@/types/search"
+import { Movie, MovieResult } from "@/types/search"
 import { formatVotes, getReleaseYear, truncateOverview } from "@/lib/utils/movie"
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip"
+import { TMDB_GENRE_LABELS } from "@/lib/tmdb-genres"
+import { use, useEffect, useState } from "react"
 
 
 type HeroContentProps = {
-  movie: Movie
+  movie: MovieResult
   activeSlide: number
 }
 
+export function getGenreNames(ids?: number[]) {
+  if (!ids) return []
+  return ids.map((id) => TMDB_GENRE_LABELS[id]).filter(Boolean)
+}
+
+export const getMovieDetails = async (id: number) => {
+  const res = await fetch(`/api/movies/${id}`)
+  return res.json()
+}
+
 export function HeroContent({ movie, activeSlide }: HeroContentProps) {
-    const releaseYear = getReleaseYear(movie.release_date)
     const truncatedOverview = truncateOverview(movie.overview ?? "", 180)
+    const [duration, setDuration] = useState<string>("")
+
+    useEffect(() => {
+        async function load() {
+            const data = await getMovieDetails(movie.id)
+
+            if (!data.runtime) {
+                setDuration("N/A")
+                return
+            }
+
+            const h = Math.floor(data.runtime / 60)
+            const m = data.runtime % 60
+
+            setDuration(`${h}h ${m}m`)
+        }
+
+        load()
+    }, [movie.id])
 
     return (
         <AnimatePresence mode="sync">
@@ -45,20 +75,22 @@ export function HeroContent({ movie, activeSlide }: HeroContentProps) {
                         TMDb
                     </Badge>
                     <Badge variant="link" className=" text-text-muted text-xs gap-1 rounded-md">
-                        {movie.vote_average?.toFixed(1) || "N/A"} ({formatVotes(movie.vote_count || 0)})
+                        {movie.rating}
                     </Badge>
                     <span className="text-text-muted/50 hidden md:inline">|</span>
                     <Badge variant="link" className=" text-text-muted text-xs rounded-md">
-                        {releaseYear}
+                        {movie.year}
                     </Badge>
                     <span className="text-text-muted/50 hidden md:inline">|</span>
                     <Badge variant="link" className=" text-text-muted text-xs rounded-md">
-                        2h 15m
+                        {duration}
                     </Badge>
                     <span className="text-text-muted/50 hidden md:inline">|</span>
-                    <Badge variant="link" className=" text-text-muted text-xs rounded-md">
-                        Action
-                    </Badge>
+                    {movie.genre?.map((id: number) => (
+                        <Badge key={id} variant="link" className="text-text-muted text-xs rounded-md">
+                            {TMDB_GENRE_LABELS[id]}
+                        </Badge>
+                    ))}
                 </motion.div>
 
                 {/* Description */}

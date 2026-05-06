@@ -1,10 +1,10 @@
 import { motion, AnimatePresence } from "framer-motion"
 import Image from "next/image"
 import { backgroundVariants } from "@/lib/annimations/hero-variants"
-import { Movie } from "@/types/search"
+import { MovieResult } from "@/types/search"
 
 interface HeroImageProps {
-  movie: Movie
+  movie: MovieResult  
 }
 
 export default function HeroImage({ movie }: HeroImageProps) {

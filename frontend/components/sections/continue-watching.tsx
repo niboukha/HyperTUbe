@@ -13,6 +13,8 @@ import { useHoverPortal } from "@/components/carousel/use-hover-portal"
 import Carousel from "../carousel/carousel"
 import { CarouselSkeleton } from "../carousel/CarouselSkeleton"
 import { TooltipButton } from "../ui/tool-tip-button"
+import { getMovieDetails } from "../hero/hero-content"
+import { Movie, MovieResult } from "@/types/search"
 
 type ContinueWatchingMovie = {
   id: number
@@ -20,7 +22,7 @@ type ContinueWatchingMovie = {
   progress: number
   poster_path?: string | null
   backdrop_path?: string | null
-  duration: string
+  duration?: string
   remainingTime?: string
   year?: string
   rating?: number
@@ -37,10 +39,11 @@ export default function ContinueWatching( { title = "Continue Watching" }: { tit
       try {
         const res = await fetch("/api/movies?type=trending")
         const data = await res.json()
-        // console.log("Continue Watching movies:", data)
-        setMovies(mapTrendingToContinueWatching(data.results ?? []))
+        const results: Movie[] = Array.isArray(data) ? data : data?.results ?? []
+        console.log("Fetched movies for Continue Watching:", results)
+        setMovies(mapTrendingToContinueWatching(results))
       } catch {
-        setMovies([]) // On error, just show an empty list
+        setMovies([])
       } finally {
         setLoading(false)
       }
@@ -49,14 +52,46 @@ export default function ContinueWatching( { title = "Continue Watching" }: { tit
   }, [])
 
   const hoveredMovie = hover !== null ? movies[hover.index] : null
+  const hoveredimagepath = hoveredMovie?.backdrop_path || hoveredMovie?.poster_path || null
+  const [duration, setDuration] = useState<string>("")
+
+  useEffect(() => {
+    if (hover === null) return
+
+    const movie = movies[hover.index]
+    if (!movie) return
+
+    const id = movie.id
+
+    async function load() {
+      const data = await getMovieDetails(id)
+
+      if (!data.runtime) {
+        setDuration("N/A")
+        return
+      }
+
+      const h = Math.floor(data.runtime / 60)
+      const m = data.runtime % 60
+
+      setDuration(`${h}h ${m}m`)
+    }
+
+    load()
+  }, [hover, movies])
 
   if (loading) return <CarouselSkeleton title={title} />
-
+  
   return (
     <>
       <Carousel title={title}>
         {movies.map((movie, index) => {
           const isHovered = hover?.index === index
+          const imagePath = movie.backdrop_path ?? movie.poster_path ?? null
+
+          const image = imagePath
+            ? `https://image.tmdb.org/t/p/w780${imagePath}`
+            : null
           return (
             <motion.div
               key={movie.id}
@@ -76,15 +111,20 @@ export default function ContinueWatching( { title = "Continue Watching" }: { tit
               <div
                 className="relative w-60 md:w-65 aspect-video rounded-md overflow-hidden cursor-pointer"
               >
-                <Image
-                  src={movie.backdrop_path || "/placeholder.jpg"}
-                  alt={movie.title}
-                  fill
-                  priority
-                  sizes="300px"
-                  className="object-cover"
-                />
-                
+                {image ? (
+                  <Image
+                    src={image}
+                    alt={title}
+                    fill
+                    sizes="360px"
+                    className="object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-background object-cover transition-transform duration-500 group-hover:scale-105">
+                    <span className="text-white/15 text-4xl">🎬</span>
+                  </div>
+                )}
+                            
                 <div className="absolute inset-0 bg-linear-to-t from-background/50 via-background/10 to-transparent" />
                 
                 <div className="absolute bottom-0! left-0! right-0! mx-2! pb-2!">
@@ -100,10 +140,11 @@ export default function ContinueWatching( { title = "Continue Watching" }: { tit
       {hoveredMovie && (
         <CarouselPortal
           hover={hover}
-          image={hoveredMovie.backdrop_path || "/placeholder.jpg"}
+          image={ hoveredimagepath ? `https://image.tmdb.org/t/p/w342${hoveredimagepath}` : null }
           title={hoveredMovie.title}
           year={hoveredMovie.year}
           rating={hoveredMovie.rating}
+          duration={duration}
           availability={hoveredMovie.availability}
           getPortalStyle={getPortalStyle}
           onMouseEnter={clearHoverTimeout}
@@ -113,8 +154,8 @@ export default function ContinueWatching( { title = "Continue Watching" }: { tit
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-2 text-text-primary/50 text-xs">
                 <span>{hoveredMovie.remainingTime} left</span>
-                <span>•</span>
-                <span>{hoveredMovie.duration}</span>
+                {/* <span>•</span>
+                <span>{duration}</span> */}
               </div>
               <div className="flex items-center gap-2 mt-1">
                 <TooltipButton

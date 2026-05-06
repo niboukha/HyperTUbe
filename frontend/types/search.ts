@@ -32,7 +32,7 @@ export type MovieResult = {
   release_date?: string
   availability: "free" | "premium"
   vote_count?: number
-  genre?: string[]
+  genre?: number[]
 }
 
 export type UserResult = {

@@ -22,7 +22,7 @@ export default function LibraryPage() {
 
   const {
     movies, loading, loadingMore, loadMore, hasMore,
-    suggestions, isEmpty, loadMoreSuggestions, loadingMoreSugg, suggHasMore, suggst
+    suggestions, isEmpty, loadMoreSuggestions, loadingMoreSugg, suggHasMore
   } = useLibraryMovies(urlQuery, filters)
 
   return (
@@ -63,7 +63,7 @@ export default function LibraryPage() {
                   You might like
                 </span>
               </div>
-              <MovieGrid movies={suggst} />
+              <MovieGrid movies={suggestions} />
               {/* Suggestions get their own infinite scroll */}
               <InfiniteScroll
                 onLoadMore={loadMoreSuggestions}

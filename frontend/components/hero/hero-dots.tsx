@@ -1,8 +1,8 @@
 import { motion } from "framer-motion"
-import { Movie } from "@/types/search"
+import { MovieResult } from "@/types/search"
 
 type HeroDotsProps = {
-  movies: Movie[]
+  movies: MovieResult[]
   activeSlide: number
   handleSlideChange: (index: number) => void
   progress: number

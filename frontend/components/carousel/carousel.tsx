@@ -4,7 +4,6 @@ import { motion } from "framer-motion"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { useCarousel } from "./use-carousel"
 import { containerVariants } from "@/lib/annimations/continue-watching-variants"
-import Head from "next/head"
 import HeaderTitle from "../ui/header-title"
 
 type Props = {
