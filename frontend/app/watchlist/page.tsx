@@ -1,188 +1,181 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { motion } from "framer-motion";
-import { Play, Check } from "lucide-react";
+import { Movie, MovieCard, normaliseTMDB } from "@/components/watchlist/watchlist-card";
+/**
+ * WatchlistPage
+ *
+ * Uses TMDB's /discover/movie as a stand-in for the real /api/movies.
+ * Swap fetchMovies() → fetch('/api/movies?page='+page) when backend is ready.
+ * normaliseTMDB maps every field to the canonical Movie type.
+ */
 
-type Movie = {
-  id: string;
-  title: string;
-  poster: string;
-  backdrop: string;
-  rating: number;
-  year: number;
-  duration: string;
-  genres: string[];
-  status: "free" | "premium";
-  createdAt: string;
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+
+// ─── Genre map (TMDB IDs → names) ───────────────────────────────────────────
+
+const GENRE_MAP: Record<number, string> = {
+  28: "Action", 12: "Adventure", 16: "Animation", 35: "Comedy",
+  80: "Crime", 99: "Documentary", 18: "Drama", 10751: "Family",
+  14: "Fantasy", 36: "History", 27: "Horror", 10402: "Music",
+  9648: "Mystery", 10749: "Romance", 878: "Sci-Fi", 10770: "TV Movie",
+  53: "Thriller", 10752: "War", 37: "Western",
 };
 
-function formatGroup(dateStr: string) {
-  const d = new Date(dateStr);
-  const now = new Date();
-  const diff = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+// ─── TMDB fetch (replace body with /api/movies for production) ───────────────
 
-  if (diff === 0) return "TODAY";
-  if (diff === 1) return "YESTERDAY";
-  return "EARLIER";
+async function fetchMovies(page: number): Promise<Movie[]> {
+  const url =
+  `https://api.themoviedb.org/3/discover/movie` +
+  `?api_key=${process.env.NEXT_PUBLIC_TMDB_KEY}` +
+  `&language=en-US&page=${page}` +
+  `&sort_by=popularity.desc&include_adult=false&vote_count.gte=100`;
+
+  const data = await fetch(url).then((r) => r.json());
+  console.log("Fetched movies page", page, data.results);
+
+  return (data.results ?? []).map((r: any) => normaliseTMDB(r, GENRE_MAP));
 }
 
-function MovieCard({ movie, saved, onToggle }: any) {
-  return (
-    <motion.div
-      layout
-      whileHover={{ scale: 1.03 }}
-      className="relative rounded-xl overflow-hidden bg-[#141416] shadow-xl cursor-pointer group"
-    >
-      {/* IMAGE */}
-      <div className="relative aspect-[16/9]">
-        <img
-          src={movie.backdrop}
-          className="w-full h-full object-cover group-hover:scale-110 transition duration-500"
-        />
+// ─── Date grouping ───────────────────────────────────────────────────────────
 
-        {/* DARK OVERLAY */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent" />
-
-        {/* PLAY ICON */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
-          <div className="bg-white/10 backdrop-blur-md p-4 rounded-full">
-            <Play className="text-white" />
-          </div>
-        </div>
-
-        {/* FREE BADGE */}
-        <div className="absolute top-2 right-2">
-          <span className="bg-green-500 text-black text-[10px] px-2 py-1 rounded font-bold">
-            {movie.status.toUpperCase()}
-          </span>
-        </div>
-      </div>
-
-      {/* CONTENT */}
-      <div className="p-3">
-        {/* TITLE */}
-        <h3 className="text-white font-extrabold tracking-widest text-sm">
-          {movie.title}
-        </h3>
-
-        {/* ACTION ROW */}
-        <div className="flex items-center gap-2 mt-2">
-          <button
-            onClick={() => onToggle(movie)}
-            className={`p-1 rounded ${saved ? "bg-white text-black" : "bg-white/10 text-white"}`}
-          >
-            <Check size={14} />
-          </button>
-
-          <div className="flex items-center gap-2 text-xs text-gray-400">
-            <span className="text-yellow-400 font-bold">IMDb {movie.rating}</span>
-            <span>{movie.year}</span>
-            <span>{movie.duration}</span>
-          </div>
-        </div>
-
-        {/* GENRES */}
-        <div className="flex gap-1 mt-2 flex-wrap">
-          {movie.genres.map((g: string) => (
-            <span
-              key={g}
-              className="text-[10px] px-2 py-0.5 bg-white/10 rounded-full text-gray-300"
-            >
-              {g}
-            </span>
-          ))}
-        </div>
-      </div>
-    </motion.div>
+function groupLabel(iso: string): string {
+  const diff = Math.floor(
+    (Date.now() - new Date(iso).getTime()) / 86_400_000,
   );
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Yesterday";
+  if (diff < 7)  return `${diff} days ago`;
+  if (diff < 14) return "Last week";
+  return "Earlier";
 }
+
+// ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function WatchlistPage() {
-  const [movies, setMovies] = useState<Movie[]>([]);
-  const [page, setPage] = useState(1);
+  const [movies,  setMovies]  = useState<Movie[]>([]);
+  const [page,    setPage]    = useState(1);
   const [loading, setLoading] = useState(false);
-  const [saved, setSaved] = useState<string[]>([]);
+  const [done,    setDone]    = useState(false);
+  const loaderRef = useRef<HTMLDivElement>(null);
 
-  const loader = useRef(null);
+  // Saved state — keyed by movie id
+  const [saved, setSaved] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      return new Set(JSON.parse(localStorage.getItem("watchlist") ?? "[]"));
+    } catch {
+      return new Set();
+    }
+  });
 
-  // local saved state
-  useEffect(() => {
-    const s = localStorage.getItem("watchlist");
-    if (s) setSaved(JSON.parse(s));
-  }, []);
-
-  const toggleSave = (movie: Movie) => {
+  const toggleSave = useCallback((id: string) => {
     setSaved((prev) => {
-      const exists = prev.includes(movie.id);
-      const updated = exists
-        ? prev.filter((id) => id !== movie.id)
-        : [...prev, movie.id];
-
-      localStorage.setItem("watchlist", JSON.stringify(updated));
-      return updated;
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      localStorage.setItem("watchlist", JSON.stringify([...next]));
+      return next;
     });
-  };
-
-  const load = useCallback(async () => {
-    if (loading) return;
-    setLoading(true);
-
-    const res = await fetchMovies(page);
-    setMovies((p) => [...p, ...res.results]);
-
-    setPage((p) => p + 1);
-    setLoading(false);
-  }, [page, loading]);
-
-  useEffect(() => {
-    load();
   }, []);
 
-  useEffect(() => {
-    const obs = new IntersectionObserver((e) => {
-      if (e[0].isIntersecting) load();
-    });
+  // Enrich movies with live saved state
+  const hydrated = useMemo(
+    () => movies.map((m) => ({ ...m, isSaved: saved.has(m.id) })),
+    [movies, saved],
+  );
 
-    if (loader.current) obs.observe(loader.current);
+  // Load next page
+  const load = useCallback(async () => {
+    if (loading || done) return;
+    setLoading(true);
+    try {
+      const results = await fetchMovies(page);
+      if (results.length === 0) { setDone(true); return; }
+      // Attach a fake savedAt for grouping demo — remove when API provides it
+      const stamped = results.map((m, i) => ({
+        ...m,
+        _savedAt: new Date(
+          Date.now() - (i % 4) * 86_400_000 * Math.random() * 3,
+        ).toISOString(),
+      }));
+      setMovies((p) => [...p, ...stamped as any]);
+      setPage((p) => p + 1);
+    } finally {
+      setLoading(false);
+    }
+  }, [loading, done, page]);
+
+  // Initial load
+  useEffect(() => { load(); }, []); // eslint-disable-line
+
+  // Infinite scroll via IntersectionObserver
+  useEffect(() => {
+    const el = loaderRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) load(); },
+      { rootMargin: "200px" },
+    );
+    obs.observe(el);
     return () => obs.disconnect();
   }, [load]);
 
+  // Group by date label
   const grouped = useMemo(() => {
-    const g: Record<string, Movie[]> = {};
-    movies.forEach((m) => {
-      const key = formatGroup(m.createdAt);
-      if (!g[key]) g[key] = [];
-      g[key].push(m);
-    });
-    return g;
-  }, [movies]);
+    const g: Record<string, (Movie & { _savedAt: string })[]> = {};
+    const order: string[] = [];
+    for (const m of hydrated as any[]) {
+      const label = groupLabel(m._savedAt ?? new Date().toISOString());
+      if (!g[label]) { g[label] = []; order.push(label); }
+      g[label].push(m);
+    }
+    return { g, order };
+  }, [hydrated]);
 
   return (
     <div className="min-h-screen flex flex-col gap-4 pb-16! overflow-x-hidden pt-18! px-5! md:px-13! lg:px-16!">
 
-      {Object.entries(grouped).map(([section, items]) => (
-        <div key={section} className="mb-10">
-          <h2 className="text-gray-400 text-xs mb-3 tracking-widest">
-            {section}
-          </h2>
+      {/* Header */}
+      <div className="flex items-baseline gap-3 mb-2">
+        <span className="text-white/25 text-sm">{movies.length} titles</span>
+      </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            {items.map((m) => (
+      {/* Groups */}
+      {grouped.order.map((label) => (
+        <section key={label} className="flex flex-col gap-3">
+          {/* Section label */}
+          <div className="flex items-center gap-3">
+            <span className="text-accent-red font-title text-base leading-none">|</span>
+            <span className="text-white/40 text-xs font-semibold tracking-[0.12em] uppercase">
+              {label}
+            </span>
+            <div className="flex-1 h-px bg-white/5" />
+          </div>
+
+          {/* Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            {grouped.g[label].map((movie) => (
               <MovieCard
-                key={m.id}
-                movie={m}
-                saved={saved.includes(m.id)}
-                onToggle={toggleSave}
+                key={movie.id}
+                movie={movie}
+                onToggleSave={toggleSave}
               />
             ))}
           </div>
-        </div>
+        </section>
       ))}
 
-      {loading && <div className="text-center text-gray-500">Loading...</div>}
-
-      <div ref={loader} className="h-10" />
+      {/* Infinite scroll sentinel */}
+      <div ref={loaderRef} className="flex justify-center py-6">
+        {loading && (
+          <div className="flex items-center gap-2 text-white/20 text-sm">
+            <span className="w-4 h-4 border border-white/20 border-t-white/60 rounded-full animate-spin" />
+            Loading more…
+          </div>
+        )}
+        {done && movies.length > 0 && (
+          <p className="text-white/15 text-xs tracking-wide">You ve reached the end</p>
+        )}
+      </div>
     </div>
   );
 }
