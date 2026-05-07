@@ -47,7 +47,7 @@ export function mapTrendingToContinueWatching(tmdbMovies: Movie[] = []) {
     const durationMinutes = 90 + Math.floor(Math.random() * 90)
     const watchedMinutes = Math.floor((progress / 100) * durationMinutes)
     const remainingMinutes = durationMinutes - watchedMinutes
-    console.log(movie.year)
+    // console.log(movie.year)
     return {
       id: movie.id,
       title: movie.title ?? "Untitled",

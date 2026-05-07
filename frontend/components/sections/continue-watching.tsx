@@ -40,7 +40,7 @@ export default function ContinueWatching( { title = "Continue Watching" }: { tit
         const res = await fetch("/api/movies?type=trending")
         const data = await res.json()
         const results: Movie[] = Array.isArray(data) ? data : data?.results ?? []
-        console.log("Fetched movies for Continue Watching:", results)
+        // console.log("Fetched movies for Continue Watching:", results)
         setMovies(mapTrendingToContinueWatching(results))
       } catch {
         setMovies([])
