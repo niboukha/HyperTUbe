@@ -6,6 +6,7 @@ import Image from "next/image"
 import { Clock, Star } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { HoverState } from "./use-hover-portal"
+import { AvailabilityBadge } from "../ui/AvailabilityBadge"
 
 type Props = {
   hover: HoverState
@@ -81,13 +82,7 @@ export default function CarouselPortal({
             {/* Availability badge — top left like Prime */}
             {availability && (
               <div className="absolute top-1 right-2">
-                <span className={`text-[8px] font-bold px-1! py-0.5! rounded-[5px] ${
-                  availability === "free"
-                    ? "bg-[#16a34a] text-white"
-                    : "bg-[#eab308] text-white"
-                }`}>
-                  {availability === "free" ? "FREE" : "PREMIUM"}
-                </span>
+                <AvailabilityBadge type={availability} />
               </div>
             )}
 

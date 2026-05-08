@@ -16,6 +16,7 @@ import { CarouselSkeleton } from "../carousel/CarouselSkeleton"
 import HeaderTitle from '../ui/header-title';
 import { getMovieDetails } from "../hero/hero-content"
 import { TMDB_GENRE_LABELS } from "@/lib/tmdb-genres"
+import { AvailabilityBadge } from "../ui/AvailabilityBadge"
 
 type MovieRowProps = {
   title: string
@@ -189,17 +190,7 @@ export default function PrimeRow({ title, endpoint }: MovieRowProps) {
                 </AnimatePresence>
 
                 <div className="absolute top-1 right-2">
-                  <TooltipButton
-                    label={`${movie.availability === "free" ? "FREE" : "PREMIUM"}`}
-                  >
-                    <span className={`text-[10px] font-bold px-1.5! py-0.5! rounded-md ${
-                      movie.availability === "free"
-                        ? "bg-[#16a34a] text-white"
-                        : "bg-[#f59e0b] text-white"
-                    }`}>
-                      {movie.availability === "free" ? "FREE" : "PREMIUM"}
-                    </span>
-                  </TooltipButton>
+                  <AvailabilityBadge type={movie.availability} />
                 </div>
 
                 {/* GRADIENT — stronger on active */}

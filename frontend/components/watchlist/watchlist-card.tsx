@@ -13,6 +13,7 @@ import {
   Crown,
   Zap,
 } from "lucide-react";
+import { AvailabilityBadge } from "../ui/AvailabilityBadge";
 
 //tmp
 export type Movie = {
@@ -128,17 +129,7 @@ export function MovieCard({
             )}
             
             <div className="absolute top-2.5! right-2.5! z-10">
-            {movie.availability === "free" ? (
-                <span className="inline-flex items-center gap-1 bg-[#16a34a] text-white text-[9px] font-bold px-1.5! py-0.5! rounded-[5px] tracking-wide shadow-lg">
-                <Zap className="w-2.5 h-2.5" />
-                FREE
-                </span>
-            ) : (
-                <span className="inline-flex items-center gap-1 bg-[#b45309] text-[#fef3c7] text-[9px] font-bold px-1.5! py-0.5! rounded-[5px] tracking-wide shadow-lg">
-                <Crown className="w-2.5 h-2.5" />
-                PREMIUM
-                </span>
-            )}
+              <AvailabilityBadge type={movie.availability} />
             </div>
 
             <button

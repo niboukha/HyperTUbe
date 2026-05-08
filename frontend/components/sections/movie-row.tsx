@@ -13,6 +13,7 @@ import { mapToCards } from "@/lib/mock-data"
 import { Movie, MovieCard } from "@/types/search"
 import { CarouselSkeleton } from "../carousel/CarouselSkeleton"
 import { TooltipButton } from "../ui/tool-tip-button"
+import { AvailabilityBadge } from "../ui/AvailabilityBadge"
 
 type MovieRowProps = {
   title: string
@@ -68,7 +69,6 @@ export default function MovieRow({ title, endpoint, priority }: MovieRowProps) {
       <Carousel title={title}>
         {movies.map((movie, index) => {
           const isHovered = hover?.index === index
-          // Pick best image — backdrop preferred for landscape cards
           const src = movie.backdrop_path
             ? `https://image.tmdb.org/t/p/w780${movie.backdrop_path}`
             : movie.poster_path
@@ -108,17 +108,7 @@ export default function MovieRow({ title, endpoint, priority }: MovieRowProps) {
                   </div>
                 )}
                 <div className="absolute top-0 right-1">
-                  <TooltipButton
-                    label={`${movie.availability === "free" ? "FREE" : "PREMIUM"}`}
-                  >
-                    <span className={`text-[8px] font-bold px-1! py-0.5! rounded-[5px] ${
-                      movie.availability === "free"
-                        ? "bg-[#16a34a] text-white"
-                        : "bg-[#f59e0b] text-white"
-                    }`}>
-                      {movie.availability === "free" ? "FREE" : "PREMIUM"}
-                    </span>
-                  </TooltipButton>
+                  <AvailabilityBadge type={movie.availability} />
                 </div>
               </div>
             </motion.div>

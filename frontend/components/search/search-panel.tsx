@@ -34,7 +34,7 @@ export function SearchPanel({
 
   if (isEmpty) {
     return (
-      <div className="p-2!">
+      <div className="p-2! bg-white/10 backdrop-blur-2xl!">
         <RecentSection searches={recentSearches} onSelect={onSelectRecent} onRemove={onRemoveRecent} />
         <TrendingSection onSelect={onSelectTrending} />
         <GenresSection onSelect={onSelectGenre} />
@@ -44,7 +44,7 @@ export function SearchPanel({
 
   if (!hasResults && !loading) {
     return (
-      <div className="px-4! py-10! text-center">
+      <div className="px-4! py-10! text-center bg-white/10 backdrop-blur-2xl!">
         <p className="text-white/30 text-sm">
           No results for <span className="text-white/50">`{query}`</span>
         </p>
@@ -54,7 +54,7 @@ export function SearchPanel({
   }
 
   return (
-    <div className="p-2!">
+    <div className="p-2! bg-white/10 backdrop-blur-2xl!">
       <TopResultsSection movies={topMovies} query={query} activeIndex={activeIndex} onSelect={onSelectMovie} />
       <MoviesSection movies={listMovies} query={query} activeIndex={activeIndex} topCount={topMovies.length} onSelect={onSelectMovie} />
       <UsersSection users={users} query={query} onSelect={onSelectUser} />

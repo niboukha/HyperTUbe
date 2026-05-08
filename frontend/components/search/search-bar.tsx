@@ -10,6 +10,7 @@ import { getRecentSearches, saveRecentSearch, removeRecentSearch } from "@/lib/u
 import { SearchInput } from "./search-input"
 import { SearchPanel } from "./search-panel"
 import { MOCK_USERS } from "@/lib/mock-data"
+import { createPortal } from "react-dom"
 
 type Props = {
   open?: boolean
@@ -88,12 +89,21 @@ export default function SearchBar({ open: externalOpen, onOpenChange, inline = f
         return () => document.removeEventListener("mousedown", h)
     }, [closeSearch, inline])
 
+    // useEffect(() => {
+    //     if (!open || inline) return
+    //     const h = () => closeSearch()
+    //     window.addEventListener("scroll", h, { passive: true })
+    //     return () => window.removeEventListener("scroll", h)
+    // }, [open, closeSearch, inline])
     useEffect(() => {
-        if (!open || inline) return
-        const h = () => closeSearch()
-        window.addEventListener("scroll", h, { passive: true })
-        return () => window.removeEventListener("scroll", h)
-    }, [open, closeSearch, inline])
+      if (!open || inline) return
+
+      document.body.style.overflow = "hidden"
+
+      return () => {
+        document.body.style.overflow = ""
+      }
+    }, [open, inline])
 
     const allNavigable = useMemo(() => [
         ...movies.slice(0, 4).map(m => ({ type: "movie" as const, item: m })),
@@ -184,6 +194,20 @@ export default function SearchBar({ open: externalOpen, onOpenChange, inline = f
   // Navbar dropdown mode
   return (
     <div ref={containerRef} className="relative flex items-center">
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-40 bg-white/10"
+            onClick={closeSearch}
+          />
+        )}
+      </AnimatePresence>
+      
       {!open && (
         <button
           onClick={openSearch}
@@ -202,7 +226,7 @@ export default function SearchBar({ open: externalOpen, onOpenChange, inline = f
             animate={{ width: typeof window !== "undefined" && window.innerWidth < 768 ? 320 : 520, opacity: 1 }}
             exit={{ width: 40, opacity: 0 }}
             transition={{ type: "spring", stiffness: 320, damping: 28 }}
-            className="absolute right-0 z-50"
+            className="absolute right-0 z-40 "
           >
             <div role="combobox" aria-expanded={open}  aria-controls={listboxId} aria-haspopup="listbox">
               <SearchInput
@@ -213,21 +237,26 @@ export default function SearchBar({ open: externalOpen, onOpenChange, inline = f
                 loading={loading}
                 variant="navbar"
               />
-              <motion.div
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.18 }}
-                id={listboxId}
-                role="listbox"
-                className="rounded-b-md border border-t-0 border-white/30 bg-white/10 backdrop-blur-2xl overflow-hidden absolute right-0 left-0 mt-0!"
-                style={{ maxHeight: "520px", overflowY: "auto" }}
-              >
-                <SearchPanel {...panelProps} />
-              </motion.div>
+              {createPortal(
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.18 }}
+                  id={listboxId}
+                  role="listbox"
+                  className="z-50 rounded-b-md border border-t-0 border-white/30 bg-white/10! backdrop-blur-2xl! overflow-hidden
+                  absolute top-14 left-1/2 -translate-x-1/2 w-[520px] fixed"
+                  style={{ maxHeight: "520px", overflowY: "auto" }}
+                >
+                  <SearchPanel {...panelProps} />
+                </motion.div>,
+              document.body
+            )}
             </div>
           </motion.div>
         )}
+        
       </AnimatePresence>
     </div>
   )

@@ -22,29 +22,65 @@ export default function TopBar() {
   const pathname = usePathname()
 
   const isLibrary = pathname.startsWith("/library")
+  const isAnyMenuOpen = searchOpen || mobileMenuOpen
+  
+  // useEffect(() => {
+  //   const handleScroll = () => {
+  //     if (isAnyMenuOpen) {
+  //       setHidden(false)
+  //       return
+  //     }
+  //     if (!ticking.current) {
+  //       window.requestAnimationFrame(() => {
+  //         const currentY = window.scrollY
+  //         setScrolled(currentY > 10)
+  //         if (currentY > lastScrollY.current && currentY > 80) {
+  //           setHidden(true)
+  //         } else {
+  //           setHidden(false)
+  //         }
+  //         lastScrollY.current = currentY
+  //         ticking.current = false
+  //       })
+  //       ticking.current = true
+  //     }
+  //   }
+
+  //   window.addEventListener("scroll", handleScroll, { passive: true })
+  //   return () => window.removeEventListener("scroll", handleScroll)
+  // }, [])
+    const [isTop, setIsTop] = useState(true)
 
   useEffect(() => {
     const handleScroll = () => {
-      if (!ticking.current) {
-        window.requestAnimationFrame(() => {
-          const currentY = window.scrollY
-          setScrolled(currentY > 10)
-          if (currentY > lastScrollY.current && currentY > 80) {
-            setHidden(true)
-          } else {
-            setHidden(false)
-          }
-          lastScrollY.current = currentY
-          ticking.current = false
-        })
-        ticking.current = true
+      const y = window.scrollY
+
+      setIsTop(y <= 10)
+
+      if (isAnyMenuOpen) {
+        setHidden(false)
+        lastScrollY.current = y
+        return
       }
+
+      const scrollingDown = y > lastScrollY.current
+
+      if (y > 80 && scrollingDown) {
+        setHidden(true)
+      } else {
+        setHidden(false)
+      }
+
+      lastScrollY.current = y
     }
 
     window.addEventListener("scroll", handleScroll, { passive: true })
-    return () => window.removeEventListener("scroll", handleScroll)
-  }, [])
+    handleScroll() // init state
 
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [isAnyMenuOpen])
+
+  
   // On library page keep search forced open and header always visible
   // const effectiveOpen = isLibrary ? true : searchOpen
   // const effectiveHidden = isLibrary ? false : hidden
@@ -56,11 +92,26 @@ export default function TopBar() {
       transition={{ duration: 1, ease: [0.4, 0, 0.2, 1] }}
       className="fixed top-0 left-0 right-0 z-50 transition-all duration-700 ease-out"
       style={{
-        background: scrolled ? "rgba(var(--background), 0.1)" : "transparent",
-        backdropFilter: scrolled ? "blur(24px)" : "none",
-        borderBottom: scrolled ? "1px solid rgba(255,255,255,0.1)" : "1px solid transparent",
-        transition: "background 0.7s ease, backdrop-filter 0.7s ease, border-color 0.7s ease ",
+        background: isTop
+          ? "transparent"
+          : "rgba(var(--background), 0.1)",
+
+        backdropFilter: isTop
+          ? "none"
+          : "blur(20px)",
+
+        borderBottom: isTop
+          ? "1px solid transparent"
+          : "1px solid rgba(255,255,255,0.1)",
+
+        transition: "background 0.7s ease, backdrop-filter 0.7s ease, border-color 0.7s ease",
       }}
+      // style={{
+      //   background: scrolled ? "rgba(var(--background), 0.1)" : "transparent",
+      //   backdropFilter: scrolled ? "blur(24px)" : "none",
+      //   borderBottom: scrolled ? "1px solid rgba(255,255,255,0.1)" : "1px solid transparent",
+      //   transition: "background 0.7s ease, backdrop-filter 0.7s ease, border-color 0.7s ease",
+      // }}
     >
       <div className="flex items-center justify-between px-4! md:px-12! lg:px-16! h-14">
 
