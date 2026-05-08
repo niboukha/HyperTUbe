@@ -45,7 +45,7 @@ export default function LanguageMenu({
         align="end"
         avoidCollisions
         sideOffset={8}
-        className="w-35 min-w-35 backdrop-blur-2xl! backdrop-saturate-150! border p-1! rounded-md flex flex-col gap-1 shadow-xl
+        className="w-40 min-w-40 backdrop-blur-md! backdrop-saturate-150! border p-2! rounded-md flex flex-col gap-2 shadow-xl
         border-white/30 bg-white/10 text-white"
       >
         <DropdownMenuGroup className="flex flex-col gap-2">

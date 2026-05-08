@@ -11,6 +11,7 @@ import { SearchInput } from "./search-input"
 import { SearchPanel } from "./search-panel"
 import { MOCK_USERS } from "@/lib/mock-data"
 import { createPortal } from "react-dom"
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover"
 
 type Props = {
   open?: boolean
@@ -192,72 +193,135 @@ export default function SearchBar({ open: externalOpen, onOpenChange, inline = f
   const listboxId = "search-listbox"
 
   // Navbar dropdown mode
-  return (
-    <div ref={containerRef} className="relative flex items-center">
+  // return (
+  //   <div ref={containerRef} className="relative flex items-center">
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-40 bg-white/10"
-            onClick={closeSearch}
-          />
-        )}
-      </AnimatePresence>
+  //     <AnimatePresence>
+  //       {open && (
+  //         <motion.div
+  //           initial={{ opacity: 0 }}
+  //           animate={{ opacity: 1 }}
+  //           exit={{ opacity: 0 }}
+  //           transition={{ duration: 0.2 }}
+  //           className="fixed inset-0 z-40 bg-white/10"
+  //           onClick={closeSearch}
+  //         />
+  //       )}
+  //     </AnimatePresence>
       
-      {!open && (
-        <button
-          onClick={openSearch}
-          className="flex items-center gap-2 rounded-[8px] border h-8! px-2! backdrop-blur-2xl! border-white/30 bg-white/10 text-white/60 hover:text-white transition-all duration-200 hover:scale-105"
-        >
-          <Search className="h-5 w-5" />
-          <span className="hidden md:block text-xs text-white">Search</span>
-          <kbd className="hidden md:flex text-[10px] text-white border border-white/15 rounded px-1 py-0.5 font-mono">/</kbd>
-        </button>
-      )}
+  //     {!open && (
+  //       <button
+  //         onClick={openSearch}
+  //         className="flex items-center gap-2 rounded-md border h-8! px-2! backdrop-blur-2xl! border-white/30 bg-white/10 text-white/60 hover:text-white transition-all duration-200 hover:scale-105"
+  //       >
+  //         <Search className="h-5 w-5" />
+  //         <span className="hidden md:block text-xs text-white">Search</span>
+  //         <kbd className="hidden md:flex text-[10px] text-white border border-white/15 rounded px-1 py-0.5 font-mono">/</kbd>
+  //       </button>
+  //     )}
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ width: 40, opacity: 0 }}
-            animate={{ width: typeof window !== "undefined" && window.innerWidth < 768 ? 320 : 520, opacity: 1 }}
-            exit={{ width: 40, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 320, damping: 28 }}
-            className="absolute right-0 z-40 "
-          >
-            <div role="combobox" aria-expanded={open}  aria-controls={listboxId} aria-haspopup="listbox">
-              <SearchInput
-                ref={inputRef}
-                value={query}
-                onChange={(v) => { setQuery(v); setActiveIndex(-1) }}
-                onClear={() => setQuery("")}
-                loading={loading}
-                variant="navbar"
-              />
-              {createPortal(
-                <motion.div
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.18 }}
-                  id={listboxId}
-                  role="listbox"
-                  className="z-50 rounded-b-md border border-t-0 border-white/30 bg-white/10! backdrop-blur-2xl! overflow-hidden
-                  absolute top-14 left-1/2 -translate-x-1/2 w-[520px] fixed"
-                  style={{ maxHeight: "520px", overflowY: "auto" }}
-                >
-                  <SearchPanel {...panelProps} />
-                </motion.div>,
-              document.body
-            )}
-            </div>
-          </motion.div>
-        )}
+  //     <AnimatePresence>
+  //       {open && (
+  //         <motion.div
+  //           initial={{ width: 40, opacity: 0 }}
+  //           animate={{ width: typeof window !== "undefined" && window.innerWidth < 768 ? 320 : 520, opacity: 1 }}
+  //           exit={{ width: 40, opacity: 0 }}
+  //           transition={{ type: "spring", stiffness: 320, damping: 28 }}
+  //           className="absolute right-0 z-40 "
+  //         >
+  //           <div role="combobox" aria-expanded={open}  aria-controls={listboxId} aria-haspopup="listbox">
+  //             <SearchInput
+  //               ref={inputRef}
+  //               value={query}
+  //               onChange={(v) => { setQuery(v); setActiveIndex(-1) }}
+  //               onClear={() => setQuery("")}
+  //               loading={loading}
+  //               variant="navbar"
+  //             />
+  //             {/* {createPortal( */}
+  //               <motion.div
+  //                 initial={{ opacity: 0, y: -4 }}
+  //                 animate={{ opacity: 1, y: 0 }}
+  //                 exit={{ opacity: 0, y: -4 }}
+  //                 transition={{ duration: 0.18 }}
+  //                 id={listboxId}
+  //                 role="listbox"
+  //                 className="rounded-b-md border border-t-0 border-white/30 bg-white/10 backdrop-blur-2xl overflow-hidden absolute right-0 left-0 mt-0!"
+  //                 style={{ maxHeight: "520px", overflowY: "auto" }}
+  //               >
+  //                 <SearchPanel {...panelProps} />
+  //               </motion.div>,
+  //             {/* document.body
+  //           )} */}
+  //           </div>
+  //         </motion.div>
+  //       )}
         
-      </AnimatePresence>
-    </div>
+  //     </AnimatePresence>
+  //   </div>
+  // )
+  return (
+    <Popover open={open} onOpenChange={(v) => {
+      if (v) openSearch()
+        else closeSearch()
+    }}>
+
+      <PopoverTrigger asChild>
+        {!open ? (
+          <button
+            // onClick={openSearch}
+            className="
+              flex items-center gap-2 h-8! px-2! duration-200
+              rounded-md backdrop-blur-2xl! backdrop-saturate-150! hover:scale-110
+              transition border-white/30 bg-white/10 text-white
+              hover:text-text-primary hover:bg-white/10 border"
+          >
+            <Search className="h-5 w-5" />
+            <span className="hidden md:block text-xs text-white">
+              Search
+            </span>
+            <kbd className="hidden md:flex text-[10px] text-white border border-white/15 rounded px-1! py-0.5! font-mono">
+              /
+            </kbd>
+          </button>
+        ) : (
+          <div />
+        )}
+      </PopoverTrigger>
+
+      <PopoverContent
+        align="end"
+        sideOffset={-16}
+        className="
+          w-80 sm:w-100 md:w-130 backdrop-blur-md! backdrop-saturate-150! border p-0! rounded-md flex flex-col gap-2 shadow-xl border-white/30 bg-white/10 text-white"
+      >
+        <div
+          role="combobox"
+          aria-expanded={open}
+          aria-controls={listboxId}
+          aria-haspopup="listbox"
+        >
+          <SearchInput
+            ref={inputRef}
+            value={query}
+            onChange={(v) => {
+              setQuery(v)
+              setActiveIndex(-1)
+            }}
+            onClear={() => setQuery("")}
+            loading={loading}
+            variant="navbar"
+          />
+
+          <div
+            id={listboxId}
+            role="listbox"
+            className="max-h-100 overflow-y-auto"
+          >
+            <SearchPanel {...panelProps} />
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   )
 }

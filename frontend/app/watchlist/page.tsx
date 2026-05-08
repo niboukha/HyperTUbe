@@ -2,7 +2,7 @@
 
 import { InfiniteScroll } from "@/components/ui/infinite-scroll";
 import { Movie, MovieCard, normaliseTMDB } from "@/components/watchlist/watchlist-card";
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 
 
 const GENRE_MAP: Record<number, string> = {
@@ -146,7 +146,7 @@ export default function WatchlistPage() {
     }
   }, [page, loading, loadingMore, hasMore]);
 
-  useEffect(() => { loadMore(); }, []);
+  // useEffect(() => { loadMore(); }, []);
 
   // Group by date label
   const grouped = useMemo(() => {

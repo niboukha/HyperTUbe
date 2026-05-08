@@ -37,7 +37,7 @@ export default function MobileToggle({
         <Button
           variant="ghost"
           size="icon"
-          className="md:hidden relative duration-200 hover:text-text-primary hover:scale-110 transition rounded-md border h-7 px-1! backdrop-blur-2xl! border-white/30 bg-white/10 text-white"
+          className="md:hidden relative duration-200 hover:text-text-primary hover:scale-110 transition rounded-md border h-8 px-1! backdrop-blur-2xl! border-white/30 bg-white/10 hover:bg-white/10 text-white"
         >
           <AnimatePresence mode="wait">
             {mobileMenuOpen ? (
@@ -57,6 +57,7 @@ export default function MobileToggle({
                 animate={{ rotate: 0, opacity: 1 }}
                 exit={{ rotate: -90, opacity: 0 }}
                 transition={{ duration: 0.15 }}
+                className=""
               >
                 <Menu className="h-5 w-5" />
               </motion.div>

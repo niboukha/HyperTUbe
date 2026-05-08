@@ -21,7 +21,7 @@ export const SearchInput = forwardRef<HTMLInputElement, Props>(
           ? "rounded-md px-3! py-1! border border-white/20 bg-white/8 backdrop-blur-md focus-within:border-white/30"
           : isInline
           ? "rounded-md px-3! py-2.5! border border-white/30 bg-white/10 backdrop-blur-md focus-within:border-white/30"
-          : "rounded-t-md px-3! py-2! border border-white/30 bg-white/10 backdrop-blur-2xl focus-within:border-white/35"
+          : "rounded-t-md px-3! py-1.25! border-b border-b-white/30 focus-within:border-white/35"
       }`}>
         <Search className="h-5 w-5 text-white/40 shrink-0" />
 
