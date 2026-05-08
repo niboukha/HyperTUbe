@@ -23,7 +23,7 @@ const DefaultLoadingIndicator = () => (
 
 const DefaultEndMessage = () => (
   <div className="flex justify-center pt-6!">
-    <p className="text-white/15 text-xs uppercase tracking-widest">End of results</p>
+    {/* <p className="text-white/15 text-xs uppercase tracking-widest">End of results</p> */}
   </div>
 )
 

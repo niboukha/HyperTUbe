@@ -14,21 +14,20 @@ import {
   Zap,
 } from "lucide-react";
 
-
+//tmp
 export type Movie = {
   id: string;
   title: string;
-  poster: string;         // TMDB poster_path full URL
-  backdrop: string;       // TMDB backdrop_path full URL
-  rating: number;         // vote_average
-  year: number;           // release_date[:4]
-  duration: string;       // runtime formatted "2h 18m"
-  genres: string[];       // genre names
+  poster: string;     
+  backdrop: string;    
+  rating: number;         
+  year: number; 
+  duration: string;
+  genres: string[]; 
   overview: string;
   isSaved: boolean;
   availability: "free" | "premium";
 };
-
 
 const IMG = "https://image.tmdb.org/t/p";
 
@@ -62,12 +61,12 @@ export function normaliseTMDB(raw: any, genreMap: Record<number, string>): Movie
 interface CardProps {
   movie: Movie;
   onToggleSave: (id: string) => void;
-  /** pass the portal style + motion props from the parent grid/portal system */
   portalStyle?: React.CSSProperties;
   motionProps?: React.ComponentProps<typeof motion.div>;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
 }
+// end of tmp
 
 export function MovieCard({
   movie,
@@ -110,7 +109,6 @@ export function MovieCard({
         group relative flex flex-col rounded-md overflow-hidden bg-[#333333] cursor-pointer select-none transition-shadow duration-300"
       onClick={goWatch}
     >
-        {/* ── Backdrop ─────────────────────────────────────────────────────── */}
         <div className="relative w-full aspect-16/10 overflow-hidden">
 
             {backdropSrc ? (
@@ -129,7 +127,6 @@ export function MovieCard({
                 </div>
             )}
             
-            {/* ── Availability badge ── */}
             <div className="absolute top-2.5! right-2.5! z-10">
             {movie.availability === "free" ? (
                 <span className="inline-flex items-center gap-1 bg-[#16a34a] text-white text-[9px] font-bold px-1.5! py-0.5! rounded-[5px] tracking-wide shadow-lg">
@@ -144,7 +141,6 @@ export function MovieCard({
             )}
             </div>
 
-            {/* ── Play CTA — always visible, brightens on hover ── */}
             <button
             onClick={goWatch}
             aria-label={`Play ${movie.title}`}
@@ -175,7 +171,6 @@ export function MovieCard({
             border-t border-white/4
         ">
 
-        {/* ── Title bleeds into image at bottom ── */}
         <div className="flex justify-between">
             <h3 className="
             text-white font-title text-sm leading-tight tracking-wide
@@ -202,7 +197,6 @@ export function MovieCard({
         </div>
         </div>
         
-        {/* Meta row */}
         <div className="flex items-center gap-1.5 flex-wrap">
             {movie.rating > 0 && (
             <span className="flex items-center gap-0.5">
@@ -227,7 +221,6 @@ export function MovieCard({
             )}
         </div>
 
-        {/* Genre pills */}
         {movie.genres.length > 0 && (
             <div className="flex gap-1 flex-wrap">
             {movie.genres.map((g) => (
@@ -246,48 +239,17 @@ export function MovieCard({
             </div>
         )}
 
-        {/* Overview */}
         {movie.overview && (
-            <p className="text-white/30 text-[11px] leading-relaxed line-clamp-2">
+          <p className="text-white/30 text-[11px] leading-relaxed line-clamp-2">
             {movie.overview}
-            </p>
+          </p>
         )}
     </div>
-
-        {/* Subtle outer glow ring */}
-        <div className="
-            absolute inset-0 rounded-[14px] pointer-events-none
+        {/* <div className="
+            absolute inset-0 rounded-md pointer-events-none
             ring-[0.5px] ring-white/[0.07]
             group-hover:ring-white/13 transition-all duration-300
-        " />
+        " /> */}
     </motion.div>
   );
 }
-
-interface PortalCardProps extends Omit<CardProps, "motionProps"> {
-  hover: { index: number; rect: DOMRect; origin: "left" | "right" | "center" };
-  getPortalStyle: (rect: DOMRect, origin: "left" | "right" | "center") => React.CSSProperties;
-}
-
-export function PortalMovieCard({
-  hover,
-  getPortalStyle,
-  ...cardProps
-}: PortalCardProps) {
-  return (
-    <AnimatePresence>
-      <MovieCard
-        {...cardProps}
-        portalStyle={getPortalStyle(hover.rect, hover.origin)}
-        motionProps={{
-          key: hover.index,
-          initial: { scale: 1, opacity: 0 },
-          animate: { scale: 1.08, opacity: 1 },   // reduced from 1.22 — card is already expanded
-          exit:    { scale: 1, opacity: 0 },
-          transition: { type: "spring", stiffness: 140, damping: 20, mass: 1.2 },
-        }}
-      />
-    </AnimatePresence>
-  );
-}
-

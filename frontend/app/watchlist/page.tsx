@@ -1,42 +1,73 @@
 "use client";
 
+import { InfiniteScroll } from "@/components/ui/infinite-scroll";
 import { Movie, MovieCard, normaliseTMDB } from "@/components/watchlist/watchlist-card";
-/**
- * WatchlistPage
- *
- * Uses TMDB's /discover/movie as a stand-in for the real /api/movies.
- * Swap fetchMovies() → fetch('/api/movies?page='+page) when backend is ready.
- * normaliseTMDB maps every field to the canonical Movie type.
- */
-
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 
-// ─── Genre map (TMDB IDs → names) ───────────────────────────────────────────
 
 const GENRE_MAP: Record<number, string> = {
   28: "Action", 12: "Adventure", 16: "Animation", 35: "Comedy",
-  80: "Crime", 99: "Documentary", 18: "Drama", 10751: "Family",
-  14: "Fantasy", 36: "History", 27: "Horror", 10402: "Music",
-  9648: "Mystery", 10749: "Romance", 878: "Sci-Fi", 10770: "TV Movie",
-  53: "Thriller", 10752: "War", 37: "Western",
+  80: "Crime", 10751: "Family",
+  14: "Fantasy", 36: "History", 27: "Horror",
+  9648: "Mystery", 878: "Sci-Fi", 10752: "War", 37: "Western",
 };
-
-// ─── TMDB fetch (replace body with /api/movies for production) ───────────────
 
 async function fetchMovies(page: number): Promise<Movie[]> {
   const url =
-  `https://api.themoviedb.org/3/discover/movie` +
-  `?api_key=${process.env.NEXT_PUBLIC_TMDB_KEY}` +
-  `&language=en-US&page=${page}` +
-  `&sort_by=popularity.desc&include_adult=false&vote_count.gte=100`;
+    `https://api.themoviedb.org/3/discover/movie` +
+    `?api_key=${process.env.NEXT_PUBLIC_TMDB_KEY}` +
+    `&language=en-US` +
+    `&page=${page}` +
+    `&sort_by=popularity.desc` +
+    `&include_adult=false` +
+    `&include_video=false` +
+    `&vote_count.gte=200` +
+    `&vote_average.gte=6` +
+    `&without_genres=27,10752,99,18,53` +
+    `&with_original_language=en`;
 
-  const data = await fetch(url).then((r) => r.json());
+  const data = await fetch(url, {
+    next: { revalidate: 3600 },
+  }).then((r) => r.json());
+
   console.log("Fetched movies page", page, data.results);
 
-  return (data.results ?? []).map((r: any) => normaliseTMDB(r, GENRE_MAP));
+  return (data.results ?? [])
+    .filter(
+      (movie: any) =>
+        movie.poster_path &&
+        movie.backdrop_path &&
+        movie.overview &&
+        movie.title &&
+
+        // basic bad-word filtering
+        !containsBadWords(movie.title) &&
+        !containsBadWords(movie.overview)
+    )
+    .map((r: any) => normaliseTMDB(r, GENRE_MAP));
 }
 
-// ─── Date grouping ───────────────────────────────────────────────────────────
+const blockedWords = [
+  "sex",
+  "porn",
+  "nude",
+  "nudity",
+  "rape",
+  "xxx",
+  "erotic",
+  "fetish",
+  "kill",
+  "bloody",
+  "slaughter",
+  "gore",
+  "violence",
+];
+
+function containsBadWords(text: string = "") {
+  const lower = text.toLowerCase();
+
+  return blockedWords.some((word) => lower.includes(word));
+}
 
 function groupLabel(iso: string): string {
   const diff = Math.floor(
@@ -49,18 +80,17 @@ function groupLabel(iso: string): string {
   return "Earlier";
 }
 
-// ─── Page ────────────────────────────────────────────────────────────────────
-
 export default function WatchlistPage() {
   const [movies,  setMovies]  = useState<Movie[]>([]);
   const [page,    setPage]    = useState(1);
   const [loading, setLoading] = useState(false);
-  const [done,    setDone]    = useState(false);
-  const loaderRef = useRef<HTMLDivElement>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  
+  const [hasMore,    setHasMore]    = useState(false);
 
-  // Saved state — keyed by movie id
   const [saved, setSaved] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
+
     try {
       return new Set(JSON.parse(localStorage.getItem("watchlist") ?? "[]"));
     } catch {
@@ -83,41 +113,40 @@ export default function WatchlistPage() {
     [movies, saved],
   );
 
-  // Load next page
-  const load = useCallback(async () => {
-    if (loading || done) return;
-    setLoading(true);
+  const loadMore = useCallback(async () => {
+    if (loading || loadingMore || hasMore) return;
+
+    // first page loader
+    if (page === 1) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
+
     try {
       const results = await fetchMovies(page);
-      if (results.length === 0) { setDone(true); return; }
-      // Attach a fake savedAt for grouping demo — remove when API provides it
+
+      if (results.length === 0) {
+        setHasMore(false);
+        return;
+      }
+
       const stamped = results.map((m, i) => ({
         ...m,
         _savedAt: new Date(
           Date.now() - (i % 4) * 86_400_000 * Math.random() * 3,
         ).toISOString(),
       }));
-      setMovies((p) => [...p, ...stamped as any]);
+
+      setMovies((prev) => [...prev, ...(stamped as any)]);
       setPage((p) => p + 1);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
-  }, [loading, done, page]);
+  }, [page, loading, loadingMore, hasMore]);
 
-  // Initial load
-  useEffect(() => { load(); }, []); // eslint-disable-line
-
-  // Infinite scroll via IntersectionObserver
-  useEffect(() => {
-    const el = loaderRef.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) load(); },
-      { rootMargin: "200px" },
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [load]);
+  useEffect(() => { loadMore(); }, []);
 
   // Group by date label
   const grouped = useMemo(() => {
@@ -164,18 +193,14 @@ export default function WatchlistPage() {
         </section>
       ))}
 
-      {/* Infinite scroll sentinel */}
-      <div ref={loaderRef} className="flex justify-center py-6">
-        {loading && (
-          <div className="flex items-center gap-2 text-white/20 text-sm">
-            <span className="w-4 h-4 border border-white/20 border-t-white/60 rounded-full animate-spin" />
-            Loading more…
-          </div>
-        )}
-        {done && movies.length > 0 && (
-          <p className="text-white/15 text-xs tracking-wide">You ve reached the end</p>
-        )}
-      </div>
+      {/* Infinite scroll sentinel */} 
+      <InfiniteScroll
+        onLoadMore={loadMore}
+        hasMore={hasMore}
+        loading={loading}
+        loadingMore={loadingMore}
+      />
+      
     </div>
   );
 }
