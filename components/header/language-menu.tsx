@@ -12,8 +12,8 @@ import {
 import { Language, languages } from "@/constants/languages"
  
 type Props = {
-  currentLang: Language
-  setCurrentLang: (lang: Language) => void
+  currentLang?: Language
+  setCurrentLang?: (lang: Language) => void
   onOpen?: () => void
 }
 
@@ -35,7 +35,7 @@ export default function LanguageMenu({
         >
         <Button className="flex justify-between h-8 px-2!">
             <Globe className="w-4 h-4 opacity-70 text-text-primary" />
-            <span className="text-sm font-medium">{currentLang}</span>
+            <span className="text-sm font-medium">{currentLang ? currentLang : "English"}</span>
             <ChevronDown className="w-4 h-4 opacity-60" />
         </Button>
 
@@ -54,7 +54,7 @@ export default function LanguageMenu({
             return (
               <DropdownMenuItem
                 key={lang}
-                onSelect={() => setCurrentLang(lang)}
+                onSelect={() => setCurrentLang?.(lang)}
                 className={`flex items-center justify-between px-1! py-1! text-sm cursor-pointer rounded-md bg-transparent hover:bg-text-primary/5! hover:text-text-primary! hover:font-bold transition-all duration-150 shadow-2xl border-white/30  text-white ${
                   isActive
                     ? "font-bold"
@@ -63,7 +63,7 @@ export default function LanguageMenu({
               >
                 <div className="flex items-center gap-2.5">
                   <Globe className={`w-3.5 h-3.5 ${isActive ? "opacity-100" : "opacity-50"}`} />
-                  <span>{lang}</span>
+                  <span>{lang ? lang : "English"}</span>
                 </div>
                 {isActive && (
                   <div className="w-1.5 h-1.5 rounded-full bg-text-primary" />

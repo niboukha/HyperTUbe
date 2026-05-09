@@ -79,7 +79,7 @@ export default function PrimeRow({ title, endpoint }: MovieRowProps) {
     return <CarouselSkeleton title={title} isprime={true} /> 
   
   return (
-    <section className="flex flex-col gap-1">
+    <section className="flex flex-col gap-2">
       {/* Header */}
       <HeaderTitle title={title} />
 

@@ -119,6 +119,7 @@ export default function HeroBackground() {
         }}
       >
         <HeroImage movie={currentMovie} />
+        <div className="absolute inset-0 bg-gradient-to-r from-background/40 via-transparent to-transparent" />
         <div className="absolute inset-0 bg-linear-to-t from-background via-transparent to-background/30" />
         <HeroContent movie={currentMovie} activeSlide={activeSlide} />
         <HeroDots

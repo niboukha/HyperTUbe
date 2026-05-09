@@ -69,6 +69,7 @@
   --font-alt: var(--font-inter);
   --font-poppins: var(--font-poppins);
   --font-anton: var(--font-anton);
+  --font-bebasNeue: var(--font-bebasNeue);
   --font-heading: var(--font-sans);
   --font-sans: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -119,6 +120,10 @@
 
 .font-alt {
   font-family: var(--font-inter);
+}
+
+.font-bebas {
+  font-family: var(--font-bebasNeue);
 }
 
 * {
@@ -223,3 +228,5 @@ body {
   }
 
 }
+
+@import "./base.css";

@@ -1,4 +1,4 @@
-import { Poppins, Inter, Anton } from "next/font/google";
+import { Poppins, Inter, Anton, Bebas_Neue } from "next/font/google"
 
 export const poppins = Poppins({
   subsets: ["latin"],
@@ -17,3 +17,9 @@ export const anton = Anton({
   weight: ["400"],
   variable: "--font-anton",
 });
+
+export const bebasNeue = Bebas_Neue({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-bebasNeue",
+})
