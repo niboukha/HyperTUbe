@@ -36,7 +36,7 @@ box-shadow: none;
 opacity: 1;
 }
 
-@keyframes kenburns {
+/* @keyframes kenburns {
   0%   { background-size: 100%; }
   50%  { background-size: 108%; }
   100% { background-size: 100%; }
@@ -47,13 +47,26 @@ opacity: 1;
 
   animation: kenburns 8s ease-in-out infinite;
   background-position: center;
+} */
+
+@keyframes kenburns {
+  0%   { background-size: 100% auto; }
+  50%  { background-size: 110% auto; }
+  100% { background-size: 100% auto; }
 }
 
-
-.item:nth-of-type(2) .content {
+.kenburns {
+  animation: kenburns 8s ease-in-out infinite;
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: 100% auto;
+  min-height: 100%;
+  min-width: 100%;
+}
+/* .item:nth-of-type(2) .content {
   display: block;
   animation: show 0.75s ease-in-out 0.3s forwards;
-}
+} */
 
 
 .nav {

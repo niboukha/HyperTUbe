@@ -7,19 +7,22 @@ import { Button } from "@/components/ui/button";
 import { ChevronRight } from 'lucide-react';
 import Logo from "@/components/ui/logo";
 import { ChevronLeft,X} from "lucide-react";
-import Footer from "@/components/Footer";
-import Overview from "@/components/ui/Overview";
 import LanguageMenu from "@/components/header/language-menu";
 import { itemVariants } from "@/lib/annimations/hero-variants";
+import { Clapperboard } from 'lucide-react';
 
+
+import { useMediaQuery } from "@uidotdev/usehooks";
 
 const API_KEY = "c20857d1130f4dd9b51b60a3f91b7b1a"
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 
 export default function Landing() {
+
+  const isMobile = useMediaQuery("(max-width: 768px)");
+
   const [movieDtails, setMovieDetails] = useState([]);
   const [movies, setMovies] = useState([]);
-  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     async function fetchTrendingMovies() {
@@ -56,12 +59,7 @@ export default function Landing() {
 
     fetchMovieDetails(movies[0].id);
   }, [movies]);
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
-  }, []);
+  
 
 
   const next = () => {
@@ -105,7 +103,7 @@ useEffect(() => {
         </div>
       </div>
       
-      <ul className=" width:100% h-screen border-4  ">
+      <ul className=" width:100%  h-screen  ">
         {movies.map((item,index) => {
         const isFullscreen = index === 0 || index === 1;
         const thumbIndex = index - 2;
@@ -114,50 +112,103 @@ useEffect(() => {
         const positionStyle = isFullscreen
           ? { left: 0, top: 0, width: '100%', height: '100%', borderRadius: 0, boxShadow: 'none' }
           : isMobile
-          ?{display:'none',}
+          ?{display:'none'}
           : { 
               left: `calc(52% + ${thumbIndex * 240}px)`, 
               opacity: isHidden ? 0 : 1 ,
               width: '220px', height: '340px'
             };
           return (
-              <motion.li
-                onMouseEnter={() => setIsPaused(true)}
-                onMouseLeave={() => setIsPaused(false)}
-                key={item?.id} 
-                className={`  bg-no-repeat bg-center bg-cover absolute flex   md:top-[50%]  
-                ${(!isFullscreen) ? '  rounded-md width:[200px] height:[300px] transition-all duration-300   cursor-pointer' : ( isFullscreen && !isMobile) ? "kenburns":"" }`}
-                style={{ backgroundImage: `url(https://image.tmdb.org/t/p/original${item.backdrop_path}) `  ,...positionStyle}}
-                initial={{ opacity: 0, y: -60 }}
-                animate={{ opacity: 1, y: 0 }}
+               <motion.li
+                  onMouseEnter={() => setIsPaused(true)}
+                  onMouseLeave={() => setIsPaused(false)}
+                  key={item?.id}
+                  className={`absolute flex md:top-[50%] overflow-hidden
+                    ${!isFullscreen ? 'rounded-md transition-all duration-300 cursor-pointer' : ''}`}
+                  style={{ ...positionStyle }}
+                  initial={{ opacity: 0, y: isFullscreen ?  0: -50}}
+                  animate={{ opacity: 1, y: 0 }}
+
+                    whileHover={
+                    !isFullscreen
+                      ? {
+                          scale: 1.08,
+                          y: -8,
+                          boxShadow: '0 0 25px 6px rgba(75, 62, 4, 0.6)',
+                          zIndex: 10,
+                        }
+                      : {}
+                  }
+                  transition={{ duration: 0.2 }}
+                >
+              {/* BG image — only this animates for Ken Burns */}
+
               
-                whileHover={
-                !isFullscreen
-                  ? {
-                      scale: 1.08,
-                      y: -8,
-                      boxShadow: '0 0 25px 6px rgba(246, 199, 0, 0.6)',
-                      zIndex: 10,
-                    }
-                  : {}
+
+                {
+                  item.backdrop_path ?
+                  (
+                    <motion.div
+                      className="absolute inset-0 bg-center bg-cover bg-no-repeat"
+                      style={{
+                        backgroundImage: `url(https://image.tmdb.org/t/p/original${item.backdrop_path})`,
+                      }}
+                      animate={
+                        isFullscreen && !isMobile
+                          ? { scale: [1, 1.05, 1] }
+                          : { scale: 1 }
+                      }
+                      transition={
+                        isFullscreen && !isMobile
+                          ? {
+                              scale: {
+                                duration: 6,
+                                ease: 'easeInOut',
+                                repeat: Infinity,
+                                repeatType: 'loop',
+                              },
+                            }
+                          : {
+                           
+                          }
+                      }
+                    />
+
+                  ):
+                  (
+                  <div className="w-full h-full flex items-center justify-center bg-background object-cover transition-transform duration-500 group-hover:scale-105">
+                    {/* <span className="text-white/15 text-6xl h-50 w-50">🎬</span>
+                     */}
+                    {/* <h1>heelo</h1> */}
+                        <Clapperboard className={ `  ${isFullscreen? "md:!h-50 md:!w-50":"h-10 w-10 text-white/50" }`}    strokeWidth={1} />
+
+                  </div>
+                  )
                 }
-                transition={{ duration: 0.2 }}
-                >  
-                <div
-                className={`absolute inset-0 h-full bg-gradient-to-r from-[#0E0E10]/88 via-[#000000]/50 to-transparent ${
-                  isFullscreen ? "block" : "hidden"
-                }`}
-              />
-                 {isFullscreen && (
+
+                  <div
+                    className={`absolute inset-0 h-full bg-gradient-to-r from-[#0E0E10]/88 via-[#000000]/50 to-transparent ${
+                      isFullscreen ? "block" : "hidden"
+                    }`}
+                  />
+                  <div
+                    className={`absolute inset-0 h-full bg-gradient-to-r from-[#0E0E10]/88 via-[#000000]/50 to-transparent ${
+                      isFullscreen ? "block" : "hidden"
+                    }`}
+                  />
+    
+             
+                 {isFullscreen && 
                   <motion.div 
                     initial={{ opacity: 0, y: -50 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6 }}
-                    className=" absolute top-3/5 md:top-[55%]  left-4 md:left-12 
-                            -translate-y-1/2  w-[min(85vw,500px)] md:w-[min(30vw,500px)]
-                            text-white font-sans text-[0.85rem] font-normal
-                            drop-shadow-[0_3px_8px_rgba(0,0,0,0.5)]  ">
-                    <h2 className="title text-2xl lg:text-6xl font-meduim text-white uppercase leading-none tracking-tight  max-w-[100%] !font-[anton]">{item.title}</h2>
+                    className=" absolute top-[70%] md:top-[55%]  left-4 md:left-12 
+                    -translate-y-1/2  w-[min(85vw,500px)] md:w-[min(30vw,500px)]
+                    text-white font-sans text-[0.85rem] font-normal
+                    drop-shadow-[0_3px_8px_rgba(0,0,0,0.5)]  "
+                  >
+                    <h2 className="title text-4xl  md:text-5xl lg:text-6xl font-meduim text-white uppercase leading-none tracking-tight  max-w-[100%] !font-[anton]">{item.title}</h2>
                     
                     <div className="flex flex-wrap gap-1 lg:gap-3  " >
                       {
@@ -173,7 +224,7 @@ useEffect(() => {
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2 lg:gap-4 mb-4 flex-wrap">
+                    <div className="flex items-center gap-2 lg:gap-4 !mb-4 flex-wrap ">
                       <span className=" bg-[#F5C518] text-black font-black text-xs !px-1 py-4 rounded ">IMDb</span>
                       <div className="flex items-center gap-1 ">
                         <span className="text-[#F5C518] text-base">★</span>
@@ -186,20 +237,28 @@ useEffect(() => {
                       <div className="flex items-center gap-1" >{formatRuntime(movieDtails.runtime)}</div>
                     </div>   
 
-                    {/* <div className=" !py-2 md:!py-5  text-sm md:!text-sm  h-fit">
-                      <Overview  text={item.overview}/>
-                    </div> */}
+                   
+                    <div className="mb-4! ">
+                      <motion.p 
+                         style={{
+                            
+                            lineHeight: "1.625",
+                            maxHeight: isMobile ? "calc(1.625em * 3)" : "calc(1.625em * 4)",
+                            overflow: "hidden",
+                          }}
 
-                    <motion.p variants={itemVariants} className="text-text-muted text-sm! leading-relaxed md:text-base max-w-140 mb-2! line-clamp-4 py-2! md:py-5!">
-                      {item.overview}
-                    </motion.p>
+                        variants={itemVariants} className=" text-text-muted text-sm! leading-relaxed md:text-base max-w-140 ">
+                        {item.overview}
+                      </motion.p>
 
-                    <div className="!py-2 md:py-0">
-                      <Button className="!bg-[#FFFFFF]/5 border-[#FFFFFF]/20 !rounded-md !p-6 text-xl md:text-xl" >Get Started <ChevronRight color="#F6C700"  strokeWidth={5}  /></Button>
+                    </div>
+
+                    <div className="">
+                      <Button className="!bg-[#FFFFFF]/5 border-[#FFFFFF]/20 !rounded-md !p-6 text-xl md:text-xl hover:scale-105" >Get Started <ChevronRight color="#F6C700"  strokeWidth={5}  /></Button>
                     </div>
 
                   </motion.div> 
-              )}
+              }
               </motion.li>
           )})}
       </ul>

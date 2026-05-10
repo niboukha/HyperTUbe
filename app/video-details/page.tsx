@@ -24,6 +24,7 @@ import HeaderTitle from "@/components/ui/header-title";
 import PrimeRow from "@/components/sections/prime-row";
 import { AvailabilityBadge } from "@/components/ui/AvailabilityBadge";
 import { itemVariants } from "@/components/cards/hh";
+import Overview from "@/components/ui/Overview";
 
 const INITIAL_REVIEWS: Review[] = [
   {
@@ -166,7 +167,7 @@ export default function VedioDetails()
       movieTrailers()
 
   },[trailerOpen])
-    
+    console.log("==>", movieDetails.overview)
 
     return (
       <main>
@@ -182,15 +183,14 @@ export default function VedioDetails()
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5 }}
-            className=" z-40 w-[min(85vw,500px)] md:w-[min(40vw,700px)] absolute inset-0 top-[30%] md:top-[41%]  left-4 md:left-16"
+            className=" z-40 w-[min(85vw,500px)] md:w-[min(40vw,700px)] absolute inset-0 top-[40%] sm:top-[50%] md:top-[41%]  left-4 md:left-16"
           >
             <motion.h1 
 
               initial={{ opacity: 0, x: -40 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6, delay: 0.1, ease: "easeOut" }}
-              className=" font-[anton] text-[#FFFFFF]  text-2xl
-              lg:text-6xl font-meduim text-white uppercase 
+              className=" font-[anton] text-[#FFFFFF]  text-4xl  md:text-5xl lg:text-6xl font-meduim text-white uppercase 
               leading-none tracking-wide max-w-[100%] !font-[anton]"
             >
               {movieDetails.original_title}
@@ -231,16 +231,7 @@ export default function VedioDetails()
               }
             </motion.div>
 
-            <motion.p 
-              initial={{ opacity: 0, x: -30 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.25, ease: "easeOut" }}
-              className="text-text-muted text-sm! max-w-140 mb-2! line-clamp-4"
-            >
-              {/* remove line-clamp for full description */}
-              {movieDetails.overview}
-            </motion.p>
-
+            <Overview text={movieDetails.overview}/>
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}

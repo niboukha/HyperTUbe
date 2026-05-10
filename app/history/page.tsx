@@ -1,6 +1,6 @@
 import HistoryCard from "@/components/history/HistoryCard";
 import HeaderTitle from "@/components/ui/header-title";
-
+ 
 const historyData = [
   {
     id: 1,
@@ -52,21 +52,18 @@ const historyData = [
 export default function History()
 {
   return(
-      <div className="relative !mt-15 md:!mb-15   bg-[#0E0E10] min-h-screen">
-          <div className=" absolute  flex flex-col    items-center  inset-0 top-[2%] !px-4 md:!px-16 !space-y-4 ">
-            {/* <div>
-              
-            </div> */}
-              <div className="w-6xl  flex justify-start  items-center gap-3 flex ">
+      <div className="relative flex flex-col  items-center !px-4 lg:!px-16 !space-y-4 !mt-15 !mb-15   bg-[#0E0E10] min-h-screen">
+          
+              <div className=" max-w-6xl w-full  mx-auto !px-4 flex justify-start  items-center gap-3 flex ">
                   <HeaderTitle title="Today"/>
               </div>
 
-              <div className="flex flex-col  justify-center  items-center gap-2 px-4 md:px-12 py-6 ">
+              <div className=" flex flex-col  justify-center   items-center max-w-6xl w-full  mx-auto  gap-2 !px-4  py-6   ">
                   {historyData.map((item) => (
                       <HistoryCard key={item.id} {...item}/>
                   ))}
               </div>
-          </div>
+          
       </div>
   )
 }

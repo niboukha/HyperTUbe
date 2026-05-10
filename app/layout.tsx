@@ -30,7 +30,7 @@ export default function RootLayout({
     >
         <body className="min-h-screen bg-background">
         {
-            // <TopBar />
+            <TopBar />
           // pathname !== '/landing' ? <TopBar /> :null
         }
         <TooltipProvider>{children}</TooltipProvider>
