@@ -12,14 +12,13 @@ import { itemVariants } from "@/lib/annimations/hero-variants";
 import { Clapperboard } from 'lucide-react';
 
 
-import { useMediaQuery } from "@uidotdev/usehooks";
-
+import { useIsMobile } from "@/hooks/useMobile";
 const API_KEY = "c20857d1130f4dd9b51b60a3f91b7b1a"
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 
 export default function Landing() {
 
-  const isMobile = useMediaQuery("(max-width: 768px)");
+  const isMobile = useIsMobile();
 
   const [movieDtails, setMovieDetails] = useState([]);
   const [movies, setMovies] = useState([]);
