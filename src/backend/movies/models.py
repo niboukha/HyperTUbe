@@ -17,14 +17,14 @@ class Movie(models.Model):
     status = models.CharField(
     max_length=20,
         choices=[
-            ('pending',    'Pending'),       # Not downloaded yet
+            ('idle',    'Idle'),       # Not downloaded yet
             ('downloading','Downloading'),   # Download in progress
-            ('converting', 'Converting'),    # MKV → MP4 conversion in progress
+            ('processing', 'Processing'),    # MKV → MP4 conversion in progress
             # ('streaming',  'Streaming'),     # Being streamed in real-time (chunks)
             ('ready',      'Ready'),         # Fully downloaded + converted, ready to serve
             ('error',      'Error'),         # Something went wrong
         ],
-        default='pending'
+        default='idle'
     )
 
     created_at = models.DateTimeField(auto_now_add=True)

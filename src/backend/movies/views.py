@@ -6,7 +6,7 @@ from django.http import StreamingHttpResponse, FileResponse
 from django.utils import timezone
 from .models import Movie
 from . import hls
-from .tasks import download_and_segment
+from .tasks import _start_ffmpeg, download_and_segment
 import os
 
 
@@ -48,40 +48,40 @@ class MovieStreamView(APIView):
                 # CASE 1a: Already MP4 → generate HLS if not exists, serve
                 if movie_path.endswith('.mp4'):
                     return Response({
-                        'movie_path': movie_path,
+                        'movie_path': movie.hls_path,
                         'status': 'ready',
                     }, status=200)
-                else :
-                    hls_path = hls.generate_hls_from_file(movie_id, movie_path)
-                    movie.hls_path = hls_path
-                    movie.save(update_fields=['hls_path'])
+                elif os.path.exists(movie.hls_path):
                     return Response({
-                        'movie_path': hls_path,
-                        'status': 'ready',
+                        'movie_path': movie.hls_path,
+                        'status': movie.status,
+                    }, status=200)
+                else:
+                    # CASE 1b: MKV exists → convert to MP4 (Celery) + serve when ready
+                    # movie.status = 'processing'
+                    # movie.save()
+                    # download_and_segment.delay(movie_id)
+                    _start_ffmpeg(movie.movie_path, '/media/hls/{movie_id}', movie_id)
+                    return Response({
+                        'movie_path': movie.hls_path,
+                        'status': movie.status,
                     }, status=200)
 
-            elif movie_path and os.path.exists(movie_path) and movie.status == 'converting':
-                return Response({
-                    'movie_path': hls_path,
-                    'status': movie.status,
-                }, status=200)
-            
             else:
-                os.makedirs(os.path.join('/media/movies/', str(movie_id)), exist_ok=True)
+                # os.makedirs(os.path.join('/media/movies/', str(movie_id)), exist_ok=True)
                 download_and_segment.delay(movie_id)
-                print(f"Started download task for movie {movie_id}, HLS path: {hls_path}")
+                # print(f"Started download task for movie {movie_id}, HLS path: {hls_path}")
                 return Response({
-                    # 'movie_path': hls_path,
-                    'movie_path': movie.hls_path,  # Return movie dir for client to poll for playlist
+                    'movie_path': movie.hls_path,
                     'status': movie.status,
                 }, status=200)
 
         except Movie.DoesNotExist:
             print(f"==============> Movie with id {movie_id} not found")
-            return Response({'error': 'Movie not found'}, status=404)
+            return Response({'status': 'error', 'message': 'Movie not found'}, status=404)
         except Exception as e:
             print(f"==============>Error in MovieStreamView: {e}")
-            return Response({'error': 'An error occurred'}, status=500)
+            return Response({'status': 'error', 'message': 'An error occurred'}, status=500)
             
 
     # def serve_file(self, file_path, content_type):

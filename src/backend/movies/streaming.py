@@ -1,50 +1,160 @@
-import os
 import subprocess
+import json
 
 
-def file_iterator(filepath, chunk_size=8192, start=0, end=None):
-    """Read file in chunks for range requests"""
-    try:
-        file_size = os.path.getsize(filepath)
-    except OSError:
-        return
+def get_media_codecs(video_file):
+    """
+    Detect video/audio codecs using ffprobe
+    """
 
-    if end is None:
-        end = file_size - 1
+    cmd = [
+        'ffprobe',
+        '-v', 'quiet',
 
-    total_bytes = end - start + 1
-    bytes_read = 0
+        # output as JSON
+        '-print_format', 'json',
 
-    with open(filepath, 'rb') as f:
-        f.seek(start)
-        while bytes_read < total_bytes:
-            chunk_bytes = min(chunk_size, total_bytes - bytes_read)
-            chunk = f.read(chunk_bytes)
-            if not chunk:
-                break
-            bytes_read += len(chunk)
-            yield chunk
+        # show streams
+        '-show_streams',
 
+        video_file
+    ]
 
-def get_range_from_request(request, file_size):
-    """Parse HTTP Range header"""
-    range_header = request.META.get('HTTP_RANGE', '').strip()
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True
+    )
 
-    if not range_header or not range_header.startswith('bytes='):
-        return None, None
+    data = json.loads(result.stdout)
 
-    try:
-        ranges = range_header.split('=')[1]
-        start_str, end_str = ranges.split('-')
+    video_codec = None
+    audio_codec = None
 
-        start = int(start_str) if start_str else 0
-        end = int(end_str) if end_str else file_size - 1
+    for stream in data.get('streams', []):
 
-        if start < 0 or end < start or start >= file_size:
-            return None, None
+        # video stream
+        if stream.get('codec_type') == 'video':
+            video_codec = stream.get('codec_name')
 
-        end = min(end, file_size - 1)
-        return start, end
+        # audio stream
+        elif stream.get('codec_type') == 'audio':
+            audio_codec = stream.get('codec_name')
 
-    except (ValueError, IndexError):
-        return None, None
+    return {
+        'video': video_codec,
+        'audio': audio_codec
+    }
+
+def build_ffmpeg_hls_command(video_file, hls_dir, hls_output):
+    
+    codecs = get_media_codecs(video_file)
+
+    # =====================================================
+    # Shared HLS options
+    # =====================================================
+    ffmpeg_cmd = [
+        'ffmpeg',
+        '-y',
+
+        # better timestamps for torrents / incomplete files
+        '-fflags', '+genpts+igndts',
+
+        # IMPORTANT:
+        # allows ffmpeg to continue reading growing torrent file
+        '-reconnect', '1',
+        '-reconnect_streamed', '1',
+        '-reconnect_delay_max', '2',
+
+        '-i', video_file,
+    ]
+
+    # =====================================================
+    # Browser-compatible codecs
+    # =====================================================
+    video_codec = codecs.get('video', '').lower()
+    audio_codec = codecs.get('audio', '').lower()
+
+    is_compatible = (
+        video_codec in ['h264', 'avc1']
+        and audio_codec in ['aac', 'mp3']
+    )
+
+    if is_compatible:
+
+        print('✅ Compatible codecs → stream copy')
+
+        # NO transcoding
+        ffmpeg_cmd += [
+            '-c:v', 'copy',
+            '-c:a', 'copy',
+        ]
+
+    else:
+
+        print('⚠️ Unsupported codecs → transcoding')
+
+        ffmpeg_cmd += [
+
+            # video
+            '-c:v', 'libx264',
+
+            # faster encoding for live streaming
+            '-preset', 'veryfast',
+
+            # IMPORTANT:
+            # reduces latency
+            '-tune', 'zerolatency',
+
+            # web compatibility
+            '-pix_fmt', 'yuv420p',
+
+            # audio
+            '-c:a', 'aac',
+            '-b:a', '128k',
+            '-ac', '2',
+
+            # faster start
+            '-movflags', '+faststart',
+        ]
+
+    # =====================================================
+    # HLS options
+    # =====================================================
+    ffmpeg_cmd += [
+
+        '-f', 'hls',
+
+        # better compromise
+        '-hls_time', '6',
+
+        # VERY IMPORTANT:
+        # keeps playlist smaller
+        '-hls_list_size', '15',
+
+        # LIVE/EVENT streaming
+        '-hls_playlist_type', 'event',
+
+        # segment naming
+        '-hls_segment_filename',
+        f'{hls_dir}/output_%03d.ts',
+
+        # IMPORTANT FLAGS
+        '-hls_flags',
+        'append_list+independent_segments',
+
+        # avoid cache issues
+        '-hls_allow_cache', '0',
+
+        hls_output
+    ]
+
+    print('FFmpeg command:')
+    print(' '.join(ffmpeg_cmd))
+
+    # process = subprocess.Popen(
+    #     ffmpeg_cmd,
+    #     stdout=subprocess.DEVNULL,
+    #     stderr=subprocess.STDOUT
+    # )
+    return ffmpeg_cmd

@@ -10,6 +10,8 @@ ps:
 	docker compose -f compose.yml ps
 clean:
 	docker compose -f compose.yml down -v --rmi all --remove-orphans
+stop:
+	docker compose -f compose.yml stop
 fclean: clean
 	docker system prune -a --volumes -f
 re:

@@ -1,107 +1,185 @@
-const video = document.getElementById("video");
-const statusEl = document.getElementById("status");
-const movieId = 1;
-let hls = null;
-let ws = null;
-let seeking = false;
+const movieId = 10;
+const video = document.getElementById('video');
 
-video.addEventListener("play", () => {
-    statusEl.textContent = "Connecting...";
-    connectWS(movieId);
-}, { once: true });
+video.controls = true;
 
-function connectWS(movieId) {
-    if (ws) ws.close();
+let currentHls = null;
+let streamReady = false;
 
-    ws = new WebSocket(`ws://localhost:8000/ws/movies/${movieId}/status/`);
-
-    ws.onopen = () => {
-        console.log('[WS] Connected ✅');
-        statusEl.textContent = "Starting...";
-        ws.send(JSON.stringify({ action: 'watch' }));
-    };
-
-    ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        console.log('[WS] Received:', data);
-
-        if (data.status === 'ready') {
-            statusEl.textContent = "Playing";
-            if (!seeking) {
-                loadHLS(`http://localhost/media/hls/${movieId}/output.m3u8`);
-            } else {
-                // ✅ Reload HLS from new position
-                reloadHLS(`http://localhost/media/hls/${movieId}/output.m3u8`);
-                seeking = false;
-            }
-
-        } else if (data.status === 'processing') {
-            statusEl.textContent = "Buffering...";
-
-        } else if (data.status === 'downloading') {
-            statusEl.textContent = "Downloading...";
-
-        } else if (data.status === 'error') {
-            statusEl.textContent = "Error";
-            ws.close(1000, 'error');
-        }
-    };
-
-    ws.onerror = (err) => {
-        console.error('[WS] Error:', err);
-        statusEl.textContent = "Connection error";
-    };
-
-    ws.onclose = (event) => {
-        console.log('[WS] Closed:', event.code);
-    };
+// ======================================================
+// Sleep helper
+// ======================================================
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// ✅ When user seeks — tell backend to re-segment
-video.addEventListener("seeked", () => {
-    const position = Math.floor(video.currentTime);
-    console.log(`[Seek] User seeked to ${position}s`);
-    seeking = true;
+// ======================================================
+// Wait until backend says stream/file is ready
+// ======================================================
+async function waitForStream(movieId) {
+  while (!streamReady) {
+    try {
+      console.log('Checking stream status...');
 
-    if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-            action: 'seek',
-            position: position
-        }));
+      const res = await fetch(
+        `http://localhost:8000/api/movies/${movieId}/stream/`
+      );
+
+      if (!res.ok) {
+        console.error('Backend error:', res.status);
+        await sleep(2000);
+        continue;
+      }
+
+      const data = await res.json();
+      console.log('Stream status:', data);
+
+      if (data.status === 'ready' && data.movie_path) {
+        streamReady = true;
+        return data.movie_path;
+      }
+
+    } catch (err) {
+      console.error('Fetch error:', err);
     }
-});
 
-function loadHLS(url) {
-    if (hls) hls.destroy();
+    await sleep(2000);
+  }
+}
 
-    hls = new Hls({
-        maxBufferLength: 30,
-        backBufferLength: 10,
-        liveSyncDurationCount: 3,
+// ======================================================
+// Clean HLS instance safely
+// ======================================================
+function destroyHls() {
+  if (currentHls) {
+    currentHls.destroy();
+    currentHls = null;
+  }
+}
+
+// ======================================================
+// Play MP4
+// ======================================================
+function playMp4(url) {
+  console.log('Playing MP4:', url);
+
+  destroyHls();
+
+  if (video.src !== url) {
+    video.src = url;
+  }
+
+  video.load();
+}
+
+// ======================================================
+// Play HLS
+// ======================================================
+function playHls(url) {
+  console.log('Playing HLS:', url);
+
+  destroyHls();
+
+  // ==================================================
+  // Safari native HLS
+  // ==================================================
+  if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    video.src = url;
+    video.load();
+    return;
+  }
+
+  // ==================================================
+  // hls.js
+  // ==================================================
+  if (window.Hls && Hls.isSupported()) {
+
+    currentHls = new Hls({
+      enableWorker: true,
+      lowLatencyMode: false,
+      backBufferLength: 120,
+      maxBufferLength: 60,
     });
 
-    hls.loadSource(url);
-    hls.attachMedia(video);
+    currentHls.loadSource(url);
+    currentHls.attachMedia(video);
 
-    hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        console.log('[HLS] Playing ✅');
-        statusEl.textContent = "Playing";
-        video.play();
+    currentHls.on(Hls.Events.MANIFEST_PARSED, () => {
+      console.log('HLS ready');
+
+      // IMPORTANT:
+      // DO NOT autoplay → avoids DOMException
     });
 
-    hls.on(Hls.Events.ERROR, (_, data) => {
-        console.error('[HLS] Error:', data);
-        if (data.fatal) {
-            statusEl.textContent = "Stream error";
+    currentHls.on(Hls.Events.ERROR, (event, data) => {
+      console.error('HLS error:', data);
+
+      if (data.fatal) {
+        switch (data.type) {
+
+          case Hls.ErrorTypes.NETWORK_ERROR:
+            console.log('Network error → retry');
+            currentHls.startLoad();
+            break;
+
+          case Hls.ErrorTypes.MEDIA_ERROR:
+            console.log('Media error → recover');
+            currentHls.recoverMediaError();
+            break;
+
+          default:
+            currentHls.destroy();
+            break;
         }
+      }
     });
+
+    return;
+  }
+
+  console.error('HLS not supported');
 }
 
-function reloadHLS(url) {
-    // ✅ Destroy old HLS and load from new position
-    if (hls) {
-        hls.destroy();
-        hls = null;
+// ======================================================
+// Main flow
+// ======================================================
+async function start() {
+
+  try {
+
+    const moviePath = await waitForStream(movieId);
+
+    console.log('READY:', moviePath);
+
+    const fullUrl = `http://localhost:8000${moviePath}`;
+
+    // ==================================================
+    // MP4
+    // ==================================================
+    if (moviePath.endsWith('.mp4')) {
+      playMp4(fullUrl);
+      return;
     }
-    loadHLS(url);
+
+    // ==================================================
+    // HLS
+    // ==================================================
+    if (
+      moviePath.endsWith('.m3u8') ||
+      moviePath.endsWith('.u3m8')
+    ) {
+      playHls(fullUrl);
+      return;
+    }
+
+    console.error('Unsupported format:', moviePath);
+
+  } catch (err) {
+    console.error('Start error:', err);
+  }
 }
+
+// ======================================================
+// START
+// ======================================================
+start();
