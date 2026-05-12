@@ -5,7 +5,6 @@ from django.shortcuts import get_object_or_404
 from django.http import StreamingHttpResponse, FileResponse
 from django.utils import timezone
 from .models import Movie
-from . import hls
 from .tasks import _start_ffmpeg, download_and_segment
 import os
 
@@ -61,6 +60,7 @@ class MovieStreamView(APIView):
                     # movie.status = 'processing'
                     # movie.save()
                     # download_and_segment.delay(movie_id)
+                    print(f"------------------>Started processing task for movie {movie_id}, HLS path: {movie.hls_path}")
                     _start_ffmpeg(movie.movie_path, '/media/hls/{movie_id}', movie_id)
                     return Response({
                         'movie_path': movie.hls_path,

@@ -51,17 +51,18 @@ INSTALLED_APPS = [
     'daphne', 
     # 'djangorestframework',
 ]
+
 ASGI_APPLICATION = "backend.asgi.application"
 
 
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [("redis", 6379)],
-        },
-    },
-}
+# CHANNEL_LAYERS = {
+#     "default": {
+#         "BACKEND": "channels_redis.core.RedisChannelLayer",
+#         "CONFIG": {
+#             "hosts": [("redis", 6379)],
+#         },
+#     },
+# }
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",  # MUST be first
     'django.middleware.security.SecurityMiddleware',
