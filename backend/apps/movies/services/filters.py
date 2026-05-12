@@ -1,69 +1,52 @@
 # movies/services/filters.py
-import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from ..adapters import tmdb, archive
 
-executor = ThreadPoolExecutor(max_workers=4)
-
 def library_search(
-    query: str = "",
-    genre_id: int = None,
-    year: str = None,
-    sort_by: str = "popularity",   # popularity | rating | year | title
-    source: str = "all",           # all | tmdb | archive
-    page: int = 1,
-    page_size: int = 20,
+    query: str      = "",
+    genre_ids: list = None,
+    year_from: int  = None,
+    year_to: int    = None,
+    min_rating: float = 0,
+    sort_by: str    = "popularity",
+    page: int       = 1,
+    page_size: int  = 50,
 ) -> dict:
-    """
-    Fetches from both APIs in parallel, merges, sorts, paginates.
-    Powers your infinite-scroll library page.
-    """
-    tmdb_results    = []
-    archive_results = []
-
-    # Parallel fetch using threads (Django sync-friendly)
     with ThreadPoolExecutor(max_workers=2) as pool:
-        futures = {}
-        if source in ("all", "tmdb"):
-            futures["tmdb"] = pool.submit(
-                tmdb.search,
-                query=query, genre_id=genre_id,
-                year=year, sort_by=sort_by, page=page
-            )
-        if source in ("all", "archive"):
-            futures["archive"] = pool.submit(
-                archive.fetch_movies,
-                search=query, genre_id=genre_id,
-                year=year, sort_by=_map_sort(sort_by),
-                page=page, rows=page_size
-            )
+        tmdb_future    = pool.submit(tmdb.search,
+                             query=query, genre_ids=genre_ids,
+                             year_from=year_from, year_to=year_to,
+                             sort_by=sort_by, page=page)
+        archive_future = pool.submit(archive.fetch_movies,
+                             search=query, genre_ids=genre_ids,
+                             year=year_from,   # archive only supports single year
+                             page=page, rows=page_size)
+        
+        tmdb_data    = tmdb_future.result()     # now returns (results, total_pages)
+        archive_data = archive_future.result()
 
-        if "tmdb"    in futures: tmdb_results    = futures["tmdb"].result()
-        if "archive" in futures: archive_results = futures["archive"].result()
+    tmdb_results,    tmdb_total_pages    = tmdb_data
+    archive_results, archive_total_pages = archive_data
 
-    merged = _merge_and_sort(tmdb_results, archive_results, sort_by)
+    merged = tmdb_results + archive_results
 
-    # Pagination on merged result
-    start  = (page - 1) * page_size   # if doing client-side page logic
+    # Apply min_rating filter (archive has no rating so it always passes)
+    if min_rating > 0:
+        merged = [m for m in merged if float(m.get("rating")) >= min_rating]
+
+    # Sort
+    if sort_by in ("vote_average", "rating"):
+        merged.sort(key=lambda m: float(m.get("rating") or 0), reverse=True)
+    elif sort_by == "primary_release_date_desc":
+        merged.sort(key=lambda m: m.get("year") or "0", reverse=True)
+    elif sort_by == "primary_release_date_asc":
+        merged.sort(key=lambda m: m.get("year") or "9999")
+
+    total_pages = max(tmdb_total_pages, archive_total_pages, 1)
+
     return {
-        "results":   merged,           # already page-sized from APIs
-        "page":      page,
-        "has_more":  len(merged) >= page_size,
+        "results":    merged,
+        "page":       page,
+        "totalPages": total_pages,
+        "has_more":   page < total_pages,
     }
-
-
-def _map_sort(sort_by: str) -> str:
-    return {"rating": "year", "year": "year",
-            "title": "title"}.get(sort_by, "downloads")
-
-
-def _merge_and_sort(tmdb_r, archive_r, sort_by):
-    merged = tmdb_r + archive_r
-    if sort_by == "rating":
-        merged.sort(key=lambda m: m["rating"], reverse=True)
-    elif sort_by == "year":
-        merged.sort(key=lambda m: m["year"] or "0", reverse=True)
-    elif sort_by == "title":
-        merged.sort(key=lambda m: m["title"].lower())
-    # "popularity" → keep API ordering (already sorted by popularity)
-    return merged

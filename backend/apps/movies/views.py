@@ -1,77 +1,114 @@
 # movies/views.py
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from .services.merger  import get_home_section
 from .services.filters import library_search
 
+SORT_MAP = {
+    "popular": "popularity",
+    "rating":  "vote_average",
+    "newest":  "primary_release_date_desc",
+    "oldest":  "primary_release_date_asc",
+}
+
+GENRE_NAME_TO_ID = {
+    "Action": 28,
+    "Adventure": 12,
+    "Animation": 16,
+    "Comedy": 35,
+    "Crime": 80,
+    "Documentary": 99,
+    "Drama": 18,
+    "Family": 10751,
+    "Fantasy": 14,
+    "History": 36,
+    "Horror": 27,
+    "Music": 10402,
+    "Mystery": 9648,
+    "Romance": 10749,
+    "Science Fiction": 878,
+    "TV Movie": 10770,
+    "Thriller": 53,
+    "War": 10752,
+    "Western": 37,
+}
+
 @api_view(["GET"])
 @permission_classes([AllowAny])
-def movies_home(request):
+def movies_list(request):
     """
-    /api/movies?type=trending&genre=28
-    /api/movies?type=top
-    /api/movies?genre=28
+    Handles both home sections and library search from one endpoint.
+
+    Home sections:
+      /movies?type=trending
+      /movies?type=top
+      /movies?genre=28
+
+    Library (from useLibraryMovies hook):
+      /movies?q=batman
+      /movies?genre=28&sort=rating&yearFrom=2000&yearTo=2020&minRating=7
+      /movies?page=2&genre=16
     """
-    type_    = request.GET.get("type", "genre")
-    genre_id = request.GET.get("genre")
-    page     = int(request.GET.get("page", 1))
+    
+    q          = request.GET.get("q", "").strip()
+    type_      = request.GET.get("type")
+    genre      = request.GET.get("genre")
+    sort       = request.GET.get("sort", "popular")
+    min_rating = float(request.GET.get("minRating", 0))
+    year_from  = request.GET.get("yearFrom")
+    year_to    = request.GET.get("yearTo")
+    page       = int(request.GET.get("page", 1))
+    
+    genre_ids = []
+    if genre:
+        genre_list = [g.strip() for g in genre.split(",")]
 
-    genre_id = int(genre_id) if genre_id else None
-    movies   = get_home_section(type_, genre_id=genre_id, page=page)
+        for g in genre_list:
+            if g.isdigit():
+                genre_ids.append(int(g))
+            else:
+                genre_id = GENRE_NAME_TO_ID.get(g)
+                if genre_id:
+                    genre_ids.append(genre_id)
 
-    # Mask premium fields for non-subscribers
-    if not (request.user.is_authenticated and request.user.subscription_active):
-        movies = _mask_premium(movies)
+    # Home section request (type= param present)
+    if type_ and not q:
+        movies = get_home_section(type_=type_, genre_ids=genre_ids, page=page)
+        return Response({"results": movies, "page": page, "totalPages": 1})
 
-    return Response({"results": movies, "page": page})
-
-
-@api_view(["GET"])
-@permission_classes([AllowAny])
-def library(request):
-    """
-    /api/library?q=batman&genre=28&year=1989&sort=rating&page=2
-    Infinite scroll — just increment page on the frontend.
-    """
+    # Library / filtered search
     result = library_search(
-        query    = request.GET.get("q", ""),
-        genre_id = int(g) if (g := request.GET.get("genre")) else None,
-        year     = request.GET.get("year"),
-        sort_by  = request.GET.get("sort", "popularity"),
-        source   = request.GET.get("source", "all"),
-        page     = int(request.GET.get("page", 1)),
+        query      = q,
+        genre_ids  = genre_ids,
+        year_from  = int(year_from) if year_from else None,
+        year_to    = int(year_to)   if year_to   else None,
+        min_rating = min_rating,
+        sort_by    = SORT_MAP.get(sort, "popularity"),
+        page       = page,
     )
 
-    if not (request.user.is_authenticated and request.user.subscription_active):
-        result["results"] = _mask_premium(result["results"])
+    print(f"Search: q='{q}', genre={genre_ids}, year_from={year_from}, "
+          f"year_to={year_to}, min_rating={min_rating}, sort='{sort}', "
+          f"page={page} -> {len(result['results'])} results")
 
     return Response(result)
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def stream(request, movie_id: str):
+@permission_classes([AllowAny])
+def movie_detail(request, movie_id: str):
     """
-    /api/movies/tmdb-550/stream/   → requires subscription
-    /api/movies/archive-abc123/stream/ → free
+        /movies/tmdb-550/
+        /movies/archive-abc123/
     """
     if movie_id.startswith("archive-"):
-        archive_id = movie_id.replace("archive-", "")
-        return Response({"url": f"https://archive.org/details/{archive_id}"})
+        from .adapters.archive import fetch_detail
+        data = fetch_detail(movie_id.replace("archive-", ""))
+    else:
+        from .adapters.tmdb import fetch_detail
+        data = fetch_detail(movie_id.replace("tmdb-", ""))
 
-    # TMDB movie → check subscription
-    if not request.user.subscription_active:
-        return Response({"error": "Premium required"}, status=403)
-
-    # Return your actual stream URL here (e.g. from your video host)
-    return Response({"url": f"https://yourhost.com/stream/{movie_id}"})
-
-
-def _mask_premium(movies):
-    """Show premium movies in listings but block the stream URL."""
-    return [
-        {**m, "watch_url": None, "is_locked": True}
-        if m["is_premium"] else m
-        for m in movies
-    ]
+    if not data:
+        return Response({"error": "Not found"}, status=404)
+    return Response(data)

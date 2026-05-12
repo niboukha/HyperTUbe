@@ -61,7 +61,7 @@ CACHES = {
     }
 }
 
-TMDB_TOKEN   = env("TMDB_KEY")    # Bearer token
+TMDB_TOKEN   = env("TMDB_TOKEN")    # Bearer token
 
 ARCHIVE_ROWS = 20                        # Items per page from archive.org
 
