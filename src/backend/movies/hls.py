@@ -40,7 +40,6 @@ def can_copy(video_file):
 def _start_ffmpeg(video_file, hls_dir, movie_id, movie):
     """
     Start FFmpeg conversion in background.
-    Notifies frontend when first segments are ready.
     """
     connection.close()
 
@@ -75,17 +74,18 @@ def _start_ffmpeg(video_file, hls_dir, movie_id, movie):
             ffmpeg_cmd = [
                 "ffmpeg",
                 "-y",
-
-                "-fflags", "+genpts+igndts",
-
+                # '-re',
+                # "-fflags", "+genpts+igndts",
+                "-movflags", "faststart",
                 "-i", video_file,
 
                 "-c", "copy",
 
-                "-start_number", "0",
+                # "-start_number", "0",
 
                 "-f", "hls",
-
+                # "-vsync", "cfr",              
+                # "-async", "1",
                 "-hls_time", "4",
 
                 "-hls_list_size", "0",
@@ -111,14 +111,15 @@ def _start_ffmpeg(video_file, hls_dir, movie_id, movie):
                 "-fflags", "+genpts+igndts",
 
                 "-i", video_file,
-
+                # '-re',
                 "-c:v", "libx264",
                 "-preset", "veryfast",
                 "-tune", "zerolatency",
 
                 "-c:a", "aac",
                 "-b:a", "128k",
-
+                "-vsync", "cfr",              
+                "-async", "1",
                 "-pix_fmt", "yuv420p",
 
                 "-g", "48",
@@ -129,7 +130,7 @@ def _start_ffmpeg(video_file, hls_dir, movie_id, movie):
 
                 "-hls_list_size", "0",
 
-                "-hls_flags", "independent_segments",
+                "-hls_flags", "append_list+independent_segments",
 
                 "-hls_segment_filename",
                 f"{hls_dir}/segment_%03d.ts",
@@ -141,7 +142,7 @@ def _start_ffmpeg(video_file, hls_dir, movie_id, movie):
 
         active_ffmpeg[movie_id] = process
         # ✅ Wait for first 3 segments → notify frontend
-        _wait_for_segments(hls_dir, min_segments=3)
+        # _wait_for_segments(hls_dir, min_segments=3)
 
         # movie     = Movie.objects.get(id=movie_id)
         movie.hls_path = hls_output

@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404
 from django.http import StreamingHttpResponse, FileResponse
 from django.utils import timezone
 from .models import Movie
-from .tasks import _start_ffmpeg, download_and_segment
+from .tasks import  download_and_segment
 import os
 
 
@@ -31,51 +31,13 @@ class MovieStreamView(APIView):
         """
         try:
             movie = get_object_or_404(Movie, id=movie_id)
-            # hls_dir = hls.get_movie_hls_dir(movie_id)
-            # file_path = os.path.join(hls_dir, filename)
-            movie_path = movie.movie_path
-            # hls_path = movie.hls_path
+            if movie.status == "ready":
+                return Response({'status': 'ready', 'movie_path': movie.hls_path})
 
-            # ============================================================
-            # REQUEST FOR PLAYLIST
-            # ============================================================
-            # if filename == 'playlist.m3u8':
-
-                # CASE 1: File exists on disk
-            if movie_path and os.path.exists(movie_path) and movie.status == 'ready':
-
-                # CASE 1a: Already MP4 → generate HLS if not exists, serve
-                if movie_path.endswith('.mp4'):
-                    return Response({
-                        'movie_path': movie.hls_path,
-                        'status': 'ready',
-                    }, status=200)
-                elif os.path.exists(movie.hls_path):
-                    return Response({
-                        'movie_path': movie.hls_path,
-                        'status': movie.status,
-                    }, status=200)
-                else:
-                    # CASE 1b: MKV exists → convert to MP4 (Celery) + serve when ready
-                    # movie.status = 'processing'
-                    # movie.save()
-                    # download_and_segment.delay(movie_id)
-                    print(f"------------------>Started processing task for movie {movie_id}, HLS path: {movie.hls_path}")
-                    _start_ffmpeg(movie.movie_path, '/media/hls/{movie_id}', movie_id)
-                    return Response({
-                        'movie_path': movie.hls_path,
-                        'status': movie.status,
-                    }, status=200)
-
-            else:
-                # os.makedirs(os.path.join('/media/movies/', str(movie_id)), exist_ok=True)
-                download_and_segment.delay(movie_id)
-                # print(f"Started download task for movie {movie_id}, HLS path: {hls_path}")
-                return Response({
-                    'movie_path': movie.hls_path,
-                    'status': movie.status,
-                }, status=200)
-
+            if movie.status not in ["downloading", "processing", 'error']:
+                download_and_segment.delay(movie.id)
+            return Response({'status': movie.status, 'movie_path': None})
+            
         except Movie.DoesNotExist:
             print(f"==============> Movie with id {movie_id} not found")
             return Response({'status': 'error', 'message': 'Movie not found'}, status=404)

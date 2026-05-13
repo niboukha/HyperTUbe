@@ -1,7 +1,19 @@
 import time
 
 import requests
+# from .tasks import ACTIVE_TORRENTS, SESSION
 import libtorrent as lt
+
+SESSION = lt.session({
+    'listen_interfaces': '0.0.0.0:6881',
+    'enable_dht': True,
+    'enable_lsd': True,
+    'enable_upnp': True,
+    'enable_natpmp': True,
+})
+
+ACTIVE_TORRENTS = {}
+
 
 def _prioritize_best_video_file(handle, info):
     """
@@ -80,8 +92,22 @@ def _wait_for_peers(handle, movie, timeout=60):
         if time.time() - start > timeout:
             raise Exception('No peers found after 60s')
         time.sleep(3)
+def _create_session():
+    """Create fresh session for each download"""
+    session = lt.session({
+        'listen_interfaces': '0.0.0.0:6881',
+        'enable_dht':    True,
+        'enable_lsd':    True,
+        'enable_upnp':   True,
+        'enable_natpmp': True,
+    })
+    session.add_dht_router('router.bittorrent.com',  6881)
+    session.add_dht_router('router.utorrent.com',    6881)
+    session.add_dht_router('dht.transmissionbt.com', 6881)
+    session.add_dht_router('dht.libtorrent.org',     25401)
+    return session
 
-def download_torrent(torrent_url, movie_dir, movie):
+def download_torrent(movie_dir, movie):
     """
     Download torrent using libtorrent
     """
@@ -91,28 +117,17 @@ def download_torrent(torrent_url, movie_dir, movie):
         # ─────────────────────────────────────────
         movie.status = 'downloading'
         movie.save()
-
-        session = lt.session({'listen_interfaces': '0.0.0.0:6881', 'enable_dht': True ,
-                              'enable_lsd': True,      # ← replaces start_lsd()
-                            'enable_upnp': True,     # ← replaces start_upnp()
-                            'enable_natpmp': True,})
-        session.add_dht_router('router.bittorrent.com', 6881)
-        session.add_dht_router('router.utorrent.com', 6881)
-        session.add_dht_router('dht.transmissionbt.com', 6881)
-        session.add_dht_router('dht.aiobt.com', 6881)
-        session.add_dht_router('dht.libtorrent.org', 25401)  # ← add this
-        session.start_dht()
-        session.start_lsd()
-        session.start_upnp()
-
+        session = _create_session()
+        print(f'[{movie.title}] Starting torrent download...')
+        print(f'[{movie.title}] Torrent URL: {movie.torrent_url}')
         params = {
             'save_path': movie_dir,
             'storage_mode': lt.storage_mode_t.storage_mode_sparse
         }
 
         # Add torrent — magnet or .torrent file
-        if torrent_url.startswith('magnet:'):
-            handle = lt.add_magnet_uri(session, torrent_url, params)
+        if movie.torrent_url.startswith('magnet:'):
+            handle = lt.add_magnet_uri(session, movie.torrent_url, params)
             print(f'[{movie.title}] Waiting for metadata...')
             start = time.time()
             while not handle.has_metadata():
@@ -121,25 +136,34 @@ def download_torrent(torrent_url, movie_dir, movie):
                 time.sleep(1)
             info = handle.get_torrent_info()
         else:
-            response = requests.get(torrent_url, timeout=10)
+            response = requests.get(movie.torrent_url, timeout=10)
             response.raise_for_status()
             info   = lt.torrent_info(lt.bdecode(response.content))
             handle = session.add_torrent({**params, 'ti': info})
 
         # Sequential download for streaming
         handle.set_sequential_download(True)
-        handle.force_reannounce()
-        handle.force_dht_announce()
-
-        _prioritize_best_video_file(handle, info)
+    
+       
 
         total_pieces = info.num_pieces()
-        print(f'[{movie.title}] Total pieces: {total_pieces}')
+        # for i in range(handle.get_torrent_info().num_pieces()):
+        #     if i < 100:
+        #         handle.piece_priority(i, 7)
+        #     else:
+        #         handle.piece_priority(i, 1)
+        # print(f'[{movie.title}] Total pieces: {total_pieces}')
     
         # ─────────────────────────────────────────
         # Wait for peers
         # ─────────────────────────────────────────
-        _wait_for_peers(handle, movie)
+        # _wait_for_peers(handle, movie)
+
+        ACTIVE_TORRENTS[movie.id] = {
+            'handle': handle,
+            'session': session,
+            'selected_file': _prioritize_best_video_file(handle, info)
+        }
 
         return handle
     except Exception as e:

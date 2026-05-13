@@ -20,7 +20,6 @@ class Movie(models.Model):
             ('idle',    'Idle'),       # Not downloaded yet
             ('downloading','Downloading'),   # Download in progress
             ('processing', 'Processing'),    # MKV → MP4 conversion in progress
-            # ('streaming',  'Streaming'),     # Being streamed in real-time (chunks)
             ('ready',      'Ready'),         # Fully downloaded + converted, ready to serve
             ('error',      'Error'),         # Something went wrong
         ],

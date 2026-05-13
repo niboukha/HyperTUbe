@@ -1,7 +1,8 @@
 import os
+import subprocess
 import time
 import threading
-from .torrent import download_torrent
+from .torrent_engine import download_torrent, ACTIVE_TORRENTS
 import libtorrent as lt
 import shutil
 from .hls import _start_ffmpeg
@@ -9,15 +10,16 @@ from .hls import _start_ffmpeg
 from celery import shared_task
 from django.db import connection
 from movies.models import Movie
-# from asgiref.sync import async_to_sync
-# from channels.layers import get_channel_layer
+
 
 DOWNLOAD_DIR  = '/tmp/torrents'
 HLS_DIR       = '/media/hls'
 MIN_BUFFER    = 5        # % before starting FFmpeg
-active_ffmpeg = {}
+# active_ffmpeg = {}
+# TORRENT_SESSION = {}
+# TORRENT_HANDELS = {}
 
-
+    
 @shared_task
 def download_and_segment(movie_id):
     """
@@ -32,48 +34,23 @@ def download_and_segment(movie_id):
     try:
         movie = Movie.objects.get(id=movie_id)
 
-        # ─────────────────────────────────────────
-        # Prevent duplicate tasks
-        # ─────────────────────────────────────────
-        if movie.status in ['downloading', 'processing']:
-            print(f'[{movie.title}] Task already running ✅')
-            return
-
         movie_dir = f'{DOWNLOAD_DIR}/{movie_id}'
         hls_dir   = f'{HLS_DIR}/{movie_id}'
 
         os.makedirs(movie_dir, exist_ok=True)
         os.makedirs(hls_dir,   exist_ok=True)
 
-        # ─────────────────────────────────────────
-        # File already downloaded → skip torrent
-        # ─────────────────────────────────────────
-        existing_file = _find_video_file(movie_dir)
-        if existing_file:
-            print(f'[{movie.title}] File exists → skip download ✅')
-            movie.movie_path = existing_file
-            movie.status   = 'processing'
-            movie.save()
-            _start_ffmpeg(existing_file, hls_dir, movie_id, movie)
-            return
-
-        # ─────────────────────────────────────────
-        # Start torrent download
-        # ─────────────────────────────────────────
-        # movie.status = 'downloading'
-        # movie.save()
-
-        handle = download_torrent(movie.torrent_url, movie_dir, movie)
+        handle = download_torrent(movie_dir, movie)
         # ─────────────────────────────────────────
         # Download loop:
         # - Wait for MIN_BUFFER %
         # - Start FFmpeg in background
         # - Keep downloading
         # ─────────────────────────────────────────
-        ffmpeg_started = False
+        ffmpeg_started = False  
 
         while True:
-            s        = handle.status()
+            s        = ACTIVE_TORRENTS[movie_id]['handle'].status()
             progress = s.progress * 100
 
             print(
@@ -82,29 +59,31 @@ def download_and_segment(movie_id):
                 f'{s.download_rate / 1000:.1f} KB/s | '
                 f'peers: {s.num_peers}'
             )
-
+            # fp = handle.file_progress()
             # ✅ Enough data — start FFmpeg
-            if not ffmpeg_started and progress >= MIN_BUFFER:
+            video_file = _find_video_file(movie_dir)
+            if not ffmpeg_started and video_file:
                 print(f'====> [{movie.title}] {MIN_BUFFER}% reached → starting FFmpeg ✅')
-                video_file = _wait_for_file(movie_dir)
+                # video_file = _wait_for_file(movie_dir)
                 movie.movie_path = video_file
                 movie.status   = 'processing'
                 movie.save()
                 ffmpeg_started = True
 
                 # ✅ Start FFmpeg in background — non-blocking
-                ffmpeg_thread = threading.Thread(
-                    target=_start_ffmpeg,
-                    args=(video_file, hls_dir, movie_id, movie)
-                )
-                ffmpeg_thread.daemon = True
-                ffmpeg_thread.start()
+                # ffmpeg_thread = threading.Thread(
+                #     target=_start_ffmpeg,
+                #     args=(video_file, hls_dir, movie_id, movie)
+                # )
+                # ffmpeg_thread.daemon = True
+                # ffmpeg_thread.start()
+                _start_ffmpeg(video_file, hls_dir, movie_id, movie)
 
                 ffmpeg_started = True
-                break
+                # break
 
             # ✅ Fully downloaded
-            if s.is_seeding:
+            if s.is_seeding or progress >= 100.0:
                 print(f'[{movie.title}] Download complete ✅')
                 # Update status if FFmpeg not started yet
                 if not ffmpeg_started:
@@ -121,13 +100,8 @@ def download_and_segment(movie_id):
 
     except Exception as e:
         print(f'[ERROR] movie {movie_id}: {e}')
-        # try:
-        #     movie = Movie.objects.get(id=movie_id)
         movie.status = 'error'
         movie.save()
-            # _notify_status(movie_id=movie_id, status='error')
-        # except Exception:
-        #     pass
 
 
 
@@ -150,34 +124,34 @@ def download_and_segment(movie_id):
 #     print(f'[Cleanup] Segments deleted for movie {movie_id} ✅')
 
 
-@shared_task
-def cleanup_old_movies():
-    """Delete .mkv after 1 month unwatched"""
-    from django.utils import timezone
-    from datetime import timedelta
+# @shared_task
+# def cleanup_old_movies():
+#     """Delete .mkv after 1 month unwatched"""
+#     from django.utils import timezone
+#     from datetime import timedelta
 
-    one_month_ago = timezone.now() - timedelta(days=30)
+#     one_month_ago = timezone.now() - timedelta(days=30)
 
-    old_movies = Movie.objects.filter(
-        last_watched__lt=one_month_ago,
-        mkv_path__isnull=False
-    )
+#     old_movies = Movie.objects.filter(
+#         last_watched__lt=one_month_ago,
+#         mkv_path__isnull=False
+#     )
 
-    for movie in old_movies:
-        movie_dir = f'{DOWNLOAD_DIR}/{movie.id}'
-        hls_dir   = f'{HLS_DIR}/{movie.id}'
+#     for movie in old_movies:
+#         movie_dir = f'{DOWNLOAD_DIR}/{movie.id}'
+#         hls_dir   = f'{HLS_DIR}/{movie.id}'
 
-        for folder in [movie_dir, hls_dir]:
-            if os.path.exists(folder):
-                shutil.rmtree(folder)
-                print(f'[Cleanup] Deleted {folder} ✅')
+#         for folder in [movie_dir, hls_dir]:
+#             if os.path.exists(folder):
+#                 shutil.rmtree(folder)
+#                 print(f'[Cleanup] Deleted {folder} ✅')
 
-        movie.status       = 'downloading'
-        movie.mkv_path     = None
-        movie.hls_path     = None
-        movie.last_watched = None
-        movie.save()
-        print(f'[Cleanup] Reset: {movie.title} ✅')
+#         movie.status       = 'downloading'
+#         movie.mkv_path     = None
+#         movie.hls_path     = None
+#         movie.last_watched = None
+#         movie.save()
+#         print(f'[Cleanup] Reset: {movie.title} ✅')
 
 
 # ──────────────────────────────────────────
@@ -186,17 +160,17 @@ def cleanup_old_movies():
 
 
 
-def _wait_for_file(directory, timeout=120):
-    print(f'[Torrent] Waiting for file in {directory}...')
-    start = time.time()
-    while True:
-        f = _find_video_file(directory)
-        if f:
-            print(f'[Torrent] File found: {f} ✅')
-            return f
-        if time.time() - start > timeout:
-            raise Exception('File not found after timeout')
-        time.sleep(2)
+# def _wait_for_file(directory, timeout=120):
+#     print(f'[Torrent] Waiting for file in {directory}...')
+#     start = time.time()
+#     while True:
+#         f = _find_video_file(directory)
+#         if f:
+#             print(f'[Torrent] File found: {f} ✅')
+#             return f
+#         if time.time() - start > timeout:
+#             raise Exception('File not found after timeout')
+#         time.sleep(2)
 
 
 def _find_video_file(directory):
@@ -211,7 +185,7 @@ def _find_video_file(directory):
             if f.lower().endswith(VIDEO_EXTENSIONS):
                 full_path = os.path.join(root, f)
                 print(f'=============== ✅ Found: {full_path}')
-                time.sleep(3)  # Ensure file is fully written
+                # time.sleep(3)  # Ensure file is fully written
                 return full_path
     return None
 

@@ -1,4 +1,4 @@
-const movieId = 10;
+const movieId = 1;
 const video = document.getElementById('video');
 
 video.controls = true;
