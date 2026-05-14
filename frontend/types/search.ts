@@ -20,9 +20,23 @@ export interface Movie {
   year?: string
 }
 
+// {
+//   "type": "movie",
+//   "id": 12,
+//   "title": "Inception",
+//   "year": "2010",
+//   "rating": 8.8,
+//   "poster_path": "/xyz.jpg",
+//   "backdrop_path": "/abc.jpg",
+//   "overview": "...",
+//   "release_date": "2010-07-16",
+//   "availability": "free",
+//   "genre": [28, 12]
+// }
+
 export type MovieResult = {
   type: "movie"
-  id: number
+  id: string
   title: string
   year?: string
   rating?: number | null
@@ -33,6 +47,7 @@ export type MovieResult = {
   availability: "free" | "premium"
   vote_count?: number
   genre?: number[]
+  genre_ids?: number[]
 }
 
 export type UserResult = {

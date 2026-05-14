@@ -9,11 +9,12 @@ import Carousel from "@/components/carousel/carousel"
 import CarouselPortal from "@/components/carousel/carousel-portal"
 import { useHoverPortal } from "@/components/carousel/use-hover-portal"
 import { cardVariants } from "@/lib/annimations/continue-watching-variants"
-import { mapToCards } from "@/lib/mock-data"
-import { Movie, MovieCard } from "@/types/search"
+import { Movie, MovieCard, MovieResult } from "@/types/search"
 import { CarouselSkeleton } from "../carousel/CarouselSkeleton"
 import { TooltipButton } from "../ui/tool-tip-button"
 import { AvailabilityBadge } from "../ui/AvailabilityBadge"
+import { getMovieDetails } from "@/lib/utils/fetchMovies"
+import Link from "next/link"
 
 type MovieRowProps = {
   title: string
@@ -22,8 +23,9 @@ type MovieRowProps = {
 }
 
 export default function MovieRow({ title, endpoint, priority }: MovieRowProps) {
-  const [movies, setMovies] = useState<MovieCard[]>([])
+  const [movies, setMovies] = useState<MovieResult[]>([])
   const [loading, setLoading] = useState(true)
+  const [duration, setDuration] = useState<string>("")
   const {
     hover,
     handleMouseEnter,
@@ -36,11 +38,14 @@ export default function MovieRow({ title, endpoint, priority }: MovieRowProps) {
     let cancelled = false
     const run = async () => {
       try {
-        const res  = await fetch(endpoint)
+        const res = await fetch(`http://localhost:8000${endpoint}`);
+
         if (!res.ok) throw new Error(`${res.status}`)
         const data = await res.json()
-        const raw: Movie[] = Array.isArray(data) ? data : data?.results ?? []
-        if (!cancelled) setMovies(mapToCards(raw))
+        console.log(`Fetched movies for ${title}:`, data)
+        const raw: MovieResult[] = Array.isArray(data) ? data : data?.results ?? []
+
+        if (!cancelled) setMovies(raw)
       } catch (err) {
         console.error("MovieRow fetch error:", err)
       } finally {
@@ -53,26 +58,43 @@ export default function MovieRow({ title, endpoint, priority }: MovieRowProps) {
 
   const hoveredMovie = hover ? movies[hover.index] : null
 
-  // Fix: image was being double-prefixed in original code
   const portalImage = hoveredMovie
     ? hoveredMovie.backdrop_path
-      ? `https://image.tmdb.org/t/p/w780${hoveredMovie.backdrop_path}`
+      ? `${hoveredMovie.backdrop_path}`
       : hoveredMovie.poster_path
-      ? `https://image.tmdb.org/t/p/w342${hoveredMovie.poster_path}`
+      ? `${hoveredMovie.poster_path}`
       : null
     : null
 
-  if (loading) return <CarouselSkeleton title={title} />
+    
+  useEffect(() => {
+      setDuration("")
+      if (hoveredMovie === null) return
+      
+      const movie = hoveredMovie
+      if (!movie) return
+      console.log("Active movie:", movie.id)
+      const id = movie.id
 
+      async function load() {
+        const data = await getMovieDetails(id)    
+        setDuration(data.runtime)
+    }
+
+    load()
+  }, [hoveredMovie])
+  
+  if (loading) return <CarouselSkeleton title={title} />
+  
   return (
     <>
       <Carousel title={title}>
         {movies.map((movie, index) => {
           const isHovered = hover?.index === index
           const src = movie.backdrop_path
-            ? `https://image.tmdb.org/t/p/w780${movie.backdrop_path}`
+            ? `${movie.backdrop_path}`
             : movie.poster_path
-            ? `https://image.tmdb.org/t/p/w342${movie.poster_path}`
+            ? `${movie.poster_path}`
             : null
 
           return (
@@ -94,7 +116,7 @@ export default function MovieRow({ title, endpoint, priority }: MovieRowProps) {
               <div className="relative w-60 md:w-65 aspect-video rounded-md overflow-hidden cursor-pointer">
                 {src ? (
                   <Image
-                    src={src}
+                    src={movie.backdrop_path ? `${movie.backdrop_path}` : `${movie.poster_path}`}
                     alt={movie.title}
                     fill
                     // Only eagerly load first row's images
@@ -119,6 +141,7 @@ export default function MovieRow({ title, endpoint, priority }: MovieRowProps) {
       {hoveredMovie && (
         <CarouselPortal
           hover={hover}
+          movieId={hoveredMovie.id}
           image={portalImage}
           title={hoveredMovie.title}
           year={hoveredMovie.year}
@@ -137,12 +160,15 @@ export default function MovieRow({ title, endpoint, priority }: MovieRowProps) {
                   label="Watch now"
                   className="w-8 h-8 rounded-full bg-text-primary flex items-center justify-center hover:bg-text-primary/80 transition"
                 >
-                  <Play className="h-4 w-4 text-background fill-background ml-0.5" />
+                  <Link href={`/movies/${hoveredMovie.id}`}>
+                    <Play className="h-4 w-4 text-background fill-background ml-0.5" />
+                  </Link>
                 </TooltipButton>
                 <TooltipButton
                   label="Add to watchlist"
                   className="w-8 h-8 rounded-full border border-text-primary/30 flex items-center justify-center hover:border-text-primary transition"
                 >
+                  {/* should be added to database and linked to user's profile for watchlist management */}
                   <Plus className="h-4 w-4 text-text-primary" />
                 </TooltipButton>
               </div>

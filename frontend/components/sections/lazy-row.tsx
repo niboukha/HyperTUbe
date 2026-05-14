@@ -10,7 +10,7 @@ type Props = {
 }
 
 export default function LazyRow({ title, endpoint }: Props) {
-  const ref        = useRef<HTMLDivElement>(null)
+  const ref                   = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {

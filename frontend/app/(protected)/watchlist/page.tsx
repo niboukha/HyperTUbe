@@ -30,7 +30,7 @@ async function fetchMovies(page: number): Promise<Movie[]> {
     next: { revalidate: 3600 },
   }).then((r) => r.json());
 
-  console.log("Fetched movies page", page, data.results);
+  // console.log("Fetched movies page", page, data.results);
 
   return (data.results ?? [])
     .filter(

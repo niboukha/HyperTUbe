@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useEffect } from "react"
+import { useRef, useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { X, Star, TrendingUp, Clock, Check } from "lucide-react"
 import { GENRES } from "@/constants/search-bar"
@@ -31,7 +31,8 @@ type Props = {
 }
 
 export function FilterBar({ filters, onChange }: Props) {
-  const [activePanel, setActivePanel] = useActivePanel()
+  const [activePanel, setActivePanel, containerRef] = useActivePanel()
+  const [draftYear, setDraftYear] = useState<[number, number]>(filters.yearRange)
 
   const activeFilterCount =
     filters.genres.length +
@@ -46,8 +47,20 @@ export function FilterBar({ filters, onChange }: Props) {
 
   const selectedSort = SORT_OPTIONS.find((s) => s.value === filters.sort)
 
+  useEffect(() => {
+    setDraftYear(filters.yearRange)
+  }, [filters.yearRange])
+
+  const prevPanel = useRef<Panel>(null)
+    useEffect(() => {
+      if (prevPanel.current === "year" && activePanel !== "year") {
+        onChange({ ...filters, yearRange: draftYear })
+      }
+      prevPanel.current = activePanel
+  }, [activePanel])
+
   return (
-    <div>
+    <div ref={containerRef}>  
       <div className="flex items-center justify-between gap-3!">
 
         {/* Sort */}
@@ -71,21 +84,45 @@ export function FilterBar({ filters, onChange }: Props) {
         </div>
 
         {/* Genres */}
-        <div className="flex-1 overflow-x-auto max-w-[517px]" style={{ scrollbarWidth: "none" }}>
-          <div className="flex items-center gap-1 min-w-max md:flex-wrap md:justify-center">
-            {GENRES.map((genre) => {
-              const selected = filters.genres.includes(genre)
-              return (
-                <button key={genre} onClick={() => toggleGenre(genre)}
-                  className={`text-xs px-3! py-1.5! rounded-full border transition-all duration-200 whitespace-nowrap ${
-                    selected ? "bg-white/20 border-white/30 text-white" : "bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white/80"
-                  }`}>
-                  {genre}
-                </button>
-              )
-            })}
+        <div className="relative w-full h-[30px]">
+            <div className="pointer-events-none absolute left-0! top-0! z-10! h-full w-8! bg-gradient-to-r from-black to-transparent" />
+            <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-8! bg-gradient-to-l from-black to-transparent" />
+            <div
+              className="
+                flex items-center justify-center gap-1
+                overflow-x-auto scrollbar-hide
+                scroll-smooth
+              "
+            >
+              {GENRES.map((genre) => {
+                const selected = filters.genres.includes(genre)
+
+                return (
+                  <button
+                    key={genre}
+                    onClick={() => toggleGenre(genre)}
+                    className={`
+                      shrink-0
+                      text-[8px] md:text-xs
+                      px-1! py-1!
+                      rounded-full
+                      border
+                      transition-all duration-200
+                      whitespace-nowrap
+                      backdrop-blur-sm
+                      ${
+                        selected
+                          ? "bg-white/20 border-white/30 text-white"
+                          : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white"
+                      }
+                    `}
+                  >
+                    {genre}
+                  </button>
+                )
+              })}
+            </div>
           </div>
-        </div>
 
         {/* Rating, Year, Clear */}
         <div className="shrink-0 flex items-center gap-2">
@@ -107,24 +144,54 @@ export function FilterBar({ filters, onChange }: Props) {
             </AnimatePresence>
           </FilterPill>
 
-          <FilterPill active={activePanel === "year"} onClick={() => setActivePanel((p) => (p === "year" ? null : "year"))} label="Year"
-            badge={filters.yearRange[0] !== MIN_YEAR || filters.yearRange[1] !== CURRENT_YEAR ? `${filters.yearRange[0]}–${filters.yearRange[1]}` : undefined}>
-            <AnimatePresence>
-              {activePanel === "year" && (
-                <FilterDropdown>
-                  <p className="text-[11px] text-white/30 uppercase tracking-wider px-1! mb-3!">Year range</p>
-                  <div className="flex flex-col gap-2!">
-                    <YearInput label="From" value={filters.yearRange[0]} min={MIN_YEAR} max={filters.yearRange[1]} onChange={(v) => onChange({ ...filters, yearRange: [v, filters.yearRange[1]] })} />
-                    <YearInput label="To" value={filters.yearRange[1]} min={filters.yearRange[0]} max={CURRENT_YEAR} onChange={(v) => onChange({ ...filters, yearRange: [filters.yearRange[0], v] })} />
-                  </div>
-                  <button onClick={() => { onChange({ ...filters, yearRange: [MIN_YEAR, CURRENT_YEAR] }); setActivePanel(null) }}
-                    className="mt-3! w-full text-xs text-white/30 hover:text-white/60 transition-colors text-center">
-                    Reset range
-                  </button>
-                </FilterDropdown>
-              )}
-            </AnimatePresence>
-          </FilterPill>
+          <FilterPill
+        active={activePanel === "year"}
+        onClick={() => setActivePanel((p) => (p === "year" ? null : "year"))}
+        label="Year"
+        badge={
+          filters.yearRange[0] !== MIN_YEAR || filters.yearRange[1] !== CURRENT_YEAR
+            ? `${filters.yearRange[0]}–${filters.yearRange[1]}`
+            : undefined
+        }
+      >
+        <AnimatePresence>
+          {activePanel === "year" && (
+            <FilterDropdown>
+              <p className="text-[11px] text-white/30 uppercase tracking-wider px-1! mb-3!">
+                Year range
+              </p>
+              <div className="flex flex-col gap-2!">
+                <YearInput
+                  label="From"
+                  value={draftYear[0]}
+                  min={MIN_YEAR}
+                  max={draftYear[1]}
+                  onChange={(v) => setDraftYear([v, draftYear[1]])}
+                />
+                <YearInput
+                  label="To"
+                  value={draftYear[1]}
+                  min={draftYear[0]}
+                  max={CURRENT_YEAR}
+                  onChange={(v) => setDraftYear([draftYear[0], v])}
+                />
+              </div>
+              <button
+                onClick={() => {
+                  setDraftYear([MIN_YEAR, CURRENT_YEAR])
+                  onChange({ ...filters, yearRange: [MIN_YEAR, CURRENT_YEAR] })
+                  setActivePanel(null)
+                }}
+                className="mt-3! w-full text-xs text-white/30 hover:text-white/60 transition-colors text-center"
+              >
+                Reset range
+              </button>
+            </FilterDropdown>
+          )}
+        </AnimatePresence>
+      </FilterPill>
+
+
 
           <AnimatePresence>
             {activeFilterCount > 0 && (
@@ -144,25 +211,23 @@ export function FilterBar({ filters, onChange }: Props) {
 // Encapsulate panel state + outside click in one place
 type Panel = "sort" | "genre" | "rating" | "year" | null
 
-function useActivePanel(): [Panel, React.Dispatch<React.SetStateAction<Panel>>] {
-  const [panel, setPanel] = useStateWithRef<Panel>(null)
-  const containerRef = useRef<HTMLDivElement | null>(null)
+function useActivePanel(): [
+  Panel,
+  React.Dispatch<React.SetStateAction<Panel>>,
+  React.RefObject<HTMLDivElement | null>
+] {
+  const [panel, setPanel] = useState<Panel>(null)
+  const containerRef      = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     const h = (e: MouseEvent) => {
-      if (!containerRef.current?.contains(e.target as Node)) setPanel(null)
+      if (!containerRef.current?.contains(e.target as Node)) {
+        setPanel(null)
+      }
     }
     document.addEventListener("mousedown", h)
     return () => document.removeEventListener("mousedown", h)
-  }, [setPanel])
+  }, [])
 
-  return [panel, setPanel]
+  return [panel, setPanel, containerRef]
 }
-
-// Tiny helper — useState that also exposes ref for outside-click handler
-function useStateWithRef<T>(initial: T) {
-  const [state, setState] = useState<T>(initial)
-  return [state, setState] as const
-}
-
-import { useState } from "react"

@@ -120,7 +120,7 @@ export function MovieCard({
                 sizes="(max-width:768px) 100vw, 400px"
                 className="object-cover transition-transform duration-700 group-hover:scale-[1.04]"
                 onError={() => setImgErr(true)}
-                priority={false}
+                priority
             />
             ) : (
                 <div className="w-full h-full bg-[#333333] flex items-center justify-center">

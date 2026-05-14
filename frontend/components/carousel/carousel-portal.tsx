@@ -7,6 +7,8 @@ import { Clock, Star } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { HoverState } from "./use-hover-portal"
 import { AvailabilityBadge } from "../ui/AvailabilityBadge"
+import { useMovieDetails } from "@/hooks/use-movie-details"
+import { LoadingNumbers } from "../ui/loading-numbers"
 
 type Props = {
   hover: HoverState
@@ -20,16 +22,16 @@ type Props = {
   onMouseEnter: () => void
   onMouseLeave: () => void
   infoPanel: React.ReactNode
-  duration?: string
+  movieId: string
 }
 
 export default function CarouselPortal({
   hover,
+  movieId,
   image,
   title,
   year,
   rating,
-  duration,
   availability,
   progress,
   getPortalStyle,
@@ -46,6 +48,9 @@ export default function CarouselPortal({
   //   { id: "35", label: "Comedy" },
   //   { id: "18", label: "Drama" }
   // ] // Add genres if you have them in the API, and display them like Prime Video with small pills
+
+  const { data, loading } = useMovieDetails(movieId)
+  const duration = data?.runtime
 
   return createPortal(
     <AnimatePresence>
@@ -68,6 +73,7 @@ export default function CarouselPortal({
                 src={image}
                 alt={title}
                 fill
+                priority
                 sizes="360px"
                 className="object-cover transition-transform duration-500 group-hover:scale-105"
               />
@@ -129,7 +135,15 @@ export default function CarouselPortal({
                 <div className="flex items-center gap-1 text-text-primary/40">
                   <span className="text-text-primary/20 text-xs">•</span>
                   <Clock className="w-3 h-3" />
-                  <span className="text-xs">{duration}</span>
+                  <span className="text-xs">
+                    {
+                        loading ? (
+                            <LoadingNumbers />
+                        ) : (
+                            <span>{duration}</span>
+                        )
+                    }
+                  </span>
                 </div>
               {/* )} */}
             </div>

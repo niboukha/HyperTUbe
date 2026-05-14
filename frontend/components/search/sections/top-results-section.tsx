@@ -31,6 +31,7 @@ export function TopResultsSection({ movies, query, activeIndex, onSelect }: Prop
                   src={`https://image.tmdb.org/t/p/w200${movie.poster_path}`}
                   alt={movie.title}
                   fill
+                  priority
                   sizes="112px"
                   className="object-cover"
                 />

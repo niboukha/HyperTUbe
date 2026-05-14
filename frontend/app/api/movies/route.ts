@@ -108,9 +108,9 @@ function respond(data: any, blockedGenres: Set<number>) {
   const filtered = raw.filter(
     (m) => !m.genre_ids?.some((id: number) => blockedGenres.has(id))
   )
-  filtered.map((m) => {
-    console.log("movies:", JSON.stringify(m, null, 2))
-  })
+  // filtered.map((m) => {
+  //   console.log("movies:", JSON.stringify(m, null, 2))
+  // })
   
   const results = filtered.map((m) => ({
     id:           m.id,

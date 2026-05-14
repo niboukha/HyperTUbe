@@ -32,6 +32,7 @@ export function MoviesSection({ movies, query, activeIndex, topCount, onSelect }
                   src={`https://image.tmdb.org/t/p/w92${movie.poster_path}`}
                   alt={movie.title}
                   fill
+                  priority
                   sizes="36px"
                   className="object-cover"
                 />

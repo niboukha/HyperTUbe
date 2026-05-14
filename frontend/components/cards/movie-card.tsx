@@ -22,6 +22,7 @@ export function MovieCard({ title, posterPath, year }: MovieCardProps) {
             src={posterUrl}
             alt={title}
             fill
+            priority
             sizes="(max-width: 768px) 140px, 160px"
             className="object-cover transition-all duration-200 group-hover:scale-105 group-hover:brightness-110"
           />

@@ -8,7 +8,8 @@ type Props = {
 
 export function MovieGrid({ movies }: Props) {
   return (
-    <motion.div layout className="grid gap-2! grid-cols-[repeat(auto-fit,minmax(230px,1fr))]">
+    <motion.div layout className="grid gap-2! grid-cols-[repeat(auto-fill,minmax(230px,1fr))]">
+      {/* grid gap-2! grid-cols-[repeat(auto-fit,minmax(230px,1fr))] */}
       <AnimatePresence initial={false} mode="popLayout">
         {movies.map((movie, i) => (
           <motion.div
@@ -20,7 +21,7 @@ export function MovieGrid({ movies }: Props) {
             transition={{ delay: Math.min(i, 10) * 0.025, duration: 0.2 }}
             className=""
           >
-            <MovieCard movie={movie} />
+            <MovieCard movie={movie} index={i} />
           </motion.div>
         ))}
       </AnimatePresence>
