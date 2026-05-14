@@ -34,7 +34,6 @@ BLOCKED_TITLES = {
     "cosmos: war of the planets",
     "Het is weer zomer in Zandvoort!",
     "Teaserama",
-    "Het is weer zomer in Zandvoort!",
     "Adı Vasfiye, Turkish Movie",
     "Desire",
     "Mark of Zorro",
