@@ -1,10 +1,13 @@
 # movies/views.py
+from ctypes import cast
+import json
+
 import requests
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from .adapters.tmdb import HEADERS, TMDB_BASE
+from .adapters.tmdb import HEADERS, TMDB_BASE, fetch_credits
 from .services.merger  import get_home_section
 from .services.filters import library_search
 
@@ -75,7 +78,7 @@ def movies_list(request):
                 if genre_id:
                     genre_ids.append(genre_id)
 
-    print("---------------------------> , ", type_, genre_ids, sort, min_rating, year_from, year_to, page)
+    # print("---------------------------> , ", type_, genre_ids, sort, min_rating, year_from, year_to, page)
 
     # Home section request (type= param present)
     if type_ and not q:
@@ -110,6 +113,14 @@ def movie_detail(request, movie_id: str):
         from .adapters.tmdb import fetch_detail
         tmdb_id = movie_id.removeprefix("tmdb-")
         data = fetch_detail(int(tmdb_id))
+        if data:
+            # attach cast directly on the detail response
+            # print(f"Fetching credits for TMDB ID {tmdb_id}...")
+            # print(json.dumps(data, indent=2, ensure_ascii=False))
+            credits = fetch_credits(tmdb_id)
+            if credits:
+                data["cast"] = credits["cast"]
+                data["crew"] = credits["crew"]
     else:
         return Response({"error": "Invalid id format"}, status=400)
 
@@ -118,7 +129,6 @@ def movie_detail(request, movie_id: str):
     return Response(data)
 
 
-# movies/views.py
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def movie_trailer(request, movie_id: str):

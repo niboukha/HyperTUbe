@@ -204,7 +204,6 @@ def search( query="", genre_ids=None, year_from=None, year_to=None, sort_by="pop
 
     return build_response(body, results)
 
-
 def fetch_detail(tmdb_id: int) -> dict:
     r = requests.get(f"{TMDB_BASE}/movie/{tmdb_id}", headers=HEADERS)
 
@@ -212,9 +211,9 @@ def fetch_detail(tmdb_id: int) -> dict:
         return None
     
     movie = r.json()
-    print(json.dumps(movie, indent=2, ensure_ascii=False))
+    # print(json.dumps(movie, indent=2, ensure_ascii=False))
      
-    print("Fetched TMDB detail for ID", _normalize_detail(movie))
+    # print("Fetched TMDB detail for ID", _normalize_detail(movie))
     return _normalize_detail(movie)
 
 def _filtered_results(results):
@@ -241,4 +240,61 @@ def fetch_collection(collection_id: int) -> dict | None:
         "backdrop_path": f"https://image.tmdb.org/t/p/original{body['backdrop_path']}"
                          if body.get("backdrop_path") else None,
         "parts":        parts,
+    }
+
+def fetch_credits(tmdb_id: int) -> list:
+    """Returns top-billed cast for a movie."""
+    r = requests.get(f"{TMDB_BASE}/movie/{tmdb_id}/credits", headers=HEADERS)
+    if r.status_code != 200:
+        return []
+
+    # print(json.dumps(r.json(), indent=2, ensure_ascii=False))
+
+
+    data = r.json()
+
+    cast = data.get("cast", [])
+    crew = data.get("crew", [])
+
+    # print(f"Fetched credits for TMDB ID {tmdb_id}: {[person['name'] for person in cast[:5]]} and more...")
+
+    # print("Full cast:")
+    # print(json.dumps(cast[:15], indent=2, ensure_ascii=False))
+    # print("Full crew:")
+    # print(json.dumps(crew, indent=2, ensure_ascii=False))
+
+    # return [
+    #     {
+    #         "id":            person["id"],
+    #         "name":          person.get("name", ""),
+    #         "character":     person.get("character", ""),
+    #         "profile_path":  f"https://image.tmdb.org/t/p/w185{person['profile_path']}"
+    #                          if person.get("profile_path") else None,
+    #         "order":         person.get("order", 99),
+    #     }
+    #     for person in cast[:15]   # top 15 is plenty
+    #     if person.get("known_for_department") == "Acting"
+    # ]
+
+    cast_list = [
+        {
+            "id": person["id"],
+            "name": person.get("name", ""),
+            "character": person.get("character", ""),
+            "profile_path": f"https://image.tmdb.org/t/p/w185{person['profile_path']}"
+                if person.get("profile_path") else None,
+        }
+        for person in cast
+        if person.get("known_for_department") == "Acting"
+    ]
+
+    directors = [c for c in crew if c.get("job") == "Director"]
+    producers = [c for c in crew if "Producer" in c.get("job", "")]
+
+    return {
+        "cast": cast_list,
+        "crew": {
+            "directors": directors,
+            "producers": producers,
+        }
     }

@@ -110,6 +110,8 @@ def _normalize_detail(doc: dict) -> dict:
         "source":       "archive",
         "availability": "free",
 
+        "cast": _parse_cast(doc),
+
         "title":        doc.get("title", ""),
         "original_title": doc.get("title", ""),
         "tagline":      "",
@@ -192,13 +194,6 @@ def fetch_movies(search=None, genre_ids=None, year=None,
     docs = [d for d in body.get("docs", [])
             if is_safe_content(d) and is_quality_movie(d)]
 
-    # return {
-    #     "results": [_normalize(d) for d in docs],
-    #     "page": page,
-    #     "total_pages": total_pages,
-    #     "total_results": num_found,
-    # }
-
     return build_response(body, [_normalize_list(d) for d in docs])
 
 
@@ -207,6 +202,7 @@ def fetch_detail(archive_id: str) -> dict | None:
     if r.status_code != 200:
         return None
     metadata = r.json().get("metadata", {})
+
     return _normalize_detail(metadata)
 
 # shared helpers
@@ -228,3 +224,47 @@ def _parse_description(doc: dict) -> str:
     if isinstance(d, list):
         d = " ".join(d)
     return d.strip()
+
+def _parse_cast(doc: dict) -> list:
+    """
+    Archive metadata has no structured cast — scrape what we can
+    from creator / director / contributor fields.
+    """
+    cast = []
+    seen = set()
+
+    def add(name: str, role: str):
+        name = name.strip()
+        if not name or name.lower() in seen:
+            return
+        seen.add(name.lower())
+        cast.append({
+            "id":           abs(hash(name)),   # stable fake id from name
+            "name":         name,
+            "character":    role,
+            "profile_path": None,              # archive never has photos
+            "order":        len(cast),
+        })
+
+    # director
+    director = doc.get("director") or doc.get("creator")
+    if director:
+        if isinstance(director, list):
+            for d in director: add(d, "Director")
+        else:
+            add(director, "Director")
+
+    # cast / contributor — sometimes comma or semicolon separated
+    for field in ("contributor", "cast", "performer"):
+        raw = doc.get(field, "")
+        if not raw:
+            continue
+        if isinstance(raw, list):
+            entries = raw
+        else:
+            entries = [x.strip() for x in re.split(r"[;,]", raw)]
+        for entry in entries:
+            if entry:
+                add(entry, "Cast")
+
+    return cast
