@@ -3,10 +3,8 @@ import type { Metadata } from "next";
 import { poppins, inter, anton, bebasNeue } from "../lib/fonts";
 import { Figtree } from "next/font/google";
 import { cn } from "@/lib/utils";
-import TopBar from "@/components/header/top-bar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Footer from "@/components/Footer";
-// import { usePathname } from 'next/navigation';
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -21,7 +19,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // const pathname = usePathname();
 
   return (
     <html
@@ -29,13 +26,9 @@ export default function RootLayout({
       className={cn(poppins.variable, inter.variable, anton.variable, bebasNeue.variable, "font-sans", figtree.variable)}
     >
         <body className="min-h-screen bg-background">
-        {
-            <TopBar />
-          // pathname !== '/landing' ? <TopBar /> :null
-        }
-        <TooltipProvider>{children}</TooltipProvider>
-        <div id="hover-root" />
-        <Footer />
+          <TooltipProvider>{children}</TooltipProvider>
+          <div id="hover-root" />
+          <Footer />
       </body>
     </html>
   );

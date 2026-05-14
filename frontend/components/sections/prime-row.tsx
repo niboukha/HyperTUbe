@@ -14,67 +14,38 @@ import { itemVariants } from "@/lib/annimations/hero-variants"
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip"
 import { CarouselSkeleton } from "../carousel/CarouselSkeleton"
 import HeaderTitle from '../ui/header-title';
-import { getMovieDetails } from "../hero/hero-content"
+import { getMovieDetails } from "@/lib/utils/fetchMovies"
 import { TMDB_GENRE_LABELS } from "@/lib/tmdb-genres"
 import { AvailabilityBadge } from "../ui/AvailabilityBadge"
+import Link from "next/link"
 
 type MovieRowProps = {
   title: string
-  endpoint: string
+  movies: MovieResult[]
 }
 
-export default function PrimeRow({ title, endpoint }: MovieRowProps) {
+export default function PrimeRow({ title, movies }: MovieRowProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(0)
-  const [movies, setMovies] = useState<MovieResult[]>([])
-  const [loading, setLoading] = useState(true)
-  const [duration, setDuration] = useState<string>("")
+  const [duration, setDuration]       = useState<string>("")
 
-  useEffect(() => {
-    const fetchMovies = async () => {
-      try {
-        const res = await fetch(endpoint)
-        if (!res.ok) throw new Error("Failed to fetch")
-        const data = await res.json()
-        const results: MovieResult[] = Array.isArray(data) ? data : data?.results ?? []
-        setMovies(results)
-      } catch (err) {
-        console.error("Fetch error:", err)
-        setMovies([])
-      }
-      finally {
-        setLoading(false)
-      }
-    }
-    fetchMovies()
-  }, [endpoint])
-  
+  const { scrollRef, canScrollLeft, canScrollRight, checkScroll, scroll, startAutoScroll, stopAutoScroll } = useCarousel()
+
   useEffect(() => {
     if (activeIndex === null) return
 
     const movie = movies[activeIndex]
     if (!movie) return
-
-    const id = movie.id
-
+    
     async function load() {
-      const data = await getMovieDetails(id)
-
-      if (!data.runtime) {
-        setDuration("N/A")
-        return
-      }
-
-      const h = Math.floor(data.runtime / 60)
-      const m = data.runtime % 60
-
-      setDuration(`${h}h ${m}m`)
+      const data = await getMovieDetails(movie.id)
+      setDuration(data.runtime)
     }
 
     load()
   }, [activeIndex, movies])
 
-  const { scrollRef, canScrollLeft, canScrollRight, checkScroll, scroll, startAutoScroll, stopAutoScroll } = useCarousel()
   
+  const loading = !movies || movies.length === 0 
   if (loading)
     return <CarouselSkeleton title={title} isprime={true} /> 
   
@@ -133,6 +104,7 @@ export default function PrimeRow({ title, endpoint }: MovieRowProps) {
               overflowY: "visible",
               paddingTop: "3px",
               paddingBottom: "3px",
+              paddingRight: "460px",
             }}
         >
           {movies.map((movie, index) => {
@@ -160,12 +132,13 @@ export default function PrimeRow({ title, endpoint }: MovieRowProps) {
                       className="absolute inset-0  "
                     >
                       <Image
-                        src={`https://image.tmdb.org/t/p/w780${movie.backdrop_path}`}
+                        src={`${movie.backdrop_path}`}
                         alt={movie.title}
                         fill
                         priority
                         sizes="500px"
                         className="object-cover"
+                        quality={100}
                       />
                     </motion.div>
                   ) : (
@@ -178,11 +151,12 @@ export default function PrimeRow({ title, endpoint }: MovieRowProps) {
                       className="absolute inset-0"
                     >
                       <Image
-                        src={`https://image.tmdb.org/t/p/w342${movie.poster_path}`}
+                        src={`${movie.poster_path}`}
                         alt={movie.title}
                         fill
                         priority
                         sizes="160px"
+                        quality={100}
                         className="object-cover"
                       />
                     </motion.div>
@@ -242,12 +216,14 @@ export default function PrimeRow({ title, endpoint }: MovieRowProps) {
                       <div className="flex items-center gap-2">
                         <Tooltip key="More Informations">
                           <TooltipTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className="border-white/30 bg-white/10 hover:bg-white/20 text-white px-3! py-1.5! rounded-md shadow-md hover:text-white hover:shadow-lg transition-all duration-200 hover:scale-110"
-                          >
-                            More Informations
-                          </Button>
+                          <Link href={`/movies/${movie.id}`}>
+                            <Button
+                              variant="outline"
+                              className="border-white/30 bg-white/10 hover:bg-white/20 text-white px-3! py-1.5! rounded-md shadow-md hover:text-white hover:shadow-lg transition-all duration-200 hover:scale-110"
+                            >
+                              More Informations
+                            </Button>
+                          </Link>
                           </TooltipTrigger>
                           <TooltipContent>
                             <p className="whitespace-nowrap
@@ -287,7 +263,7 @@ export default function PrimeRow({ title, endpoint }: MovieRowProps) {
 
                       {/* Meta */}
                       <motion.div variants={itemVariants} className="flex flex-wrap items-center gap-2! md:gap-2! mb-2!">
-                          <Badge variant="secondary" className="bg-accent-gold text-foreground border-0 text-sm font-bold! rounded-md p-1!">
+                          <Badge variant="secondary" className="bg-accent-gold text-foreground border-0 text-xs font-bold! rounded-[5px] px-1! py-0.5!">
                               TMDb
                           </Badge>
                           <Badge variant="link" className=" text-text-muted text-xs gap-1 rounded-md">
@@ -302,11 +278,15 @@ export default function PrimeRow({ title, endpoint }: MovieRowProps) {
                               {duration}
                           </Badge>
                           <span className="text-text-muted/50 hidden md:inline">|</span>
-                          {movie.genre?.map((id: number) => (
-                              <Badge key={id} variant="link" className="text-text-muted text-xs rounded-md">
-                                  {TMDB_GENRE_LABELS[id]}
-                              </Badge>
-                          ))}
+                            {movie.genre_ids?.map((id: number) => (
+                                <Badge
+                                    key={id}
+                                    variant="link"
+                                    className="text-text-muted text-xs rounded-md"
+                                >
+                                    {TMDB_GENRE_LABELS[id]}
+                                </Badge>
+                            ))}
                       </motion.div>
                     </motion.div>
                   )}

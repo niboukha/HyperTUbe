@@ -10,7 +10,7 @@ import { ChevronLeft,X} from "lucide-react";
 import LanguageMenu from "@/components/header/language-menu";
 import { itemVariants } from "@/lib/annimations/hero-variants";
 import { Clapperboard } from 'lucide-react';
-
+import Link from "next/link";
 
 import { useIsMobile } from "@/hooks/useMobile";
 const API_KEY = "c20857d1130f4dd9b51b60a3f91b7b1a"
@@ -96,9 +96,11 @@ useEffect(() => {
         <Logo/>
         <div className="  md:flex items-center gap-3">
           <LanguageMenu />
-          <Button className="hidden md:flex bg-white  !px-7 !py-4 !text-lg  bg-[#BD0404] text-[#ffffff] hover:bg-[#BD0404] hover:scale-105 font-meduim rounded-sm">
-            Sign In
-          </Button>
+          <Link href="/home">
+            <Button className="hidden md:flex bg-white  !px-7 !py-4 !text-lg  bg-[#BD0404] text-[#ffffff] hover:bg-[#BD0404] hover:scale-105 font-meduim rounded-sm">
+              Sign In
+            </Button>
+          </Link>
         </div>
       </div>
       

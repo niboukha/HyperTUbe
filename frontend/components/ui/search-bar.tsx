@@ -281,6 +281,7 @@ export default function SearchBar({ open: externalOpen, onOpenChange, inline = f
                           src={`https://image.tmdb.org/t/p/w200${movie.poster_path}`}
                           alt={movie.title}
                           fill
+                          priority
                           className="object-cover"
                         />
                       ) : (
@@ -329,6 +330,7 @@ export default function SearchBar({ open: externalOpen, onOpenChange, inline = f
                           src={`https://image.tmdb.org/t/p/w92${movie.poster_path}`}
                           alt={movie.title}
                           fill
+                          priority
                           className="object-cover"
                         />
                       ) : (

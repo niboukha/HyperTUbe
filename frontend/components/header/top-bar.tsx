@@ -15,41 +15,14 @@ export default function TopBar() {
   const [currentLang, setCurrentLang] = useState<Language>(languages[0])
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
-  const [scrolled, setScrolled] = useState(false)
   const [hidden, setHidden] = useState(false)
-  const ticking = useRef(false)
   const lastScrollY = useRef(0)
   const pathname = usePathname()
 
   const isLibrary = pathname.startsWith("/library")
   const isAnyMenuOpen = searchOpen || mobileMenuOpen
   
-  // useEffect(() => {
-  //   const handleScroll = () => {
-  //     if (isAnyMenuOpen) {
-  //       setHidden(false)
-  //       return
-  //     }
-  //     if (!ticking.current) {
-  //       window.requestAnimationFrame(() => {
-  //         const currentY = window.scrollY
-  //         setScrolled(currentY > 10)
-  //         if (currentY > lastScrollY.current && currentY > 80) {
-  //           setHidden(true)
-  //         } else {
-  //           setHidden(false)
-  //         }
-  //         lastScrollY.current = currentY
-  //         ticking.current = false
-  //       })
-  //       ticking.current = true
-  //     }
-  //   }
-
-  //   window.addEventListener("scroll", handleScroll, { passive: true })
-  //   return () => window.removeEventListener("scroll", handleScroll)
-  // }, [])
-    const [isTop, setIsTop] = useState(true)
+  const [isTop, setIsTop] = useState(true)
 
   useEffect(() => {
     const handleScroll = () => {

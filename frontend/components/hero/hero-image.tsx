@@ -20,13 +20,13 @@ export default function HeroImage({ movie }: HeroImageProps) {
           className="absolute inset-0 will-change-transform"
         >
           <Image
-              src={`https://image.tmdb.org/t/p/original${movie.backdrop_path}`}
+              src={`${movie.backdrop_path}`}
               alt={movie.title}
               fill
               sizes="100vw"
               className="object-cover transform-gpu will-change-transform"
               priority
-              quality={90}
+              quality={100}
           />
         </motion.div>
       )}

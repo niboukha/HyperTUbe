@@ -7,9 +7,10 @@ import { Play, Plus, Star } from "lucide-react"
 import CarouselPortal from "@/components/carousel/carousel-portal"
 import { cardVariants } from "@/lib/annimations/continue-watching-variants"
 import { TooltipButton } from "../ui/tool-tip-button"
+import { AvailabilityBadge } from "../ui/AvailabilityBadge";
+import Link from "next/link";
 
-
-export default function MovieCard({ movie }: { movie: MovieResult }) {
+export default function MovieCard({ movie, index }: { movie: MovieResult; index: number }) {
   const {
     hover,
     handleMouseEnter,
@@ -19,16 +20,16 @@ export default function MovieCard({ movie }: { movie: MovieResult }) {
   } = useHoverPortal()
 
   const hoveredMovie = hover ? movie : null
-  const isHovered = hover?.index === movie.id
+  const isHovered = hover?.index === index
 
   const imagePath = movie.backdrop_path || movie.poster_path
   const image = imagePath
-    ? `https://image.tmdb.org/t/p/w342${imagePath}`
+    ? `${imagePath}`
     : null
 
   const hoveredimagepath = hoveredMovie?.backdrop_path || hoveredMovie?.poster_path || null
 
-  const hoveredimage = hoveredimagepath ? `https://image.tmdb.org/t/p/w342${hoveredimagepath}`
+  const hoveredimage = hoveredimagepath ? `${hoveredimagepath}`
     : null
 
   return (
@@ -39,7 +40,7 @@ export default function MovieCard({ movie }: { movie: MovieResult }) {
         variants={cardVariants}
         className="shrink-0 relative border border-transparent rounded-md overflow-hidden cursor-pointer"
         style={{ zIndex: isHovered ? 50 : 1 }}
-        onMouseEnter={(e) => handleMouseEnter(e, movie.id)}
+        onMouseEnter={(e) => handleMouseEnter(e, index)}
         onMouseLeave={handleMouseLeave}
         animate={
           hover && !isHovered
@@ -48,12 +49,13 @@ export default function MovieCard({ movie }: { movie: MovieResult }) {
         }
         transition={{ type: "spring", stiffness: 300, damping: 24, mass: 0.8 }}
       >
-        <div className="relative w-60 md:w-65 aspect-video rounded-md overflow-hidden cursor-pointer">
+        <div className="relative w-full aspect-16/10 overflow-hidden aspect-video">
           {image ? (
             <Image
               src={image}
               alt={movie.title}
               fill
+              priority
               sizes="360px"
               className="object-cover transition-transform duration-500 group-hover:scale-105"
             />
@@ -62,9 +64,8 @@ export default function MovieCard({ movie }: { movie: MovieResult }) {
               <span className="text-white/15 text-4xl">🎬</span>
             </div>
           )}
-          <div className="absolute top-0.5! right-6! flex items-center gap-1 bg-black/60 backdrop-blur-sm rounded px-1! py-0.5! text-[10px] text-yellow-400/90">
-            <Star className="h-2.5 w-2.5 fill-yellow-400/90" />
-            {movie.rating?.toFixed(1)}
+          <div className="absolute top-0.5! right-1!">
+            <AvailabilityBadge type={movie.availability} />
           </div>
         </div> 
       </motion.div>
@@ -72,6 +73,7 @@ export default function MovieCard({ movie }: { movie: MovieResult }) {
       {hoveredMovie && (
         <CarouselPortal
           hover={hover}
+          movieId={hoveredMovie.id}
           image={ hoveredimage }
           title={hoveredMovie.title}
           year={hoveredMovie.year}
@@ -90,7 +92,9 @@ export default function MovieCard({ movie }: { movie: MovieResult }) {
                   label="Watch now"
                   className="w-8 h-8 rounded-full bg-text-primary flex items-center justify-center hover:bg-text-primary/80 transition"
                 >
-                  <Play className="h-4 w-4 text-background fill-background ml-0.5" />
+                  <Link href={`/movies/${movie.id}`}>
+                    <Play className="h-4 w-4 text-background fill-background ml-0.5" />
+                  </Link>
                 </TooltipButton>
 
                 <TooltipButton

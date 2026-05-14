@@ -10,12 +10,16 @@ import { MovieResult } from "@/types/search"
 
 const AUTOPLAY_DURATION = 10000
 
-export default function HeroBackground() {
-  const [movies, setMovies] = useState<MovieResult[]>([])
-  const [activeSlide, setActiveSlide] = useState(0)
-  const [isLoading, setIsLoading] = useState(true)
-  const [progress, setProgress] = useState(0)
+type HeroBackgroundProps = {
+  movies: MovieResult[]
+}
 
+export default function HeroBackground({ movies }: HeroBackgroundProps) {
+  const isLoading = !movies || movies.length === 0
+  
+  const [activeSlide, setActiveSlide] = useState(0)
+  const [progress, setProgress] = useState(0)
+ 
   const heroRef = useRef<HTMLDivElement>(null)
   const isPausedRef = useRef(false)
   const isHoveredRef = useRef(false)
@@ -40,30 +44,12 @@ export default function HeroBackground() {
     return () => observer.disconnect()
   }, [])
 
-  useEffect(() => {
-    const fetchMovies = async () => {
-      try {
-        const res = await fetch("/api/movies?type=top")
-        if (!res.ok) throw new Error("Failed to fetch TMDB movies")
-        const data = await res.json()
-        setMovies(data.results?.slice(0, 10) ?? [])
-      } catch (err) {
-        console.error("Failed to fetch movies:", err)
-        setMovies([])
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    fetchMovies()
-  }, [])
-
   const elapsedRef = useRef(0)
 
   useEffect(() => {
     if (movies.length === 0) return
 
     const TICK = 100
-
     const interval = setInterval(() => {
       if (isPausedRef.current) return
 
@@ -71,7 +57,6 @@ export default function HeroBackground() {
 
       const newProgress = Math.min((elapsedRef.current / AUTOPLAY_DURATION) * 100, 100)
       setProgress(newProgress)
-
       if (elapsedRef.current >= AUTOPLAY_DURATION) {
         elapsedRef.current = 0
         setActiveSlide((current) => (current + 1) % moviesLengthRef.current)

@@ -13,8 +13,8 @@ import { useHoverPortal } from "@/components/carousel/use-hover-portal"
 import Carousel from "../carousel/carousel"
 import { CarouselSkeleton } from "../carousel/CarouselSkeleton"
 import { TooltipButton } from "../ui/tool-tip-button"
-import { getMovieDetails } from "../hero/hero-content"
 import { Movie, MovieResult } from "@/types/search"
+import { getMovieDetails } from "@/lib/utils/fetchMovies"
 
 type ContinueWatchingMovie = {
   id: number
@@ -55,30 +55,30 @@ export default function ContinueWatching( { title = "Continue Watching" }: { tit
   const hoveredimagepath = hoveredMovie?.backdrop_path || hoveredMovie?.poster_path || null
   const [duration, setDuration] = useState<string>("")
 
-  useEffect(() => {
-    if (hover === null) return
+  // useEffect(() => {
+  //   if (hover === null) return
 
-    const movie = movies[hover.index]
-    if (!movie) return
+  //   const movie = movies[hover.index]
+  //   if (!movie) return
 
-    const id = movie.id
+  //   const id = movie.id
 
-    async function load() {
-      const data = await getMovieDetails(id)
+  //   async function load() {
+  //     const data = await getMovieDetails(id)
 
-      if (!data.runtime) {
-        setDuration("N/A")
-        return
-      }
+  //     if (!data.runtime) {
+  //       setDuration("N/A")
+  //       return
+  //     }
 
-      const h = Math.floor(data.runtime / 60)
-      const m = data.runtime % 60
+  //     const h = Math.floor(data.runtime / 60)
+  //     const m = data.runtime % 60
 
-      setDuration(`${h}h ${m}m`)
-    }
+  //     setDuration(`${h}h ${m}m`)
+  //   }
 
-    load()
-  }, [hover, movies])
+  //   load()
+  // }, [hover, movies])
 
   if (loading) return <CarouselSkeleton title={title} />
   
@@ -116,6 +116,7 @@ export default function ContinueWatching( { title = "Continue Watching" }: { tit
                     src={image}
                     alt={title}
                     fill
+                    priority
                     sizes="360px"
                     className="object-cover transition-transform duration-500 group-hover:scale-105"
                   />
@@ -140,11 +141,11 @@ export default function ContinueWatching( { title = "Continue Watching" }: { tit
       {hoveredMovie && (
         <CarouselPortal
           hover={hover}
+          movieId={hoveredMovie.id.toString()} //temporary workaround since CarouselPortal expects string id for fetching details, but ContinueWatchingMovie has numeric id
           image={ hoveredimagepath ? `https://image.tmdb.org/t/p/w342${hoveredimagepath}` : null }
           title={hoveredMovie.title}
           year={hoveredMovie.year}
           rating={hoveredMovie.rating}
-          duration={duration}
           availability={hoveredMovie.availability}
           getPortalStyle={getPortalStyle}
           onMouseEnter={clearHoverTimeout}
