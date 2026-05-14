@@ -288,6 +288,7 @@ def fetch_credits(tmdb_id: int) -> list:
         if person.get("known_for_department") == "Acting"
     ]
 
+    # 🎥 Crew filtering
     directors = [c for c in crew if c.get("job") == "Director"]
     producers = [c for c in crew if "Producer" in c.get("job", "")]
 

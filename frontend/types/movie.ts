@@ -23,6 +23,21 @@ export type Collection = {
   backdrop_path: string | null
 } | null
 
+export type CastMember = {
+  id:           number
+  name:         string
+  character:    string
+  profile_path: string | null
+  order:        number
+}
+
+export type CrewMember = {
+  id:           number
+  name:         string
+  job:          string
+  profile_path: string | null
+}
+
 export type MovieDetail = {
   // identity
   id: string              // "tmdb-123" | "archive-AtlanticFlight"
@@ -32,6 +47,9 @@ export type MovieDetail = {
   imdb_id?: string | null
   source: "tmdb" | "archive"
   availability: "premium" | "free"
+
+  cast: CastMember[]
+  crew: CrewMember[]
 
   // core
   title: string

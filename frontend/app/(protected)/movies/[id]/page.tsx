@@ -658,7 +658,8 @@ export default function VedioDetails()
             transition={{ duration: 0.5, delay: 0.5, ease: "easeOut" }}
             className=" !mt-4 md:!mt-6 flex flex-row gap-9"
           > 
-            <Crow crow={avatars}/>        
+            <Crow cast={movie.cast ?? []} crew={movie.crew ?? []} />        
+             {/* <CastRow cast={movie.cast ?? []} /> */}
           </motion.div>
           
           {/* Action buttons */}
@@ -818,6 +819,60 @@ function NotFound() {
   return (
     <div className="h-screen flex items-center justify-center text-white/40">
       Movie not found.
+    </div>
+  )
+}
+
+
+// components/VideoDetails/CastRow.tsx
+
+import Image from "next/image"
+import { User } from "lucide-react"
+import { CastMember } from "@/types/movie"
+
+type Props = { cast: CastMember[] }
+
+export function CastRow({ cast }: Props) {
+  if (!cast?.length) return null
+
+  return (
+    <div className="space-y-3!">
+      <HeaderTitle title="Cast" />
+      <div className="flex gap-3 overflow-x-auto pb-2!" style={{ scrollbarWidth: "none" }}>
+        {cast.map(person => (
+          <div
+            key={person.id}
+            className="shrink-0 flex flex-col items-center gap-1.5 w-20"
+          >
+            {/* Avatar */}
+            <div className="relative w-16 h-16 rounded-full overflow-hidden bg-white/8 border border-white/10 shrink-0">
+              {person.profile_path ? (
+                <Image
+                  src={person.profile_path}
+                  alt={person.name}
+                  fill
+                  sizes="64px"
+                  className="object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <User className="w-6 h-6 text-white/20" />
+                </div>
+              )}
+            </div>
+
+            {/* Name + character */}
+            <div className="text-center">
+              <p className="text-white/80 text-[11px] font-medium leading-tight line-clamp-2">
+                {person.name}
+              </p>
+              <p className="text-white/35 text-[10px] leading-tight line-clamp-1 mt-0.5!">
+                {person.character}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

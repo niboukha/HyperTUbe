@@ -18,14 +18,26 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { PlusIcon } from "lucide-react";
 import { useState } from "react";
+import { CastMember, CrewMember } from "@/types/movie";
 
-export default function Crow({ crow }) {
+
+export default function Crow({ cast, crew }: { cast: CastMember[], crew: CrewMember[] }) {
   const [open, setOpen] = useState(false);
+  const MAX_VISIBLE = 5
+
+  if (cast.length === 0 && crew.length === 0) return null
+  if (!cast?.length) return null
+  
+  const visibleCast = cast.slice(0, MAX_VISIBLE)
+  
+  console.log("Cast component:", cast)
+  
+  console.log("Crew component:", crew)
 
   return (
     <>
       <AvatarGroup className="border-none !-space-x-4">
-        {crow.map((user, index) => (
+        {visibleCast.map((person, index) => (
           <motion.div
             key={index}
             className="flex flex-col items-center"
@@ -41,8 +53,8 @@ export default function Crow({ crow }) {
             whileHover={{ y: -6, scale: 1.1 }}
           >
             <Avatar className="h-10 w-10 md:h-13 md:w-13 border border-white/10 ring-0 shadow-none">
-              <AvatarImage src={user.src} alt={user.name} />
-              <AvatarFallback>{user.username}</AvatarFallback>
+              <AvatarImage src={person.profile_path || undefined} alt={person.name} />
+              <AvatarFallback>{person.name.charAt(0)}</AvatarFallback>
             </Avatar>
             {/* <p className="text-white/70 text-sm mt-1 font-[poppins]">
               {user.name}
@@ -56,7 +68,7 @@ export default function Crow({ crow }) {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{
             duration: 0.4,
-            delay: crow.length * 0.1,
+            delay: cast.length * 0.1,
             type: "spring",
             stiffness: 300,
             damping: 20,
@@ -82,7 +94,7 @@ export default function Crow({ crow }) {
 
           <ScrollArea className=" max-h-sm h-sm md:h-100 ">
             <ul className="py-2 px-2 flex flex-col gap-2">
-              {crow.map((user, index) => (
+              {cast.map((person, index) => (
                 <motion.li
                   key={index}
                   initial={{ opacity: 0, x: -10 }}
@@ -91,17 +103,17 @@ export default function Crow({ crow }) {
                   className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:rounded-[100px] hover:bg-white/5 transition-colors cursor-pointer"
                 >
                   <Avatar className=" h-10 w-10 md:h-15 md:w-15 border border-white/20 shrink-0">
-                    <AvatarImage src={user.src} alt={user.name} />
+                    <AvatarImage src={person.profile_path || undefined} alt={person.name} />
                     <AvatarFallback className="text-xs bg-white/10 text-white">
-                      {user.username}
+                      {person.name.charAt(0)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col min-w-0">
                     <span className="text-white text-sm font-medium truncate font-[poppins]">
-                      {user.name}
+                      {person.name}
                     </span>
                     <span className="text-white/40 text-xs truncate">
-                      @{user.username.toLowerCase()}
+                      @{person.name.toLowerCase()}
                     </span>
                   </div>
                   
