@@ -202,7 +202,11 @@ def fetch_detail(archive_id: str) -> dict | None:
     if r.status_code != 200:
         return None
     metadata = r.json().get("metadata", {})
+    print("------------------------------------------------------")
+    print(json.dumps(metadata, indent=2, ensure_ascii=False))
 
+    print("response length:", len(r.content))
+    
     return _normalize_detail(metadata)
 
 # shared helpers

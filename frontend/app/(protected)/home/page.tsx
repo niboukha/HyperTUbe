@@ -14,9 +14,8 @@ const ROWS = [
   { title: "Crime",            endpoint: "/movies/?type=genre&genre=80" },
 ] as const
 
-const HeroMovies = "/movies/?type=trending";
-
-const upcomingMovies = "/movies/?type=upcoming"
+const HeroMovies      = "/movies/?type=trending";
+const upcomingMovies  = "/movies/?type=upcoming"
 
 export default async function Home() {
 

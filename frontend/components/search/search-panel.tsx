@@ -54,7 +54,7 @@ export function SearchPanel({
   }
 
   return (
-    <div className="p-2!">
+    <div className="p-1!">
       <TopResultsSection movies={topMovies} query={query} activeIndex={activeIndex} onSelect={onSelectMovie} />
       <MoviesSection movies={listMovies} query={query} activeIndex={activeIndex} topCount={topMovies.length} onSelect={onSelectMovie} />
       <UsersSection users={users} query={query} onSelect={onSelectUser} />

@@ -7,6 +7,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
+from .services.utils import _shuffle_merge
+
 from .adapters.tmdb import HEADERS, TMDB_BASE, fetch_credits
 from .services.merger  import get_home_section
 from .services.filters import library_search
@@ -126,6 +128,9 @@ def movie_detail(request, movie_id: str):
 
     if not data:
         return Response({"error": "Not found"}, status=404)
+    # print("Fetched movie detail:")
+    # print(json.dumps(data, indent=2, ensure_ascii=False))
+    
     return Response(data)
 
 
@@ -167,3 +172,31 @@ def movie_collection(request, collection_id: int):
     if not data:
         return Response({"error": "Collection not found"}, status=404)
     return Response(data)
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def movie_search(request):
+    """
+    /api/search/?q=harry+potter
+    /api/search/?q=batman&page=2
+    Used by the search bar dropdown — fast, TMDB only, no archive.
+    """
+    q    = request.GET.get("q", "").strip()
+    page = int(request.GET.get("page", 1))
+
+    if not q:
+        return Response({"results": [], "totalPages": 0, "page": 1})
+
+    from .adapters.tmdb import search
+    tmdb_data = search(query=q, page=page)
+    
+    from .adapters.archive import fetch_movies
+    archive_data = fetch_movies(search=q, page=page)
+
+    tmdb_results = tmdb_data.get("results", [])
+    archive_results = archive_data.get("results", [])
+
+    merged = _shuffle_merge(tmdb_results, archive_results)
+    # print(json.dumps(merged, indent=2, ensure_ascii=False))
+
+    return Response(merged)

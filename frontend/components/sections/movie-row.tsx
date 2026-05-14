@@ -38,7 +38,7 @@ export default function MovieRow({ title, endpoint, priority }: MovieRowProps) {
     let cancelled = false
     const run = async () => {
       try {
-        const res = await fetch(`http://localhost:8000${endpoint}`);
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`);
 
         if (!res.ok) throw new Error(`${res.status}`)
         const data = await res.json()

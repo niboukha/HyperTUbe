@@ -28,7 +28,7 @@ def get_home_section(type_: str, genre_ids: list = None, page: int = 1) -> list:
     # if cached:
     #     return cached
 
-    print(f"Fetching {type_} movies from TMDB (genre_ids={genre_ids}, page={page})")
+    # print(f"Fetching {type_} movies from TMDB (genre_ids={genre_ids}, page={page})")
 
     if type_ != "genre":
         response    = tmdb.fetch_by_type(type_, page)
@@ -54,10 +54,10 @@ def get_home_section(type_: str, genre_ids: list = None, page: int = 1) -> list:
         result      = response["results"]
         total_pages = response["total_pages"]
 
-    print(
-        f"Fetched {len(result)} movies for "
-        f"type={type_} (genre_ids={genre_ids})"
-    )
+    # print(
+    #     f"Fetched {len(result)} movies for "
+    #     f"type={type_} (genre_ids={genre_ids})"
+    # )
 
     # cache.set(key, result, CACHE_TTL.get(type_, 60 * 15))
 

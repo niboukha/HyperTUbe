@@ -247,34 +247,12 @@ def fetch_credits(tmdb_id: int) -> list:
     r = requests.get(f"{TMDB_BASE}/movie/{tmdb_id}/credits", headers=HEADERS)
     if r.status_code != 200:
         return []
-
     # print(json.dumps(r.json(), indent=2, ensure_ascii=False))
-
 
     data = r.json()
 
     cast = data.get("cast", [])
     crew = data.get("crew", [])
-
-    # print(f"Fetched credits for TMDB ID {tmdb_id}: {[person['name'] for person in cast[:5]]} and more...")
-
-    # print("Full cast:")
-    # print(json.dumps(cast[:15], indent=2, ensure_ascii=False))
-    # print("Full crew:")
-    # print(json.dumps(crew, indent=2, ensure_ascii=False))
-
-    # return [
-    #     {
-    #         "id":            person["id"],
-    #         "name":          person.get("name", ""),
-    #         "character":     person.get("character", ""),
-    #         "profile_path":  f"https://image.tmdb.org/t/p/w185{person['profile_path']}"
-    #                          if person.get("profile_path") else None,
-    #         "order":         person.get("order", 99),
-    #     }
-    #     for person in cast[:15]   # top 15 is plenty
-    #     if person.get("known_for_department") == "Acting"
-    # ]
 
     cast_list = [
         {
@@ -284,13 +262,13 @@ def fetch_credits(tmdb_id: int) -> list:
             "profile_path": f"https://image.tmdb.org/t/p/w185{person['profile_path']}"
                 if person.get("profile_path") else None,
         }
-        for person in cast
+        for person in cast[:2]
         if person.get("known_for_department") == "Acting"
     ]
 
     # 🎥 Crew filtering
-    directors = [c for c in crew if c.get("job") == "Director"]
-    producers = [c for c in crew if "Producer" in c.get("job", "")]
+    directors = [c for c in crew[:2] if c.get("job") == "Director"]
+    producers = [c for c in crew[:2] if "Producer" in c.get("job", "")]
 
     return {
         "cast": cast_list,

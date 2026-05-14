@@ -3,7 +3,7 @@ import { cache } from "react"
 export const getMovies = cache(async (endpoint: string) => {
   console.log(`----------Fetching movies from endpoint: ${endpoint}`)
   
-  const res = await fetch(`http://localhost:8000${endpoint}`, {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`, {
     next: { revalidate: 60 }
   })
   return res.json()
@@ -11,7 +11,7 @@ export const getMovies = cache(async (endpoint: string) => {
 
 export const getMovieDetails = async (id: string) => {
   
-    const res = await fetch(`http://localhost:8000/movies/${id}/`)
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/movies/${id}/`)
     if (!res.ok) {
         return null
     }

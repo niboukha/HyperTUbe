@@ -5,14 +5,14 @@ from .utils import _shuffle_merge
 from ..adapters import tmdb, archive
 
 def library_search(
-    query: str      = "",
-    genre_ids: list = None,
-    year_from: int  = None,
-    year_to: int    = None,
-    min_rating: float = 0,
-    sort_by: str    = "popularity",
-    page: int       = 1,
-    page_size: int  = 50,
+    query       : str   = "",
+    genre_ids   : list  = None,
+    year_from   : int   = None,
+    year_to     : int   = None,
+    min_rating  : float = 0,
+    sort_by     : str   = "popularity",
+    page        : int   = 1,
+    page_size   : int   = 50,
 ) -> dict:
     with ThreadPoolExecutor(max_workers=2) as pool:
         tmdb_future    = pool.submit(tmdb.search,

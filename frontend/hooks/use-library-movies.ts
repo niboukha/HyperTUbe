@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { Filters, MIN_YEAR, CURRENT_YEAR } from "@/components/library/filter-bar"
 import { MovieResult } from "@/types/search"
 
-const API = "http://localhost:8000/movies"
+const API = process.env.NEXT_PUBLIC_API_URL || ""
 
 function buildUrl(q: string, page: number, filters: Filters): string {
   const p = new URLSearchParams()
@@ -15,7 +15,7 @@ function buildUrl(q: string, page: number, filters: Filters): string {
   if (filters.yearRange[0] !== MIN_YEAR)      p.set("yearFrom", String(filters.yearRange[0]))
   if (filters.yearRange[1] !== CURRENT_YEAR)  p.set("yearTo", String(filters.yearRange[1]))
   if (filters.sort)                           p.set("sort", filters.sort)
-  return `${API}/?${p}`
+  return `${API}/movies/?${p}`
 }
 
 function isDefaultFilters(filters: Filters): boolean {
@@ -106,7 +106,7 @@ export function useLibraryMovies(urlQuery: string, filters: Filters) {
     const ctrl = new AbortController()
     abortSuggRef.current = ctrl
 
-    fetch(`${API}/?page=1`, { signal: ctrl.signal })
+    fetch(`${API}/movies/?page=1`, { signal: ctrl.signal })
       .then(r => r.json())
       .then(data => {
         setSuggestions(data.results ?? [])
@@ -145,7 +145,7 @@ export function useLibraryMovies(urlQuery: string, filters: Filters) {
     const next = suggPage + 1
     setLoadingMoreSugg(true)
     try {
-      const data = await fetch(`${API}/?page=${next}`).then(r => r.json())
+      const data = await fetch(`${API}/movies/?page=${next}`).then(r => r.json())
       setSuggestions(prev => {
         const ids = new Set(prev.map(m => m.id))
         return [...prev, ...(data.results ?? []).filter((m: MovieResult) => !ids.has(m.id))]
