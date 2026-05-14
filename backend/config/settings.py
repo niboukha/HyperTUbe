@@ -49,7 +49,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "rest_framework",
     "apps.movies",
-    "apps.comments",
+    # "apps.comments",
 ]
 
 # settings.py
