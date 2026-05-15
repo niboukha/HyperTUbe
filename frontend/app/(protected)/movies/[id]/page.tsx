@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import Crow from "@/components/VedioDetails/Crow";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import useEmblaCarousel from 'embla-carousel-react'
 import { Clapperboard,Play,Plus, Star } from 'lucide-react';
 import { formatRuntime } from "@/utils/formatRuntime";
 import { Button } from "@/components/ui/button";
@@ -99,41 +98,15 @@ export default function VedioDetails()
   const params   = useParams()
   const movieId  = params.id as string   // e.g. "tmdb-1266127"
 
-  const [movie,       setMovie]       = useState<MovieDetail | null>(null)
-  const [loading,     setLoading]     = useState(true)
   const [trailerUrl,  setTrailerUrl]  = useState<string | null>(null)
   const [reviews,     setReviews]     = useState<Review[]>([])
+
+  const { data: movie, pending } = useMovieDetail(movieId)
 
   const { data: collection, loading: collectionLoading } = useCollection(
     movie?.collection?.id
   )
 
-  const [emblaRef, emblaApi] = useEmblaCarousel({ 
-    dragFree: true,
-    align: "start",
-  });
-
-useEffect(() => {
-  if (!movieId) return
-
-  let ignore = false
-
-  const load = async () => {
-    setLoading(true)
-    const data = await fetchMovieDetail(movieId)
-
-    if (!ignore) {
-      setMovie(data)
-      setLoading(false)
-    }
-  }
-
-  load()
-
-  return () => {
-    ignore = true
-  }
-}, [movieId])
 
   // fetch trailer only when dialog opens
   useEffect(() => {
@@ -143,9 +116,10 @@ useEffect(() => {
   }, [trailerOpen, movie])
 
     
-  if (loading) return <DetailSkeleton />
-  if (!movie)  return <NotFound />
-
+  if (!movie) return <DetailSkeleton />
+  
+  const isLoading = !movie && pending
+  
   const isArchive   = movie.source === "archive"
   const watchUrl    = isArchive ? movie.watch_url : undefined
   const hasTrailer  = !isArchive
@@ -201,13 +175,13 @@ useEffect(() => {
               badgeClassName="w-3 h-3"
             />
 
-            {/* {movie.rating > 0 && ( */}
+            {movie.rating > 0 && (
               <Badge variant="link" className="text-text-muted text-xs gap-1 rounded-md">
                 <Star className="h-3 w-3 fill-yellow-400/70 text-yellow-400/70" />
                 {movie.rating.toFixed(1)}
-                {/* <span className="text-text-muted/60">/10</span> */}
+                <span className="text-text-muted/60">/10</span>
               </Badge>
-            {/* )} */}
+            )}
 
             {movie.year && (
               <>
@@ -437,6 +411,7 @@ function NotFound() {
 import Image from "next/image"
 import { User } from "lucide-react"
 import { CastMember } from "@/types/movie"
+import { useMovieDetail } from "@/hooks/use-movie-details";
 
 type Props = { cast: CastMember[] }
 

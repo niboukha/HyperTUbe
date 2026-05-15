@@ -1,102 +1,53 @@
 # movies/adapters/archive.py
-import json
+import logging
 import math
 import re
-import time
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 
-import requests
-
+from ..cache.movie_cache import (
+    NOT_FOUND,
+    acquire_fetch_lock,
+    get_archive_detail, set_archive_detail, set_archive_detail_not_found,
+    get_archive_downloads,
+    get_archive_runtime, set_archive_runtime,
+)
+from ..client import safe_get
 from ..services.utils import build_response, format_runtime
 
+logger   = logging.getLogger(__name__)
 BASE_URL = "https://archive.org/advancedsearch.php"
 
 GENRE_SUBJECTS = {
-    28:    "action",       16: "animation",
-    27:    "horror",       878: "science fiction",
-    10752: "war",          35: "comedy",
-    9648:  "mystery",      80: "crime",
+    28: "action", 16: "animation", 27: "horror", 878: "science fiction",
+    10752: "war", 35: "comedy", 9648: "mystery", 80: "crime",
 }
-
-BLOCKED_TERMS = [
-    "adult", "xxx", "porn", "sex", "erotic",
-    "nsfw", "fetish", "nude", "nudity", "hardcore",
-]
 BLOCKED_PATTERN = re.compile(
-    r"\b(" + "|".join(re.escape(t) for t in BLOCKED_TERMS) + r")\b",
-    re.IGNORECASE,
+    r"\b(adult|xxx|porn|sex|erotic|nsfw|fetish|nude|nudity|hardcore)\b", re.IGNORECASE
 )
 BLOCKED_TITLES = {
-    "cosmos: war of the planets",
-    "het is weer zomer in zandvoort!",
-    "teaserama",
-    "adı vasfiye, turkish movie",
-    "desire",
-    "mark of zorro",
-    "raw force [1982] - trailer",
-    "maken-ki! battling venus",
-    "maken-ki! battling venus - trailer",
+    "cosmos: war of the planets", "het is weer zomer in zandvoort!",
+    "teaserama", "adı vasfiye, turkish movie", "desire", "mark of zorro",
+    "raw force [1982] - trailer", "maken-ki! battling venus",
 }
 
 
-#  Retry helper ----------------------------------------------------------─
+# ── Quality gates ─────────────────────────────────────────────────────────────
 
-def _get_with_retry(url: str, params: dict = None, timeout: int = 6,
-                    retries: int = 3, backoff: float = 0.6) -> requests.Response:
-    last_exc = None
-    r = None
-    for attempt in range(retries):
-        try:
-            r = requests.get(url, params=params, timeout=timeout)
-            if r.status_code == 200:
-                return r
-            if attempt < retries - 1:
-                time.sleep(backoff * (attempt + 1))
-        except (requests.exceptions.Timeout,
-                requests.exceptions.ConnectionError) as e:
-            last_exc = e
-            if attempt < retries - 1:
-                time.sleep(backoff * (attempt + 1))
-    if last_exc:
-        raise last_exc
-    return r  # return last response even if not 200; caller checks
-
-
-#  Quality gates ----------------------------------------------------------
-
-def is_safe_content(doc):
+def is_safe_content(doc: dict) -> bool:
+    title = str(doc.get("title", ""))
+    if title.lower() in BLOCKED_TITLES:
+        return False
     text = " ".join([
-        str(doc.get("title", "")),
-        str(doc.get("description", "")),
-        " ".join(doc.get("subject", []))
-        if isinstance(doc.get("subject"), list)
+        title, str(doc.get("description", "")),
+        " ".join(doc.get("subject", [])) if isinstance(doc.get("subject"), list)
         else str(doc.get("subject", "")),
     ])
+    return len(text.strip()) >= 20 and not BLOCKED_PATTERN.search(text)
 
-    if (str(doc.get("title", "")).lower() in BLOCKED_TITLES
-            or str(doc.get("description", "")) in BLOCKED_TERMS
-            or BLOCKED_PATTERN.search(text)
-            or str(doc.get("title", "")).lower() in BLOCKED_TERMS):
-        return False
-
-    text = text.lower().strip()
-    if len(text) < 20:
-        return False
-    if BLOCKED_PATTERN.search(text):
-        return False
-    return True
+def is_quality_movie(doc: dict) -> bool:
+    return (doc.get("downloads") or 0) > 100 and doc.get("title") and doc.get("year")
 
 
-def is_quality_movie(doc):
-    downloads = doc.get("downloads") or 0
-    return (
-        downloads > 100
-        and doc.get("title")
-        and doc.get("year")
-    )
-
-
-#  Shared helpers 
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _parse_subjects(doc: dict) -> list[str]:
     s = doc.get("subject", [])
@@ -104,76 +55,54 @@ def _parse_subjects(doc: dict) -> list[str]:
         s = [x.strip() for x in re.split(r"[;,]", s)]
     return [x.lower() for x in s if isinstance(x, str)]
 
-
 def _subjects_to_genre_ids(subjects: list[str]) -> list[int]:
-    return [
-        gid for gid, name in GENRE_SUBJECTS.items()
-        if any(name.lower() in s for s in subjects)
-    ]
-
+    return [gid for gid, name in GENRE_SUBJECTS.items()
+            if any(name.lower() in s for s in subjects)]
 
 def _parse_description(doc: dict) -> str:
     d = doc.get("description", "")
-    if isinstance(d, list):
-        d = " ".join(d)
-    return d.strip()
+    return (" ".join(d) if isinstance(d, list) else d).strip()
 
+def _fake_rating(downloads: int) -> float:
+    return round(min(math.log10(downloads + 1) * 1.2, 10), 1) if downloads > 0 else 0.0
 
 def _parse_cast(doc: dict) -> list:
     cast, seen = [], set()
-
     def add(name: str, role: str):
         name = name.strip()
-        if not name or name.lower() in seen:
-            return
+        if not name or name.lower() in seen: return
         seen.add(name.lower())
-        cast.append({
-            "id":           abs(hash(name)),
-            "name":         name,
-            "character":    role,
-            "profile_path": None,
-            "order":        len(cast),
-        })
-
+        cast.append({"id": abs(hash(name)), "name": name, "character": role,
+                     "profile_path": None, "order": len(cast)})
     director = doc.get("director") or doc.get("creator")
     if director:
-        if isinstance(director, list):
-            for d in director: add(d, "Director")
-        else:
-            add(director, "Director")
-
+        for d in (director if isinstance(director, list) else [director]):
+            add(d, "Director")
     for field in ("contributor", "cast", "performer"):
         raw = doc.get(field, "")
-        if not raw:
-            continue
-        entries = raw if isinstance(raw, list) else [
-            x.strip() for x in re.split(r"[;,]", raw)
-        ]
-        for entry in entries:
-            if entry:
-                add(entry, "Cast")
-
+        if not raw: continue
+        entries = raw if isinstance(raw, list) else [x.strip() for x in re.split(r"[;,]", raw)]
+        for e in entries:
+            if e: add(e, "Cast")
     return cast
 
 
-#  Normalizers ----------------------------------------------------------
+# ── Normalizers ───────────────────────────────────────────────────────────────
 
 def _normalize_list(doc: dict) -> dict:
-    identifier  = doc.get("identifier", "")
-    subjects    = _parse_subjects(doc)
-    downloads   = doc.get("downloads") or 0
-    description = _parse_description(doc)
-
+    identifier = doc.get("identifier", "")
+    subjects   = _parse_subjects(doc)
+    downloads  = doc.get("downloads") or 0
     return {
         "id":            f"archive-{identifier}",
         "type":          "movie",
         "archive_id":    identifier,
         "source":        "archive",
         "availability":  "free",
-        "title":         doc.get("title", ""),
-        "overview":      description[:300] if description else "",
+        "title":         doc.get("title") or "Unavailable",
+        "overview":      _parse_description(doc)[:300],
         "year":          str(doc.get("year", "")),
-        "rating":        round(min(math.log10(downloads + 1) * 1.2, 10), 1),
+        "rating":        _fake_rating(downloads),
         "vote_count":    downloads,
         "genre_ids":     _subjects_to_genre_ids(subjects),
         "poster_path":   f"https://archive.org/services/img/{identifier}" if identifier else None,
@@ -182,17 +111,11 @@ def _normalize_list(doc: dict) -> dict:
         "watch_url":     f"https://archive.org/details/{identifier}",
     }
 
-
 def _normalize_detail(doc: dict, downloads: int = 0) -> dict:
-    identifier  = doc.get("identifier", "")
-    subjects    = _parse_subjects(doc)
-    genre_ids   = _subjects_to_genre_ids(subjects)
-    description = _parse_description(doc)
-
-    # Use downloads from search API if passed, else fall back to metadata field
-    if not downloads:
-        downloads = doc.get("downloads") or 0
-
+    identifier = doc.get("identifier", "")
+    subjects   = _parse_subjects(doc)
+    genre_ids  = _subjects_to_genre_ids(subjects)
+    downloads  = downloads or doc.get("downloads") or 0
     return {
         "id":             f"archive-{identifier}",
         "type":           "movie",
@@ -200,130 +123,124 @@ def _normalize_detail(doc: dict, downloads: int = 0) -> dict:
         "source":         "archive",
         "availability":   "free",
         "cast":           _parse_cast(doc),
-        "title":          doc.get("title", ""),
-        "original_title": doc.get("title", ""),
+        "title":          doc.get("title") or "Unavailable",
+        "original_title": doc.get("title") or "",
         "tagline":        "",
-        "overview":       description,
+        "overview":       _parse_description(doc) or "Data temporarily unavailable",
         "year":           str(doc.get("year") or (doc.get("date") or "")[:4]),
         "release_date":   doc.get("date"),
         "runtime":        format_runtime(doc.get("runtime")),
-        "runtime_mins":   None,
         "status":         "Released",
         "poster_path":    f"https://archive.org/services/img/{identifier}" if identifier else None,
         "backdrop_path":  None,
-        "rating":         round(min(math.log10(downloads + 1) * 1.2, 10), 1) if downloads > 0 else 0.0,
+        "rating":         _fake_rating(downloads),
         "vote_count":     downloads,
         "popularity":     downloads,
         "genre_ids":      genre_ids,
         "genres":         [{"id": gid, "name": GENRE_SUBJECTS.get(gid, "").title()}
                            for gid in genre_ids],
         "collection":     None,
-        "studios":        [doc.get("publisher", "")] if doc.get("publisher") else [],
-        "countries":      [],
-        "languages":      [],
+        "studios":        [doc["publisher"]] if doc.get("publisher") else [],
+        "countries":      [], "languages":  [],
         "watch_url":      f"https://archive.org/details/{identifier}",
         "director":       doc.get("director") or doc.get("creator"),
         "subjects":       subjects,
     }
 
+def _stub_detail(archive_id: str) -> dict:
+    """Safe placeholder returned while background fetch is pending."""
+    return {
+        "id": f"archive-{archive_id}", "type": "movie",
+        "archive_id": archive_id, "source": "archive",
+        "availability": "free", "cast": [],
+        "title": "Loading...", "original_title": "",
+        "tagline": "", "overview": "Details are being fetched, please refresh shortly.",
+        "year": "", "release_date": None,
+        "runtime": "N/A", "status": "Released",
+        "poster_path": f"https://archive.org/services/img/{archive_id}",
+        "backdrop_path": None,
+        "rating": 0.0, "vote_count": 0, "popularity": 0,
+        "genre_ids": [], "genres": [], "collection": None,
+        "studios": [], "countries": [], "languages": [],
+        "watch_url": f"https://archive.org/details/{archive_id}",
+        "director": None, "subjects": [],
+        "_pending": True,   # frontend can poll if it sees this
+    }
 
-#  Fetch helpers ----------------------------------------------------------
 
-def fetch_movies(search=None, genre_ids=None, year=None,
-                 sort_by="downloads", page=1, rows=20):
-    query_parts = ["collection:moviesandfilms", "mediatype:movies"]
+# ── Public fetch API ──────────────────────────────────────────────────────────
 
-    if search:
-        query_parts.append(f"title:({search})")
+def fetch_movies(search: str = None, genre_ids: list = None, year: int = None,
+                 sort_by: str = "downloads", page: int = 1, rows: int = 20) -> dict:
+    """List fetch — real-time but fast (search index, not metadata)."""
+    parts = ["collection:moviesandfilms", "mediatype:movies"]
+    if search:    parts.append(f"title:({search})")
     if genre_ids:
         subjects = [GENRE_SUBJECTS[g] for g in genre_ids if g in GENRE_SUBJECTS]
         if subjects:
-            query_parts.append(
-                "(" + " OR ".join(f"subject:{s}" for s in subjects) + ")"
-            )
-    if year:
-        query_parts.append(f"year:{year}")
+            parts.append("(" + " OR ".join(f"subject:{s}" for s in subjects) + ")")
+    if year:      parts.append(f"year:{year}")
 
-    sort_map = {
-        "downloads": "downloads desc",
-        "year":      "year desc",
-        "title":     "title asc",
-    }
-
-    params = {
-        "q":      " AND ".join(query_parts),
-        "fl[]":   "identifier,title,description,year,subject,downloads",
+    sort_map = {"downloads": "downloads desc", "year": "year desc", "title": "title asc"}
+    body = safe_get(BASE_URL, params={
+        "q": " AND ".join(parts),
+        "fl[]": "identifier,title,description,year,subject,downloads",
         "sort[]": sort_map.get(sort_by, "downloads desc"),
-        "rows":   rows,
-        "page":   page,
-        "output": "json",
-    }
+        "rows": rows, "page": page, "output": "json",
+    }, timeout=8, retries=2, fallback={})
 
-    try:
-        r = requests.get(BASE_URL, params=params, timeout=10)
-        if r.status_code != 200:
-            return build_response({}, [])
-        body = r.json().get("response", {})
-    except Exception:
-        return build_response({}, [])
+    response = (body or {}).get("response", {})
+    docs     = [d for d in response.get("docs", [])
+                if is_safe_content(d) and is_quality_movie(d)]
 
-    num_found   = body.get("numFound", 0)
-    total_pages = max(1, -(-num_found // rows))
+    # Kick off background prefetch for any uncached items
+    _prefetch_uncached([d["identifier"] for d in docs if d.get("identifier")])
 
-    docs = [d for d in body.get("docs", [])
-            if is_safe_content(d) and is_quality_movie(d)]
-
-    return build_response(body, [_normalize_list(d) for d in docs])
+    return build_response(response, [_normalize_list(d) for d in docs])
 
 
-def fetch_detail(archive_id: str) -> dict | None:
-    r = requests.get(f"https://archive.org/metadata/{archive_id}", timeout=10)
-    if r.status_code != 200:
-        return None
-    metadata = r.json().get("metadata", {})
+def _prefetch_uncached(identifiers: list[str]) -> None:
+    """Queue background tasks for movies not yet in cache — fire and forget."""
+    from ..tasks import fetch_archive_detail_task
+    for archive_id in identifiers:
+        if get_archive_detail(archive_id) is None:
+            if acquire_fetch_lock(archive_id):
+                fetch_archive_detail_task.delay(archive_id)
 
-    return _normalize_detail(metadata)
 
-# In fetch_detail inside archive.py — tighten the inner retry budgets
-# def fetch_detail(archive_id: str) -> dict | None:
-#     from concurrent.futures import ThreadPoolExecutor
+def fetch_detail(archive_id: str) -> dict:
+    """
+    Cache-first detail fetch.
+    States:
+      HIT     → return immediately
+      NOT_FOUND sentinel → return None
+      MISS    → return stub + queue background fetch
+    """
+    cached = get_archive_detail(archive_id)
 
-#     def get_metadata():
-#         r = requests.get(f"https://archive.org/metadata/{archive_id}", timeout=10)
-#         return r.json().get("metadata", {}) if r.status_code == 200 else None
+    if cached is not None:
+        if cached == NOT_FOUND:
+            return None
+        return cached  # cache hit
 
-#     def get_downloads():
-#         try:
-#             r = requests.get(
-#                 "https://archive.org/advancedsearch.php",
-#                 params={"q": f"identifier:{archive_id}", "fl[]": "identifier,downloads",
-#                         "rows": 1, "output": "json"},
-#                 timeout=8,
-#             )
-#             docs = r.json().get("response", {}).get("docs", [])
-#             return int(docs[0].get("downloads", 0)) if docs else 0
-#         except Exception:
-#             return 0
+    # Cache miss — queue background fetch, return stub immediately
+    if acquire_fetch_lock(archive_id):
+        from ..tasks import fetch_archive_detail_task
+        fetch_archive_detail_task.delay(archive_id)
+        logger.info("fetch_detail: queued background fetch for %s", archive_id)
 
-#     with ThreadPoolExecutor(max_workers=2) as pool:
-#         meta_future      = pool.submit(get_metadata)
-#         downloads_future = pool.submit(get_downloads)
-#         metadata  = meta_future.result()
-#         downloads = downloads_future.result()
+    return _stub_detail(archive_id)
 
-#     if not metadata:
-#         return None
-
-#     return _normalize_detail(metadata, downloads)
 
 def fetch_runtime(archive_id: str) -> str:
-    try:
-        r = _get_with_retry(
-            f"https://archive.org/metadata/{archive_id}",
-            timeout=4, retries=2,
-        )
-        if r.status_code != 200:
-            return "N/A"
-        return format_runtime(r.json().get("metadata", {}).get("runtime"))
-    except Exception:
-        return "N/A"
+    """Runtime — cache only, queue background refresh on miss."""
+    cached = get_archive_runtime(archive_id)
+    if cached is not None:
+        return cached
+
+    # Queue a lightweight background task
+    if acquire_fetch_lock(f"runtime:{archive_id}", ttl=15):
+        from ..tasks import fetch_archive_runtime_task
+        fetch_archive_runtime_task.delay(archive_id)
+
+    return "N/A"

@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     # "apps.comments",
 ]
 
+# settings.py
 CACHES = {
     "default": {
         "BACKEND":  "django_redis.cache.RedisCache",
@@ -59,6 +60,10 @@ CACHES = {
         "OPTIONS":  {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
     }
 }
+
+CELERY_BROKER_URL    = "redis://127.0.0.1:6379/0"
+CELERY_RESULT_BACKEND = "redis://127.0.0.1:6379/0"
+CELERY_TASK_SERIALIZER = "json"
 
 TMDB_TOKEN   = env("TMDB_TOKEN")    # Bearer token
 
@@ -74,6 +79,21 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     "corsheaders.middleware.CorsMiddleware",
 ]
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {"class": "logging.StreamHandler"},
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "WARNING",
+    },
+    "loggers": {
+        "movies": {"handlers": ["console"], "level": "WARNING", "propagate": False},
+    },
+}
 
 ROOT_URLCONF = 'config.urls'
 

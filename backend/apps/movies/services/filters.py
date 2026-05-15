@@ -1,8 +1,10 @@
+import logging
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
+
 from .utils import _shuffle_merge
 from ..adapters import tmdb, archive
 
-ARCHIVE_FAST_TIMEOUT = 4  # match merger.py
+logger = logging.getLogger(__name__)
 
 
 def library_search(query: str = "", genre_ids: list = None, year_from: int = None,
@@ -18,16 +20,14 @@ def library_search(query: str = "", genre_ids: list = None, year_from: int = Non
                                 page=page, rows=page_size)
 
         tmdb_data = tmdb_f.result()
-
         try:
-            archive_data = archive_f.result(timeout=ARCHIVE_FAST_TIMEOUT)
-        except (FutureTimeout, Exception):
+            archive_data = archive_f.result(timeout=10)
+        except (FutureTimeout, Exception) as e:
+            logger.warning("archive timeout in library_search: %s", e)
             archive_data = {"results": [], "total_pages": 1}
 
-    merged = _shuffle_merge(
-        tmdb_data.get("results", []),
-        archive_data.get("results", []),
-    )
+    merged = _shuffle_merge(tmdb_data.get("results", []),
+                            archive_data.get("results", []))
 
     if min_rating > 0:
         merged = [m for m in merged if float(m.get("rating") or 0) >= min_rating]
@@ -40,13 +40,9 @@ def library_search(query: str = "", genre_ids: list = None, year_from: int = Non
     }
     if sort_by in sort_keys:
         merged.sort(key=sort_keys[sort_by],
-                    reverse=sort_by not in ("primary_release_date_asc",))
+                    reverse="asc" not in sort_by)
 
     total_pages = max(tmdb_data.get("total_pages", 1),
                       archive_data.get("total_pages", 1), 1)
-    return {
-        "results":    merged,
-        "page":       page,
-        "totalPages": total_pages,
-        "has_more":   page < total_pages,
-    }
+    return {"results": merged, "page": page,
+            "totalPages": total_pages, "has_more": page < total_pages}
