@@ -1,68 +1,77 @@
-# movies/services/merger.py
 import random
-from django.core.cache import cache
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 
 from .utils import _shuffle_merge
 from ..adapters import tmdb, archive
 
 CACHE_TTL = {
-    "trending": 60 * 30,    # 30 min
-    "top":      60 * 60,    # 1 hour
-    "genre":    60 * 20,    # 20 min
+    "trending": 60 * 30,
+    "top":      60 * 60,
+    "genre":    60 * 20,
 }
 
-def _cache_key(type_, **kwargs):
-    parts = [type_] + [f"{k}={v}" for k, v in sorted(kwargs.items()) if v]
-    return "movies:" + ":".join(parts)
+ARCHIVE_FAST_TIMEOUT = 4   # seconds — if archive responds, great; if not, skip it
+
+def _cache_key(type_: str, genre_ids: list, page: int) -> str:
+    genre_str = ",".join(str(g) for g in sorted(genre_ids or []))
+    return f"movies:{type_}:g{genre_str}:p{page}"
+
+def _cache_get(key: str):
+    try:
+        from django.core.cache import cache
+        return cache.get(key)
+    except Exception:
+        return None
+
+def _cache_set(key: str, value, ttl: int):
+    try:
+        from django.core.cache import cache
+        cache.set(key, value, ttl)
+    except Exception:
+        pass
 
 
-def get_home_section(type_: str, genre_ids: list = None, page: int = 1) -> list:
-    """
-    Powers your frontend sections:
-      /movies?type=trending&genre=28
-      /movies?type=top
-      /movies?genre=28
-    """
-    # key = _cache_key(type_, genre=genre_ids, page=page)
-    # cached = cache.get(key)
-    # if cached:
-    #     return cached
-
-    # print(f"Fetching {type_} movies from TMDB (genre_ids={genre_ids}, page={page})")
+def get_home_section(type_: str, genre_ids: list = None, page: int = 1) -> dict:
+    key    = _cache_key(type_, genre_ids, page)
+    cached = _cache_get(key)
+    if cached:
+        return cached
 
     if type_ != "genre":
-        response    = tmdb.fetch_by_type(type_, page)
+        resp   = tmdb.fetch_by_type(type_, page)
+        result = {
+            "results":     resp["results"],
+            "page":        page,
+            "total_pages": resp["total_pages"],
+        }
+        _cache_set(key, result, CACHE_TTL.get(type_, 60 * 15))
+        return result
 
-        result      = response["results"]
-        total_pages = response["total_pages"]
+    if genre_ids:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            tmdb_f    = pool.submit(tmdb.fetch_by_genre, genre_ids, page)
+            archive_f = pool.submit(archive.fetch_movies,
+                                    genre_ids=genre_ids, page=page)
 
-    elif genre_ids:
-        tmdb_response       = tmdb.fetch_by_genre(genre_ids, page)
-        archive_response    = archive.fetch_movies( genre_ids=genre_ids, page=page )
+            tmdb_resp       = tmdb_f.result()
+            archive_resp    = archive_f.result()
 
-        tmdb_movies     = tmdb_response["results"]
-        archive_movies  = archive_response["results"]
+        result = {
+            "results":     _shuffle_merge(tmdb_resp["results"], archive_resp["results"]),
+            "page":        page,
+            "total_pages": max(tmdb_resp["total_pages"], archive_resp["total_pages"], 1),
+        }
+        # Only cache if we got archive data too; otherwise use a short TTL
+        # so the next request has a chance to get archive results
+        ttl = CACHE_TTL["genre"] if archive_resp["results"] else 60 * 2
+        _cache_set(key, result, ttl)
+        return result
 
-        result      = _shuffle_merge(tmdb_movies, archive_movies)
-        total_pages = max(
-            tmdb_response["total_pages"],
-            archive_response["total_pages"],
-        )
-    
-    else:
-        response    = tmdb.fetch_by_type("trending", page)
-        result      = response["results"]
-        total_pages = response["total_pages"]
-
-    # print(
-    #     f"Fetched {len(result)} movies for "
-    #     f"type={type_} (genre_ids={genre_ids})"
-    # )
-
-    # cache.set(key, result, CACHE_TTL.get(type_, 60 * 15))
-
-    return {
-        "results"       : result,
-        "page"          : page,
-        "total_pages"   : total_pages,
+    resp   = tmdb.fetch_by_type("trending", page)
+    result = {
+        "results":     resp["results"],
+        "page":        page,
+        "total_pages": resp["total_pages"],
     }
+    _cache_set(key, result, CACHE_TTL["trending"])
+    return result

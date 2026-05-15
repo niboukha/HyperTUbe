@@ -2,29 +2,25 @@
 import json
 import math
 import re
+import time
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 
 import requests
 
 from ..services.utils import build_response, format_runtime
 
 BASE_URL = "https://archive.org/advancedsearch.php"
+
 GENRE_SUBJECTS = {
     28:    "action",       16: "animation",
     27:    "horror",       878: "science fiction",
     10752: "war",          35: "comedy",
-    9648: "mystery",       80:    "crime",
+    9648:  "mystery",      80: "crime",
 }
+
 BLOCKED_TERMS = [
-    "adult",
-    "xxx",
-    "porn",
-    "sex",
-    "erotic",
-    "nsfw",
-    "fetish",
-    "nude",
-    "nudity",
-    "hardcore",
+    "adult", "xxx", "porn", "sex", "erotic",
+    "nsfw", "fetish", "nude", "nudity", "hardcore",
 ]
 BLOCKED_PATTERN = re.compile(
     r"\b(" + "|".join(re.escape(t) for t in BLOCKED_TERMS) + r")\b",
@@ -32,15 +28,41 @@ BLOCKED_PATTERN = re.compile(
 )
 BLOCKED_TITLES = {
     "cosmos: war of the planets",
-    "Het is weer zomer in Zandvoort!",
-    "Teaserama",
-    "Adı Vasfiye, Turkish Movie",
-    "Desire",
-    "Mark of Zorro",
-    "Raw Force [1982] - Trailer",
-    "Maken-Ki! Battling Venus",
-    "Maken-Ki! Battling Venus - Trailer",
+    "het is weer zomer in zandvoort!",
+    "teaserama",
+    "adı vasfiye, turkish movie",
+    "desire",
+    "mark of zorro",
+    "raw force [1982] - trailer",
+    "maken-ki! battling venus",
+    "maken-ki! battling venus - trailer",
 }
+
+
+# ── Retry helper ──────────────────────────────────────────────────────────────
+
+def _get_with_retry(url: str, params: dict = None, timeout: int = 6,
+                    retries: int = 3, backoff: float = 0.6) -> requests.Response:
+    last_exc = None
+    r = None
+    for attempt in range(retries):
+        try:
+            r = requests.get(url, params=params, timeout=timeout)
+            if r.status_code == 200:
+                return r
+            if attempt < retries - 1:
+                time.sleep(backoff * (attempt + 1))
+        except (requests.exceptions.Timeout,
+                requests.exceptions.ConnectionError) as e:
+            last_exc = e
+            if attempt < retries - 1:
+                time.sleep(backoff * (attempt + 1))
+    if last_exc:
+        raise last_exc
+    return r  # return last response even if not 200; caller checks
+
+
+# ── Quality gates ─────────────────────────────────────────────────────────────
 
 def is_safe_content(doc):
     text = " ".join([
@@ -51,124 +73,182 @@ def is_safe_content(doc):
         else str(doc.get("subject", "")),
     ])
 
-    if str(doc.get("title", "")).lower() in BLOCKED_TITLES or str(doc.get("description", "")) in BLOCKED_TERMS or BLOCKED_PATTERN.search(text) or str(doc.get("title", "")).lower() in BLOCKED_TERMS:
+    if (str(doc.get("title", "")).lower() in BLOCKED_TITLES
+            or str(doc.get("description", "")) in BLOCKED_TERMS
+            or BLOCKED_PATTERN.search(text)
+            or str(doc.get("title", "")).lower() in BLOCKED_TERMS):
         return False
-    
+
     text = text.lower().strip()
     if len(text) < 20:
         return False
     if BLOCKED_PATTERN.search(text):
         return False
-
     return True
+
 
 def is_quality_movie(doc):
     downloads = doc.get("downloads") or 0
-
     return (
-        downloads > 100 and
-        doc.get("title") and
-        doc.get("year")
+        downloads > 100
+        and doc.get("title")
+        and doc.get("year")
     )
 
+
+# ── Shared helpers ────────────────────────────────────────────────────────────
+
+def _parse_subjects(doc: dict) -> list[str]:
+    s = doc.get("subject", [])
+    if isinstance(s, str):
+        s = [x.strip() for x in re.split(r"[;,]", s)]
+    return [x.lower() for x in s if isinstance(x, str)]
+
+
+def _subjects_to_genre_ids(subjects: list[str]) -> list[int]:
+    return [
+        gid for gid, name in GENRE_SUBJECTS.items()
+        if any(name.lower() in s for s in subjects)
+    ]
+
+
+def _parse_description(doc: dict) -> str:
+    d = doc.get("description", "")
+    if isinstance(d, list):
+        d = " ".join(d)
+    return d.strip()
+
+
+def _parse_cast(doc: dict) -> list:
+    cast, seen = [], set()
+
+    def add(name: str, role: str):
+        name = name.strip()
+        if not name or name.lower() in seen:
+            return
+        seen.add(name.lower())
+        cast.append({
+            "id":           abs(hash(name)),
+            "name":         name,
+            "character":    role,
+            "profile_path": None,
+            "order":        len(cast),
+        })
+
+    director = doc.get("director") or doc.get("creator")
+    if director:
+        if isinstance(director, list):
+            for d in director: add(d, "Director")
+        else:
+            add(director, "Director")
+
+    for field in ("contributor", "cast", "performer"):
+        raw = doc.get(field, "")
+        if not raw:
+            continue
+        entries = raw if isinstance(raw, list) else [
+            x.strip() for x in re.split(r"[;,]", raw)
+        ]
+        for entry in entries:
+            if entry:
+                add(entry, "Cast")
+
+    return cast
+
+
+# ── Normalizers ───────────────────────────────────────────────────────────────
+
 def _normalize_list(doc: dict) -> dict:
-    identifier = doc.get("identifier", "")
-    subjects   = _parse_subjects(doc)
-    genre_ids  = _subjects_to_genre_ids(subjects)
-    downloads  = doc.get("downloads") or 0
-    description = _parse_description(doc)
-
-    return {
-        "id":           f"archive-{identifier}",
-        "type":         "movie",
-        "archive_id":   identifier,
-        "source":       "archive",
-        "availability": "free",
-        "title":        doc.get("title", ""),
-        "overview":     description[:300] if description else "",  # truncate for cards
-        "year":         str(doc.get("year", "")),
-        "rating":       round(min(math.log10(downloads + 1) * 1.2, 10), 1),
-        "vote_count":   downloads,
-        "genre_ids":    genre_ids,
-        "poster_path":  f"https://archive.org/services/img/{identifier}" if identifier else None,
-        "backdrop_path": None,
-        "runtime":      format_runtime(doc.get("runtime")),
-        "watch_url":    f"https://archive.org/details/{identifier}",
-    }
-
-def _normalize_detail(doc: dict) -> dict:
     identifier  = doc.get("identifier", "")
     subjects    = _parse_subjects(doc)
-    genre_ids   = _subjects_to_genre_ids(subjects)
     downloads   = doc.get("downloads") or 0
     description = _parse_description(doc)
 
     return {
-        "id":           f"archive-{identifier}",
-        "type":         "movie",
-        "archive_id":   identifier,
-        "source":       "archive",
-        "availability": "free",
-
-        "cast": _parse_cast(doc),
-
-        "title":        doc.get("title", ""),
-        "original_title": doc.get("title", ""),
-        "tagline":      "",
-        "overview":     description,
-        "year":         str(doc.get("year") or doc.get("date", "")[:4]),
-        "release_date": doc.get("date"),
-        "runtime":      format_runtime(doc.get("runtime")),
-        "runtime_mins": None,
-        "status":       "Released",
-
-        "poster_path":  f"https://archive.org/services/img/{identifier}" if identifier else None,
+        "id":            f"archive-{identifier}",
+        "type":          "movie",
+        "archive_id":    identifier,
+        "source":        "archive",
+        "availability":  "free",
+        "title":         doc.get("title", ""),
+        "overview":      description[:300] if description else "",
+        "year":          str(doc.get("year", "")),
+        "rating":        round(min(math.log10(downloads + 1) * 1.2, 10), 1),
+        "vote_count":    downloads,
+        "genre_ids":     _subjects_to_genre_ids(subjects),
+        "poster_path":   f"https://archive.org/services/img/{identifier}" if identifier else None,
         "backdrop_path": None,
-
-        "rating":       round(min(math.log10(downloads + 1) * 1.2, 10), 1),
-        "vote_count":   downloads,
-        "popularity":   downloads,
-
-        "genre_ids":    genre_ids,
-        "genres":       [
-                            {"id": gid, "name": GENRE_SUBJECTS.get(gid, "").title()}
-                            for gid in genre_ids
-                        ],
-
-        "collection":   None,
-        "studios":      [doc.get("publisher", "")] if doc.get("publisher") else [],
-        "countries":    [],
-        "languages":    [],
-        "budget":       None,
-        "revenue":      None,
-        "homepage":     None,
-
-        "watch_url":    f"https://archive.org/details/{identifier}",
-        "director":     doc.get("director") or doc.get("creator"),
-        "license":      doc.get("licenseurl"),
-        "color":        doc.get("color"),
-        "sound":        doc.get("sound"),
-        "subjects":     subjects,          # raw subject list for display
+        "runtime":       format_runtime(doc.get("runtime")),
+        "watch_url":     f"https://archive.org/details/{identifier}",
     }
 
+
+def _normalize_detail(doc: dict, downloads: int = 0) -> dict:
+    identifier  = doc.get("identifier", "")
+    subjects    = _parse_subjects(doc)
+    genre_ids   = _subjects_to_genre_ids(subjects)
+    description = _parse_description(doc)
+
+    # Use downloads from search API if passed, else fall back to metadata field
+    if not downloads:
+        downloads = doc.get("downloads") or 0
+
+    return {
+        "id":             f"archive-{identifier}",
+        "type":           "movie",
+        "archive_id":     identifier,
+        "source":         "archive",
+        "availability":   "free",
+        "cast":           _parse_cast(doc),
+        "title":          doc.get("title", ""),
+        "original_title": doc.get("title", ""),
+        "tagline":        "",
+        "overview":       description,
+        "year":           str(doc.get("year") or (doc.get("date") or "")[:4]),
+        "release_date":   doc.get("date"),
+        "runtime":        format_runtime(doc.get("runtime")),
+        "runtime_mins":   None,
+        "status":         "Released",
+        "poster_path":    f"https://archive.org/services/img/{identifier}" if identifier else None,
+        "backdrop_path":  None,
+        "rating":         round(min(math.log10(downloads + 1) * 1.2, 10), 1) if downloads > 0 else 0.0,
+        "vote_count":     downloads,
+        "popularity":     downloads,
+        "genre_ids":      genre_ids,
+        "genres":         [{"id": gid, "name": GENRE_SUBJECTS.get(gid, "").title()}
+                           for gid in genre_ids],
+        "collection":     None,
+        "studios":        [doc.get("publisher", "")] if doc.get("publisher") else [],
+        "countries":      [],
+        "languages":      [],
+        "budget":         None,
+        "revenue":        None,
+        "homepage":       None,
+        "watch_url":      f"https://archive.org/details/{identifier}",
+        "director":       doc.get("director") or doc.get("creator"),
+        "license":        doc.get("licenseurl"),
+        "color":          doc.get("color"),
+        "sound":          doc.get("sound"),
+        "subjects":       subjects,
+    }
+
+
+# ── Fetch helpers ─────────────────────────────────────────────────────────────
 
 def fetch_movies(search=None, genre_ids=None, year=None,
                  sort_by="downloads", page=1, rows=20):
     query_parts = ["collection:moviesandfilms", "mediatype:movies"]
 
-    if search:     query_parts.append(f"title:({search})")
+    if search:
+        query_parts.append(f"title:({search})")
     if genre_ids:
-        subjects = [
-            GENRE_SUBJECTS[g]
-            for g in genre_ids
-            if g in GENRE_SUBJECTS
-        ]
-
+        subjects = [GENRE_SUBJECTS[g] for g in genre_ids if g in GENRE_SUBJECTS]
         if subjects:
             query_parts.append(
                 "(" + " OR ".join(f"subject:{s}" for s in subjects) + ")"
             )
-    if year:       query_parts.append(f"year:{year}")
+    if year:
+        query_parts.append(f"year:{year}")
 
     sort_map = {
         "downloads": "downloads desc",
@@ -184,12 +264,17 @@ def fetch_movies(search=None, genre_ids=None, year=None,
         "page":   page,
         "output": "json",
     }
-    r = requests.get(BASE_URL, params=params, timeout=10)
-    r.raise_for_status()
-    
-    body        = r.json().get("response", {})
+
+    try:
+        r = requests.get(BASE_URL, params=params, timeout=10)
+        if r.status_code != 200:
+            return build_response({}, [])
+        body = r.json().get("response", {})
+    except Exception:
+        return build_response({}, [])
+
     num_found   = body.get("numFound", 0)
-    total_pages = max(1, -(-num_found // rows))   # ceiling division
+    total_pages = max(1, -(-num_found // rows))
 
     docs = [d for d in body.get("docs", [])
             if is_safe_content(d) and is_quality_movie(d)]
@@ -202,73 +287,48 @@ def fetch_detail(archive_id: str) -> dict | None:
     if r.status_code != 200:
         return None
     metadata = r.json().get("metadata", {})
-    print("------------------------------------------------------")
-    print(json.dumps(metadata, indent=2, ensure_ascii=False))
-
-    print("response length:", len(r.content))
-    
     return _normalize_detail(metadata)
 
-# shared helpers
-def _parse_subjects(doc: dict) -> list[str]:
-    s = doc.get("subject", [])
-    if isinstance(s, str):
-        # "Action; Drama; Romance" → ["action", "drama", "romance"]
-        s = [x.strip() for x in re.split(r"[;,]", s)]
-    return [x.lower() for x in s if isinstance(x, str)]
+# In fetch_detail inside archive.py — tighten the inner retry budgets
+# def fetch_detail(archive_id: str) -> dict | None:
+#     from concurrent.futures import ThreadPoolExecutor
 
-def _subjects_to_genre_ids(subjects: list[str]) -> list[int]:
-    return [
-        gid for gid, name in GENRE_SUBJECTS.items()
-        if any(name.lower() in s for s in subjects)
-    ]
+#     def get_metadata():
+#         r = requests.get(f"https://archive.org/metadata/{archive_id}", timeout=10)
+#         return r.json().get("metadata", {}) if r.status_code == 200 else None
 
-def _parse_description(doc: dict) -> str:
-    d = doc.get("description", "")
-    if isinstance(d, list):
-        d = " ".join(d)
-    return d.strip()
+#     def get_downloads():
+#         try:
+#             r = requests.get(
+#                 "https://archive.org/advancedsearch.php",
+#                 params={"q": f"identifier:{archive_id}", "fl[]": "identifier,downloads",
+#                         "rows": 1, "output": "json"},
+#                 timeout=8,
+#             )
+#             docs = r.json().get("response", {}).get("docs", [])
+#             return int(docs[0].get("downloads", 0)) if docs else 0
+#         except Exception:
+#             return 0
 
-def _parse_cast(doc: dict) -> list:
-    """
-    Archive metadata has no structured cast — scrape what we can
-    from creator / director / contributor fields.
-    """
-    cast = []
-    seen = set()
+#     with ThreadPoolExecutor(max_workers=2) as pool:
+#         meta_future      = pool.submit(get_metadata)
+#         downloads_future = pool.submit(get_downloads)
+#         metadata  = meta_future.result()
+#         downloads = downloads_future.result()
 
-    def add(name: str, role: str):
-        name = name.strip()
-        if not name or name.lower() in seen:
-            return
-        seen.add(name.lower())
-        cast.append({
-            "id":           abs(hash(name)),   # stable fake id from name
-            "name":         name,
-            "character":    role,
-            "profile_path": None,              # archive never has photos
-            "order":        len(cast),
-        })
+#     if not metadata:
+#         return None
 
-    # director
-    director = doc.get("director") or doc.get("creator")
-    if director:
-        if isinstance(director, list):
-            for d in director: add(d, "Director")
-        else:
-            add(director, "Director")
+#     return _normalize_detail(metadata, downloads)
 
-    # cast / contributor — sometimes comma or semicolon separated
-    for field in ("contributor", "cast", "performer"):
-        raw = doc.get(field, "")
-        if not raw:
-            continue
-        if isinstance(raw, list):
-            entries = raw
-        else:
-            entries = [x.strip() for x in re.split(r"[;,]", raw)]
-        for entry in entries:
-            if entry:
-                add(entry, "Cast")
-
-    return cast
+def fetch_runtime(archive_id: str) -> str:
+    try:
+        r = _get_with_retry(
+            f"https://archive.org/metadata/{archive_id}",
+            timeout=4, retries=2,
+        )
+        if r.status_code != 200:
+            return "N/A"
+        return format_runtime(r.json().get("metadata", {}).get("runtime"))
+    except Exception:
+        return "N/A"

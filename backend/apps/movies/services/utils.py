@@ -1,11 +1,14 @@
 
 import random
+import re
 
-def build_response(body, results):
+
+def build_response(body: dict, results: list) -> dict:
+    """Standard paginated response shape."""
     return {
-        "results": results,
-        "page": body.get("page", 1),
-        "total_pages": min(body.get("total_pages", 1), 500),
+        "results":       results,
+        "page":          body.get("page", 1),
+        "total_pages":   min(body.get("total_pages", 1), 500),
         "total_results": body.get("total_results", len(results)),
     }
 
@@ -14,70 +17,40 @@ def _shuffle_merge(a: list, b: list) -> list:
     random.shuffle(merged)
     return merged
 
-def _interleave(primary: list, secondary: list, tmdb_ratio=0.7) -> list:
-    """Insert secondary items at random positions, keeping primary order."""
-
+def _interleave(primary: list, secondary: list, ratio: float = 0.7) -> list:
+    """Keep primary order, sprinkle in secondary items randomly."""
     result = list(primary)
-    insert_count = max(1, int(len(secondary) * (1 - tmdb_ratio)))
-    picks = random.sample(secondary, min(insert_count, len(secondary)))
+    count  = max(1, int(len(secondary) * (1 - ratio)))
+    picks  = random.sample(secondary, min(count, len(secondary)))
     for item in picks:
-        pos = random.randint(0, len(result))
-        result.insert(pos, item)
+        result.insert(random.randint(0, len(result)), item)
     return result
 
-import re
-
-def format_runtime(runtime):
+def format_runtime(runtime) -> str:
     if not runtime:
         return "N/A"
-
-    # -------------------------
-    # TMDB case: integer minutes
-    # -------------------------
     if isinstance(runtime, int):
-        h = runtime // 60
-        m = runtime % 60
+        h, m = divmod(runtime, 60)
         return f"{h}h {m}m"
-
     if not isinstance(runtime, str):
         return "N/A"
-
     runtime = runtime.strip().lower()
-
-    # -------------------------
-    # "53 min", "53 min.", "53 minutes"
-    # -------------------------
-    match = re.search(r"(\d+)\s*min", runtime)
-    if match:
-        minutes = int(match.group(1))
-        h = minutes // 60
-        m = minutes % 60
-        return f"{h}h {m}m"
-
-    # -------------------------
-    # HH:MM:SS
-    # -------------------------
+    m = re.search(r"(\d+)\s*min", runtime)
+    if m:
+        h, mins = divmod(int(m.group(1)), 60)
+        return f"{h}h {mins}m"
     parts = runtime.split(":")
     try:
         if len(parts) == 3:
-            h, m, s = map(int, parts)
-            return f"{h}h {m}m"
-
-        # -------------------------
-        # MM:SS (like "1:19")
-        # -------------------------
+            h, mins, _ = map(int, parts)
+            return f"{h}h {mins}m"
         if len(parts) == 2:
-            m, s = map(int, parts)
-            h = m // 60
-            m = m % 60
-            return f"{h}h {m}m"
-
+            total, _ = map(int, parts)
+            h, mins  = divmod(total, 60)
+            return f"{h}h {mins}m"
     except ValueError:
-        return "N/A"
-
+        pass
     return "N/A"
-
-
 
 
 

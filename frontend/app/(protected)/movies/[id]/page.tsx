@@ -201,13 +201,13 @@ useEffect(() => {
               badgeClassName="w-3 h-3"
             />
 
-            {movie.rating > 0 && (
+            {/* {movie.rating > 0 && ( */}
               <Badge variant="link" className="text-text-muted text-xs gap-1 rounded-md">
                 <Star className="h-3 w-3 fill-yellow-400/70 text-yellow-400/70" />
                 {movie.rating.toFixed(1)}
-                <span className="text-text-muted/60">/10</span>
+                {/* <span className="text-text-muted/60">/10</span> */}
               </Badge>
-            )}
+            {/* )} */}
 
             {movie.year && (
               <>

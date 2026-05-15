@@ -7,50 +7,44 @@ import { Clock, Star } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { HoverState } from "./use-hover-portal"
 import { AvailabilityBadge } from "../ui/AvailabilityBadge"
-import { useMovieDetails } from "@/hooks/use-movie-details"
 import { LoadingNumbers } from "../ui/loading-numbers"
 
 type Props = {
-  hover: HoverState
-  image: string | null
-  title: string
-  year?: string | null
-  rating?: number | null
-  availability?: "free" | "premium"
-  progress?: number
-  getPortalStyle: (rect: DOMRect, origin: "left" | "center" | "right") => React.CSSProperties
-  onMouseEnter: () => void
-  onMouseLeave: () => void
-  infoPanel: React.ReactNode
-  movieId: string
+  hover:           HoverState
+  image:           string | null
+  title:           string
+  year?:           string | null
+  rating?:         number | null
+  availability?:   "free" | "premium"
+  progress?:       number
+  runtime?:        string        // ← prop, not fetched here
+  runtimeLoading?: boolean
+  getPortalStyle:  (rect: DOMRect, origin: "left" | "center" | "right") => React.CSSProperties
+  onMouseEnter:    () => void
+  onMouseLeave:    () => void
+  infoPanel:       React.ReactNode
 }
+
 
 export default function CarouselPortal({
   hover,
-  movieId,
   image,
   title,
   year,
   rating,
   availability,
   progress,
+  runtime,
+  runtimeLoading,
   getPortalStyle,
   onMouseEnter,
   onMouseLeave,
   infoPanel,
 }: Props) {
-  const portalRoot = typeof window !== "undefined" ? document.getElementById("hover-root") : null
+  const portalRoot = typeof window !== "undefined"
+    ? document.getElementById("hover-root")
+    : null
   if (!portalRoot || !hover) return null
-
-  // const genres = [
-  //   { id: "all", label: "All" },
-  //   { id: "28", label: "Action" },
-  //   { id: "35", label: "Comedy" },
-  //   { id: "18", label: "Drama" }
-  // ] // Add genres if you have them in the API, and display them like Prime Video with small pills
-
-  const { data, loading } = useMovieDetails(movieId)
-  const duration = data?.runtime
 
   return createPortal(
     <AnimatePresence>
@@ -137,10 +131,10 @@ export default function CarouselPortal({
                   <Clock className="w-3 h-3" />
                   <span className="text-xs">
                     {
-                        loading ? (
+                        runtimeLoading ? (
                             <LoadingNumbers />
                         ) : (
-                            <span>{duration}</span>
+                            <span>{runtime}</span>
                         )
                     }
                   </span>

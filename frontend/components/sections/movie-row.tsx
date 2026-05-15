@@ -13,8 +13,8 @@ import { Movie, MovieCard, MovieResult } from "@/types/search"
 import { CarouselSkeleton } from "../carousel/CarouselSkeleton"
 import { TooltipButton } from "../ui/tool-tip-button"
 import { AvailabilityBadge } from "../ui/AvailabilityBadge"
-import { getMovieDetails } from "@/lib/utils/fetchMovies"
 import Link from "next/link"
+import { useRuntimes } from "@/hooks/use-runtimes"
 
 type MovieRowProps = {
   title: string
@@ -25,7 +25,6 @@ type MovieRowProps = {
 export default function MovieRow({ title, endpoint, priority }: MovieRowProps) {
   const [movies, setMovies] = useState<MovieResult[]>([])
   const [loading, setLoading] = useState(true)
-  const [duration, setDuration] = useState<string>("")
   const {
     hover,
     handleMouseEnter,
@@ -36,22 +35,28 @@ export default function MovieRow({ title, endpoint, priority }: MovieRowProps) {
 
   useEffect(() => {
     let cancelled = false
+
     const run = async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`);
+        const res  = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`)
 
-        if (!res.ok) throw new Error(`${res.status}`)
+        if (!res.ok) {
+          // log the actual Django error body, not just the status code
+          const body = await res.json()
+          console.error(`MovieRow ${endpoint} → HTTP ${res.status}:`, body)
+          throw new Error(`${res.status}`)
+        }
+
         const data = await res.json()
-        console.log(`Fetched movies for ${title}:`, data)
         const raw: MovieResult[] = Array.isArray(data) ? data : data?.results ?? []
-
         if (!cancelled) setMovies(raw)
       } catch (err) {
-        console.error("MovieRow fetch error:", err)
+        if (!cancelled) console.error("MovieRow fetch error:", err)
       } finally {
         if (!cancelled) setLoading(false)
       }
     }
+
     run()
     return () => { cancelled = true }
   }, [endpoint])
@@ -66,24 +71,10 @@ export default function MovieRow({ title, endpoint, priority }: MovieRowProps) {
       : null
     : null
 
-    
-  useEffect(() => {
-      setDuration("")
-      if (hoveredMovie === null) return
-      
-      const movie = hoveredMovie
-      if (!movie) return
-      console.log("Active movie:", movie.id)
-      const id = movie.id
-
-      async function load() {
-        const data = await getMovieDetails(id)    
-        setDuration(data.runtime)
-    }
-
-    load()
-  }, [hoveredMovie])
-  
+  const { runtimes, loading: runtimesLoading } = useRuntimes(
+    movies.map(m => m.id)
+  )
+ 
   if (loading) return <CarouselSkeleton title={title} />
   
   return (
@@ -141,11 +132,12 @@ export default function MovieRow({ title, endpoint, priority }: MovieRowProps) {
       {hoveredMovie && (
         <CarouselPortal
           hover={hover}
-          movieId={hoveredMovie.id}
           image={portalImage}
           title={hoveredMovie.title}
           year={hoveredMovie.year}
           rating={hoveredMovie.rating}
+          runtime={runtimes[hoveredMovie.id]}
+          runtimeLoading={runtimesLoading}
           availability={hoveredMovie.availability}
           getPortalStyle={getPortalStyle}
           onMouseEnter={clearHoverTimeout}
@@ -179,4 +171,3 @@ export default function MovieRow({ title, endpoint, priority }: MovieRowProps) {
     </>
     )
 }
-

@@ -48,6 +48,7 @@ export type MovieResult = {
   vote_count?: number
   genre?: number[]
   genre_ids?: number[]
+  runtime?: string
 }
 
 export type UserResult = {

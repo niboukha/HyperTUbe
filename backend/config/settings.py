@@ -52,7 +52,6 @@ INSTALLED_APPS = [
     # "apps.comments",
 ]
 
-# settings.py
 CACHES = {
     "default": {
         "BACKEND":  "django_redis.cache.RedisCache",

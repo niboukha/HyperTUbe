@@ -14,10 +14,10 @@ import { itemVariants } from "@/lib/annimations/hero-variants"
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip"
 import { CarouselSkeleton } from "../carousel/CarouselSkeleton"
 import HeaderTitle from '../ui/header-title';
-import { getMovieDetails } from "@/lib/utils/fetchMovies"
 import { TMDB_GENRE_LABELS } from "@/lib/tmdb-genres"
 import { AvailabilityBadge } from "../ui/AvailabilityBadge"
 import Link from "next/link"
+import { useRuntimes } from "@/hooks/use-runtimes"
 
 type MovieRowProps = {
   title: string
@@ -26,26 +26,13 @@ type MovieRowProps = {
 
 export default function PrimeRow({ title, movies }: MovieRowProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(0)
-  const [duration, setDuration]       = useState<string>("")
-
   const { scrollRef, canScrollLeft, canScrollRight, checkScroll, scroll, startAutoScroll, stopAutoScroll } = useCarousel()
+  const { runtimes, loading: runtimesLoading } = useRuntimes(
+    movies.map(m => m.id)
+  )
 
-  useEffect(() => {
-    if (activeIndex === null) return
-
-    const movie = movies[activeIndex]
-    if (!movie) return
-    
-    async function load() {
-      const data = await getMovieDetails(movie.id)
-      setDuration(data.runtime)
-    }
-
-    load()
-  }, [activeIndex, movies])
-
-  
   const loading = !movies || movies.length === 0 
+  
   if (loading)
     return <CarouselSkeleton title={title} isprime={true} /> 
   
@@ -275,7 +262,11 @@ export default function PrimeRow({ title, movies }: MovieRowProps) {
                           </Badge>
                           <span className="text-text-muted/50 hidden md:inline">|</span>
                           <Badge variant="link" className=" text-text-muted text-xs rounded-md">
-                              {duration}
+                              {runtimesLoading ? (
+                                <div className="h-3 w-10 rounded bg-white/10 animate-pulse" />
+                              ) : (
+                                runtimes[movie.id]
+                              )}
                           </Badge>
                           <span className="text-text-muted/50 hidden md:inline">|</span>
                             {movie.genre_ids?.map((id: number) => (
