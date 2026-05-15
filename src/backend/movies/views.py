@@ -1,13 +1,12 @@
+import os
+from sqlite3 import IntegrityError
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.shortcuts import get_object_or_404
-from django.http import StreamingHttpResponse, FileResponse
 from django.utils import timezone
-from .models import Movie
-from .tasks import  download_and_segment
-import os
-
+from .models import  Movie, Torrent
+from django.db import transaction
 
 class MovieStreamView(APIView):
     """
@@ -29,28 +28,27 @@ class MovieStreamView(APIView):
         Serve HLS playlist or segment
         filename = 'playlist.m3u8' or 'segment0.ts', 'segment1.ts' etc.
         """
+        from .tasks import download_and_segment
         try:
-            movie = get_object_or_404(Movie, id=movie_id)
-            if movie.status == "ready":
-                return Response({'status': 'ready', 'movie_path': movie.hls_path})
+            movie = Movie.objects.get(id=movie_id)
+            try:
+                torrent = Torrent.objects.get(movie=movie)
+            except Torrent.DoesNotExist:
+                torrent = Torrent.objects.create(movie=movie, status='idle')
 
-            if movie.status not in ["downloading", "processing", 'error']:
-                download_and_segment.delay(movie.id)
-            return Response({'status': movie.status, 'movie_path': None})
+            if torrent.status == "ready":
+                Movie.objects.update(last_watched=timezone.now())
+                return Response({'status': 'ready', 'movie_path': torrent.hls_path})
+
+            if torrent.status not in ["downloading", "processing", 'error']:
+                download_and_segment.delay(movie_id)
+            return Response({'status': torrent.status, 'movie_path': None})
             
-        except Movie.DoesNotExist:
-            print(f"==============> Movie with id {movie_id} not found")
-            return Response({'status': 'error', 'message': 'Movie not found'}, status=404)
+        except Torrent.DoesNotExist:
+            print(f"==============> Torrent with movie_id {movie_id} not found")
+            # torrent = Torrent.objects.create(movie=movie)
+            return Response({'status': 'error', 'message': 'Torrent not found'}, status=204)
         except Exception as e:
             print(f"==============>Error in MovieStreamView: {e}")
             return Response({'status': 'error', 'message': 'An error occurred'}, status=500)
             
-
-    # def serve_file(self, file_path, content_type):
-    #     """Serve a file directly"""
-    #     response = FileResponse(
-    #         open(file_path, 'rb'),
-    #         content_type=content_type
-    #     )
-    #     response['Cache-Control'] = 'no-cache'
-    #     return response

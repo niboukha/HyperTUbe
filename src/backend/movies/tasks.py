@@ -1,25 +1,22 @@
 import os
-import subprocess
+from celery import shared_task
+from .models import Movie,  Torrent
+import shutil
+
 import time
-import threading
+
+from .models import Movie, Torrent
 from .torrent_engine import download_torrent, ACTIVE_TORRENTS
 import libtorrent as lt
-import shutil
-from .hls import _start_ffmpeg
-
-from celery import shared_task
+from .hls import start_ffmpeg
+import os
 from django.db import connection
-from movies.models import Movie
 
 
 DOWNLOAD_DIR  = '/tmp/torrents'
 HLS_DIR       = '/media/hls'
-MIN_BUFFER    = 5        # % before starting FFmpeg
-# active_ffmpeg = {}
-# TORRENT_SESSION = {}
-# TORRENT_HANDELS = {}
+MIN_BUFFER    = 5     
 
-    
 @shared_task
 def download_and_segment(movie_id):
     """
@@ -29,7 +26,7 @@ def download_and_segment(movie_id):
     4. Keep downloading while FFmpeg converts
     5. When fully downloaded → save file
     """
-    connection.close()
+    connection.close()  # Close DB connection to prevent issues in long-running task    
 
     try:
         movie = Movie.objects.get(id=movie_id)
@@ -39,63 +36,36 @@ def download_and_segment(movie_id):
 
         os.makedirs(movie_dir, exist_ok=True)
         os.makedirs(hls_dir,   exist_ok=True)
+        
+        torrent = Torrent.objects.get(movie=movie)
+        handle = download_torrent(movie_dir, torrent)
 
-        handle = download_torrent(movie_dir, movie)
-        # ─────────────────────────────────────────
-        # Download loop:
-        # - Wait for MIN_BUFFER %
-        # - Start FFmpeg in background
-        # - Keep downloading
-        # ─────────────────────────────────────────
-        ffmpeg_started = False  
+      
+        ffmpeg_started = False 
 
         while True:
-            s        = ACTIVE_TORRENTS[movie_id]['handle'].status()
+            s = ACTIVE_TORRENTS[movie_id]['handle'].status()
             progress = s.progress * 100
-
-            print(
-                f'[{movie.title}] '
-                f'{progress:.1f}% | '
-                f'{s.download_rate / 1000:.1f} KB/s | '
-                f'peers: {s.num_peers}'
-            )
-            # fp = handle.file_progress()
-            # ✅ Enough data — start FFmpeg
-            video_file = _find_video_file(movie_dir)
-            if not ffmpeg_started and video_file:
-                print(f'====> [{movie.title}] {MIN_BUFFER}% reached → starting FFmpeg ✅')
-                # video_file = _wait_for_file(movie_dir)
-                movie.movie_path = video_file
-                movie.status   = 'processing'
-                movie.save()
-                ffmpeg_started = True
-
-                # ✅ Start FFmpeg in background — non-blocking
-                # ffmpeg_thread = threading.Thread(
-                #     target=_start_ffmpeg,
-                #     args=(video_file, hls_dir, movie_id, movie)
-                # )
-                # ffmpeg_thread.daemon = True
-                # ffmpeg_thread.start()
-                _start_ffmpeg(video_file, hls_dir, movie_id, movie)
-
-                ffmpeg_started = True
-                # break
-
-            # ✅ Fully downloaded
+            
+            if not ffmpeg_started and progress >= 5:
+                video_file = _find_video_file(movie_dir)
+                
+                moov_ok, v_codec, a_codec = pre_check_video(video_file)
+                
+                if moov_ok:
+                    print(f'✅ Moov available | Codecs: {v_codec}/{a_codec}')
+                    
+                    codec_args = get_ffmpeg_args(v_codec, a_codec)
+                    
+                    start_ffmpeg(video_file, hls_dir, movie_id, torrent, codec_args)
+                    ffmpeg_started = True
+                   
+                else:
+                    print(f'⏳ Moov not ready yet... {progress:.1f}%')
+            
             if s.is_seeding or progress >= 100.0:
-                print(f'[{movie.title}] Download complete ✅')
-                # Update status if FFmpeg not started yet
-                if not ffmpeg_started:
-                    video_file = _find_video_file(movie_dir)
-                    if video_file:
-                        movie.movie_path = video_file
-                        movie.status   = 'processing'
-                        movie.save()
-                        _start_ffmpeg(video_file, hls_dir, movie_id, movie)
-
                 break
-
+            
             time.sleep(2)
 
     except Exception as e:
@@ -103,74 +73,6 @@ def download_and_segment(movie_id):
         movie.status = 'error'
         movie.save()
 
-
-
-
-# ──────────────────────────────────────────
-# CLEANUP TASKS
-# ──────────────────────────────────────────
-# @shared_task
-# def cleanup_segments(movie_id):
-#     """Delete segments after watching — keep .mkv"""
-#     from django.utils import timezone
-
-#     hls_dir = f'{HLS_DIR}/{movie_id}'
-#     _clean_segments(hls_dir)
-
-#     Movie.objects.filter(id=movie_id).update(
-#         hls_path=None,
-#         last_watched=timezone.now()
-#     )
-#     print(f'[Cleanup] Segments deleted for movie {movie_id} ✅')
-
-
-# @shared_task
-# def cleanup_old_movies():
-#     """Delete .mkv after 1 month unwatched"""
-#     from django.utils import timezone
-#     from datetime import timedelta
-
-#     one_month_ago = timezone.now() - timedelta(days=30)
-
-#     old_movies = Movie.objects.filter(
-#         last_watched__lt=one_month_ago,
-#         mkv_path__isnull=False
-#     )
-
-#     for movie in old_movies:
-#         movie_dir = f'{DOWNLOAD_DIR}/{movie.id}'
-#         hls_dir   = f'{HLS_DIR}/{movie.id}'
-
-#         for folder in [movie_dir, hls_dir]:
-#             if os.path.exists(folder):
-#                 shutil.rmtree(folder)
-#                 print(f'[Cleanup] Deleted {folder} ✅')
-
-#         movie.status       = 'downloading'
-#         movie.mkv_path     = None
-#         movie.hls_path     = None
-#         movie.last_watched = None
-#         movie.save()
-#         print(f'[Cleanup] Reset: {movie.title} ✅')
-
-
-# ──────────────────────────────────────────
-# HELPER FUNCTIONS
-# ──────────────────────────────────────────
-
-
-
-# def _wait_for_file(directory, timeout=120):
-#     print(f'[Torrent] Waiting for file in {directory}...')
-#     start = time.time()
-#     while True:
-#         f = _find_video_file(directory)
-#         if f:
-#             print(f'[Torrent] File found: {f} ✅')
-#             return f
-#         if time.time() - start > timeout:
-#             raise Exception('File not found after timeout')
-#         time.sleep(2)
 
 
 def _find_video_file(directory):
@@ -189,17 +91,92 @@ def _find_video_file(directory):
                 return full_path
     return None
 
+def pre_check_video(file_path):
+    """
+    Check if file is ready and get codec info.
+    Returns: (moov_available, video_codec, audio_codec)
+    """
+    import subprocess
+    import json
+    
+    # Check 1: Is moov available?
+    moov_available = False
+    try:
+        result = subprocess.run(
+            ['ffprobe', '-v', 'error', '-show_entries', 'format=duration', file_path],
+            capture_output=True,
+            timeout=2
+        )
+        moov_available = result.returncode == 0
+    except:
+        pass
+    
+    # Check 2: Get codecs
+    video_codec = None
+    audio_codec = None
+    
+    try:
+        cmd = [
+            'ffprobe', '-v', 'error', '-show_entries',
+            'stream=codec_name', '-of', 'json', file_path
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=2)
+        data = json.loads(result.stdout)
+        
+        for stream in data.get('streams', []):
+            codec = stream.get('codec_name')
+            if stream.get('codec_type') == 'video':
+                video_codec = codec
+            elif stream.get('codec_type') == 'audio':
+                audio_codec = codec
+    except:
+        pass
+    
+    return moov_available, video_codec, audio_codec
 
 
+def get_ffmpeg_args(video_codec, audio_codec):
+    """Decide copy or transcode based on codecs."""
+    if video_codec == 'h264' and audio_codec == 'aac':
+        return ['-c:v', 'copy', '-c:a', 'copy']  # ✅ Fast
+    elif video_codec in ['h264', 'h265']:
+        return ['-c:v', 'libx264', '-c:a', 'copy']  # ⚠️ Medium
+    else:
+        return ['-c:v', 'libx264', '-c:a', 'aac']  # ❌ Slow but safe
+    
+@shared_task
+def cleanup_old_movies():
+    """Delete .mkv and torrent record after 1 month unwatched"""
+    from django.utils import timezone
+    from datetime import timedelta
+    
+    one_month_ago = timezone.now() - timedelta(days=30)
+    
+    old_movies = Movie.objects.filter(
+        last_watched__lt=one_month_ago,
+        mkv_path__isnull=False
+    )
+    
+    for movie in old_movies:
+        movie_dir = f'{DOWNLOAD_DIR}/{movie.id}'
+        hls_dir   = f'{HLS_DIR}/{movie.id}'
+        
+        # ✅ Delete torrent record
+        Torrent.objects.filter(movie=movie).delete()
+        print(f'[Cleanup] Deleted torrent record for {movie.title} ✅')
+        
+        # Delete directories
+        for folder in [movie_dir, hls_dir]:
+            if os.path.exists(folder):
+                shutil.rmtree(folder)
+                print(f'[Cleanup] Deleted {folder} ✅')
+        
+        movie.status       = 'idle'
+        movie.hls_path     = None
+        movie.last_watched = None
+        movie.save()
+        
+        print(f'[Cleanup] Reset: {movie.title} ✅')
 
-# def _clean_segments(hls_dir):
-#     if os.path.exists(hls_dir):
-#         for f in os.listdir(hls_dir):
-#             try:
-#                 os.remove(os.path.join(hls_dir, f))
-#             except Exception as e:
-#                 print(f'[Cleanup] Could not delete {f}: {e}')
-#     else:
-#         os.makedirs(hls_dir, exist_ok=True)
-#     print(f'[Cleanup] Cleaned {hls_dir} ✅')
+
 
