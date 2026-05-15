@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 export default function Overview({ text }: { text: string }) {
   const [expanded, setExpanded] = useState(false);
 
-  const SHORT = 120;
+  const SHORT = 200;
   const isLong = text?.length > SHORT;
 
   return (

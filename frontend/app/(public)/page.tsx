@@ -72,7 +72,7 @@ export default function Landing() {
   }, [movies, isPaused]);
 
   return (
-    <main className="min-h-screen">
+    <main className="min-h-[100dvh]">
       <div className="   absolute top-0  left-0   w-full flex justify-between items-center !px-4 md:!px-12 !py-4 z-50   ">
         <Logo/>
         <div className="  md:flex items-center gap-3">
@@ -107,8 +107,8 @@ export default function Landing() {
                   onMouseEnter={() => setIsPaused(true)}
                   onMouseLeave={() => setIsPaused(false)}
                   key={item?.id}
-                  className={`absolute flex md:top-[50%] overflow-hidden
-                    ${!isFullscreen ? 'rounded-md transition-all duration-300 cursor-pointer' : ''}`}
+                  className={`absolute  flex md:top-[50%] overflow-hidden
+                    ${!isFullscreen ? '[@media(max-height:500px)]:hidden rounded-md transition-all duration-300 cursor-pointer' : ''}`}
                   style={{ ...positionStyle }}
                   initial={{ opacity: 0, y: isFullscreen ?  0: -50}}
                   animate={{ opacity: 1, y: 0 }}
@@ -179,7 +179,10 @@ export default function Landing() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6 }}
                     className=" absolute top-[70%] md:top-[55%]  left-4 md:left-12 
-                    -translate-y-1/2  w-[min(85vw,500px)] md:w-[min(30vw,500px)]
+                    w-[min(85vw,500px)]
+                    [@media(max-height:500px)]:w-[min(70vw,500px)]
+                    [@media(min-width:768px)_and_(min-height:500px)]:w-[min(60vw,500px)]
+                    -translate-y-1/2 
                     text-white font-sans text-[0.85rem] font-normal
                     drop-shadow-[0_3px_8px_rgba(0,0,0,0.5)]  "
                   >
@@ -253,7 +256,7 @@ export default function Landing() {
               </motion.li>
           )})}
       </ul>
-      <nav className="nav flex flex-row gap-3 md:gap-5  ">
+      <nav className="nav flex flex-row gap-3 md:gap-5">
         <Button
           onClick={prev}
           className=" h-14 w-14 sm:h-14 sm:w-14 rounded-full

@@ -91,8 +91,8 @@ export default function Crow({ cast, crew }: { cast: CastMember[], crew: any }) 
 
           <Separator className="bg-white/10" />
 
-          <ScrollArea className=" h-80 md:h-100  ">
-            <ul className="py-2 px-2 flex flex-col gap-4">
+          <ScrollArea className=" [@media(max-height:500px)]:h-50 h-80 md:h-100  ">
+            <ul className=" px-2 flex flex-col gap-4">
 
               {/* directors */}
               <section className="">

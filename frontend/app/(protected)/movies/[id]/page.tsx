@@ -85,6 +85,7 @@ const INITIAL_REVIEWS: Review[] = [
 
 ]
 //  const INITIAL_REVIEWS: Review[] =[]
+const text = "heelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjj heelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjj heelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjj heelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjjheelo lkdj hjfh ffhfh  jfhfhfjhf jhfjhhj jjjj"
 
 export function stripHtml(html: string) {
   return html
@@ -145,9 +146,9 @@ export default function VedioDetails()
   const director    = isArchive ? movie.director : undefined
 
   return (
-    <main>
+    <main className="">
       <div
-        className="relative min-h-screen bg-cover bg-center "
+        className="relative  min-h-[100dvh]  bg-cover bg-center !mb-4 "
           style={{
             backgroundImage: `url(${movie.backdrop_path ?? movie.poster_path})` }}
       >
@@ -157,7 +158,18 @@ export default function VedioDetails()
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5 }}
-          className="z-40 w-[min(85vw,500px)] md:w-[min(40vw,700px)] absolute inset-0 top-[30%] md:top-[41%] left-4 md:left-10 lg:left-16"
+          className="z-20
+                    !px-4
+                    !w-full
+                    [@media(max-height:500px)]:w-[min(50vw,500px)]
+                    [@media(min-width:768px)_and_(min-height:500px)]:w-[min(60vw,500px)]
+                    
+                    relative
+                    !pt-50
+                    [@media(min-width:768px)_and_(min-height:500px)]:!pt-100
+                    [@media(max-height:500px)]:!pt-20
+                    [@media(min-height:900px)]:!pt-90
+                    left-4 md:left-10 lg:left-16"
         >
           {/* Title */}
           <motion.h1
@@ -181,7 +193,6 @@ export default function VedioDetails()
               className="text-[10px] font-bold px-1.5! py-0.5!"
               badgeClassName="w-3 h-3"
             />
-
             {movie.rating > 0 && (
               <Badge variant="link" className="text-text-muted text-xs gap-1 rounded-md">
                 <Star className="h-3 w-3 fill-yellow-400/70 text-yellow-400/70" />
@@ -189,7 +200,6 @@ export default function VedioDetails()
                 <span className="text-text-muted/60">/10</span>
               </Badge>
             )}
-
             {movie.year && (
               <>
                 <span className="text-text-muted/50 hidden md:inline">|</span>
@@ -234,9 +244,10 @@ export default function VedioDetails()
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, delay: 0.25, ease: "easeOut" }}
-            className="text-text-muted text-sm! max-w-140 mb-2! "
+            className="text-text-muted text-sm!  mb-2! "
           >
-            <Overview text={stripHtml(movie.overview)} ></Overview>
+              <Overview text={stripHtml(movie.overview)} ></Overview>
+
           </motion.div>
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
@@ -252,16 +263,17 @@ export default function VedioDetails()
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.7, ease: "easeOut" }}
-            className="!mt-4 md:!mt-6 flex flex-row gap-2"
+            className="!mt-4 md:!mt-6 flex flex-row gap-2 "
           >
             <motion.div
+
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             transition={{ type: "spring", stiffness: 400, damping: 15 }}
             >    
               <Button
                 
-                  className="h-12 w-35 bg-text-primary hover:bg-text-primary text-foreground font-semibold gap-2 rounded-md shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-110 text-md"
+                  className="h-12 w-35 bg-text-primary hover:bg-text-primary text-foreground font-semibold gap-2 rounded-md shadow-lg hover:shadow-xl  text-md"
               >
                   <Play className="w-5 h-5 fill-current" />
                   Watch Now
