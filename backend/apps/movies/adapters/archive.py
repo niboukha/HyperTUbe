@@ -39,7 +39,7 @@ BLOCKED_TITLES = {
 }
 
 
-# ── Retry helper ──────────────────────────────────────────────────────────────
+#  Retry helper ----------------------------------------------------------─
 
 def _get_with_retry(url: str, params: dict = None, timeout: int = 6,
                     retries: int = 3, backoff: float = 0.6) -> requests.Response:
@@ -62,7 +62,7 @@ def _get_with_retry(url: str, params: dict = None, timeout: int = 6,
     return r  # return last response even if not 200; caller checks
 
 
-# ── Quality gates ─────────────────────────────────────────────────────────────
+#  Quality gates ----------------------------------------------------------
 
 def is_safe_content(doc):
     text = " ".join([
@@ -96,7 +96,7 @@ def is_quality_movie(doc):
     )
 
 
-# ── Shared helpers ────────────────────────────────────────────────────────────
+#  Shared helpers 
 
 def _parse_subjects(doc: dict) -> list[str]:
     s = doc.get("subject", [])
@@ -156,7 +156,7 @@ def _parse_cast(doc: dict) -> list:
     return cast
 
 
-# ── Normalizers ───────────────────────────────────────────────────────────────
+#  Normalizers ----------------------------------------------------------
 
 def _normalize_list(doc: dict) -> dict:
     identifier  = doc.get("identifier", "")
@@ -221,19 +221,13 @@ def _normalize_detail(doc: dict, downloads: int = 0) -> dict:
         "studios":        [doc.get("publisher", "")] if doc.get("publisher") else [],
         "countries":      [],
         "languages":      [],
-        "budget":         None,
-        "revenue":        None,
-        "homepage":       None,
         "watch_url":      f"https://archive.org/details/{identifier}",
         "director":       doc.get("director") or doc.get("creator"),
-        "license":        doc.get("licenseurl"),
-        "color":          doc.get("color"),
-        "sound":          doc.get("sound"),
         "subjects":       subjects,
     }
 
 
-# ── Fetch helpers ─────────────────────────────────────────────────────────────
+#  Fetch helpers ----------------------------------------------------------
 
 def fetch_movies(search=None, genre_ids=None, year=None,
                  sort_by="downloads", page=1, rows=20):
@@ -287,6 +281,7 @@ def fetch_detail(archive_id: str) -> dict | None:
     if r.status_code != 200:
         return None
     metadata = r.json().get("metadata", {})
+
     return _normalize_detail(metadata)
 
 # In fetch_detail inside archive.py — tighten the inner retry budgets

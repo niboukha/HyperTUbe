@@ -79,10 +79,14 @@ def movies_list(request):
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def movie_detail(request, movie_id: str):
+    """
+    /api/movies/tmdb-1266127/
+    /api/movies/archive-AtlanticFlight/
+    """
     if movie_id.startswith("archive-"):
         from .adapters.archive import fetch_detail
-        archive_id = movie_id.removeprefix("archive-")
-        data = fetch_detail(archive_id)
+        archive_id  = movie_id.removeprefix("archive-")
+        data        = fetch_detail(archive_id)
     elif movie_id.startswith("tmdb-"):
         from .adapters.tmdb import fetch_detail, fetch_credits
         tmdb_id = movie_id.removeprefix("tmdb-")
@@ -153,10 +157,12 @@ def movie_search(request):
     with ThreadPoolExecutor(max_workers=2) as pool:
         tf = pool.submit(tmdb_search,    query=q, page=page)
         af = pool.submit(archive_search, search=q, page=page)
+
         tmdb_data, archive_data = tf.result(), af.result()
 
     merged = _shuffle_merge(tmdb_data.get("results", []),
                             archive_data.get("results", []))
+    print(f"Search '{q}' returned {len(tmdb_data.get('results', []))} TMDB and {len(archive_data.get('results', []))} archive results, merged to {len(merged)}")
     return Response({
         "results":    merged,
         "page":       page,
