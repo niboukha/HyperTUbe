@@ -1,4 +1,5 @@
 import os
+import signal
 from celery import shared_task
 from .models import Movie,  Torrent
 import shutil
@@ -10,7 +11,7 @@ from .torrent_engine import download_torrent, ACTIVE_TORRENTS
 import libtorrent as lt
 from .hls import start_ffmpeg
 import os
-from django.db import connection
+from django.db import close_old_connections, connection
 
 
 DOWNLOAD_DIR  = '/tmp/torrents'
@@ -26,7 +27,7 @@ def download_and_segment(movie_id):
     4. Keep downloading while FFmpeg converts
     5. When fully downloaded → save file
     """
-    connection.close()  # Close DB connection to prevent issues in long-running task    
+    # connection.close()  #
 
     try:
         movie = Movie.objects.get(id=movie_id)
@@ -36,14 +37,18 @@ def download_and_segment(movie_id):
 
         os.makedirs(movie_dir, exist_ok=True)
         os.makedirs(hls_dir,   exist_ok=True)
+
         
         torrent = Torrent.objects.get(movie=movie)
         handle = download_torrent(movie_dir, torrent)
-
+        print(f"[{movie.title}] AFTER download_torrent")
+        print(f"[{movie.title}] Handle: {handle}")
+        print(f"[{movie.title}] Handle type: {type(handle)}")
+        print(f"[{movie.title}] Handle is None? {handle is None}")
       
         ffmpeg_started = False 
-
         while True:
+            # close_old_connections()
             s = ACTIVE_TORRENTS[movie_id]['handle'].status()
             progress = s.progress * 100
             

@@ -1,12 +1,10 @@
 import os
-from sqlite3 import IntegrityError
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 from .models import  Movie, Torrent
-from django.db import transaction
 
 class MovieStreamView(APIView):
     """
@@ -38,7 +36,7 @@ class MovieStreamView(APIView):
 
             if torrent.status == "ready":
                 Movie.objects.update(last_watched=timezone.now())
-                return Response({'status': 'ready', 'movie_path': torrent.hls_path})
+                return Response({'status': 'ready', 'movie_path': os.path.exists(torrent.hls_path) and torrent.hls_path or None})
 
             if torrent.status not in ["downloading", "processing", 'error']:
                 download_and_segment.delay(movie_id)

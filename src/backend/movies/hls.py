@@ -1,7 +1,7 @@
 
 import json
 import subprocess
-from time import time
+import time
 from django.db import connection
 import os
 
@@ -15,11 +15,13 @@ def start_ffmpeg(video_file, hls_dir, movie_id, torrent, codec_args):
         'ffmpeg',
         '-fflags', '+genpts',
         '-fflags', '+ignidx',
+        '-fflags', '+discardcorrupt', 
         '-i', video_file,
         *codec_args,  # ⭐ Use pre-checked codecs
         '-f', 'hls',
         '-hls_time', '4',
         '-hls_list_size', '0',
+        '-hls_flags', 'independent_segments',
         f'{hls_dir}/playlist.m3u8'
     ]
     

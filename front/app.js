@@ -1,4 +1,4 @@
-const movieId = 5;
+const movieId = 2;
 const video = document.getElementById('video');
 
 video.controls = true;
@@ -96,9 +96,8 @@ function playHls(url) {
 
     currentHls = new Hls({
       enableWorker: true,
-      lowLatencyMode: false,
-      backBufferLength: 120,
-      maxBufferLength: 60,
+    lowLatencyMode: false,
+    maxLoadingDelay: 4,
     });
 
     currentHls.loadSource(url);
@@ -126,7 +125,9 @@ function playHls(url) {
             console.log('Media error → recover');
             currentHls.recoverMediaError();
             break;
-
+          case Hls.ErrorTypes.BUFFER_ERROR:
+            currentHls.recoverMediaError();
+            break;
           default:
             currentHls.destroy();
             break;
