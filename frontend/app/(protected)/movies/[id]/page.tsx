@@ -144,7 +144,7 @@ export default function VedioDetails()
   const watchUrl    = isArchive ? movie.watch_url : undefined
   const hasTrailer  = !isArchive
   const director    = isArchive ? movie.director : undefined
-
+  console.log("====== > movie", movie)
   return (
     <main className="">
       <div

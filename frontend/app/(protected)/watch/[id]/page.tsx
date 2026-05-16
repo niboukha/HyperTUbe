@@ -1,153 +1,95 @@
 'use client'
+import { Badge } from "@/components/ui/badge";
+import { Building2, Calendar, Clock, Star } from "lucide-react";
 import { useParams } from "next/navigation";
 import ReactPlayer from "react-player";
+import { MovieDetail } from "@/types/movie";
 
-
-const movies = [
+const movies:any[] = [
   {
     id: "1",
-    title: "Interstellar",
-    genre: "Sci-Fi · Adventure",
-    year: 2014,
-    rating: "8.6",
-    duration: "2h 49m",
-    thumbnail: "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=1200&h=600&fit=crop",
-    videoUrl: "https://www.w3schools.com/html/mov_bbb.mp4",
-  },
-  {
-    id: "4",
-    title: "The Martian",
-    genre: "Sci-Fi · Drama",
-    year: 2015,
-    rating: "8.0",
-    duration: "2h 24m",
-    thumbnail: "https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?w=1200&h=600&fit=crop",
-    videoUrl: "https://www.w3schools.com/html/mov_bbb.mp4",
+    title: "Alexander Rybak ",
+    genres: [
+      {id: 1, name: "Sci-Fi" },
+      {id: 2, name: "Adventure" },
+      {id: 3, name: "drama" }
+
+    ],
+    year: "2014",
+    rating: 8.6,
+    runtime: "2h 49m",
+    studios: 'International Pictures/RKO',
+    description:
+      "A breathtaking journey across dimensions of space and time, where love proves to be the one force that transcends the laws of the universe.",
   },
 ]
+
+const videoUrl = "https://www.w3schools.com/html/mov_bbb.mp4";
+const subtitle = "/subtitles/interstellar-meen.vtt";
+
+
 export default function Watch()
 {
-
-
-  
-  const params   = useParams()
-  const movieId  = params.id as string
-
-  const movie = movies.find((m) => m.id === movieId);
+    const params   = useParams()
+    const movieId  = params.id as string
+    const movie = movies.find((m) => m.id === movieId);
 
     return (
-        <div className="min-h-screen h-full flex flex-col items-center  !px-4 lg:!px-16 !space-y-4 !mt-15 !mb-15">
-            {/* <header className="flex items-center justify-between !mt-10 px-10 py-5 bg-[#080a10]/95 border-b border-white/5"> */}
-                {/* <button
-                // onClick={() => router.push("/")}
-                className="bg-white/8 hover:bg-white/15 border border-white/15 text-white text-sm px-5 py-2 rounded transition"
-                >
-                ← Back
-                </button> */}
-                {/* <div className="font-[anton] text-white text-4xl md:text-5xl uppercase leading-none tracking-wide">
-                {movie?.title}
-                </div> */}
-            {/* </header> */}
+        <div className="min-h-screen flex flex-col items-center  !px-4 lg:!px-16 !space-y-4 !mt-15 !mb-15">
+      
            
-              <div className="w-full flex justify-center">
-                <div className="
-                      max-w-8xl 
+              <div className=" !mt-10 w-full  h-full flex  b flex-col items-center justify-center">
+                <div className="  
+                      h-[70vh]
+
+                      max-h-[70vh]
+
+                           
                       
-                      h-[99vh] 
-                      max-h-[100vh]
-                      sm:max-h-[75vh]
-                      aspect-video
+                      
                       "
                 >
-                  <ReactPlayer
-                    src={movie.videoUrl}
-                    controls
+                  <ReactPlayer controls 
                     width="100%"
-                    height="full"
-                    className="rounded-md "
-                  />
-                </div>
+                    height="100%"
+                    className="rounded-md border-1   border-white/[0.07] border"
+                    >
+                    <source src={videoUrl} type="video/mp4"/>
+                    <track kind="subtitles" src={subtitle} srcLang="en"  label='English' default/>
+                    <track kind="subtitles"  src="/subtitles/interstellar-ja.vtt" srcLang="ja" label='Japanese' />
+                  </ReactPlayer>
+                  <div className=" !mt-3  w-full rounded-xl border border-white/[0.07] bg-white/[0.03] !p-2 md:!p-6 ">
+                    <div className="flex flex-col md:flex-row md:items-start gap-4 md:gap-8">
+                      <div className="flex-1 min-w-0 !space-y-3">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 ">
+                          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{movie.title}</h1>
+                          <span className="text-text-muted/50 hidden md:inline">|</span>
+                          {movie.rating > 0 && (
+                            <div className="flex items-center">
+                                <Badge variant="link" className="text-text-muted text-xs gap-1 rounded-md">
+                                  <Star className="h-3 w-3 fill-yellow-400/70 text-yellow-400/70" />
+                                  {movie.rating.toFixed(1)}
+                                  <span className="text-text-muted/60">/10</span>
+                                </Badge>
+                            </div>
+                          )}
+                              <span className="text-text-muted/50 hidden md:inline">|</span>
+
+                          <div className="flex items-center gap-2 text-white/40 text-sm"><Calendar className="w-3.5 h-3.5" />{movie.year}</div>
+                            <span className="text-text-muted/50 hidden md:inline">|</span>
+
+                          <div className="flex items-center gap-2 text-white/40 text-sm"><Clock className="w-3.5 h-3.5" />{movie.runtime}</div>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap md:flex-col gap-3 md:gap-2.5 shrink-0 md:items-end">
+                        
+                      </div>
+                    </div>
+                  </div>
+                 </div>
+               
               </div>
 
         </div>
     )
 }
-
-
-
-
-// import ReactPlayer from "react-player";
-// import { useRef, useState } from "react";
-
-// export default function WatchPage({ movie }) {
-//   const playerRef = useRef(null);
-
-//   const [played, setPlayed] = useState(0);
-//   const [duration, setDuration] = useState(0);
-//   const [playing, setPlaying] = useState(true);
-
-//   return (
-//     <div className="w-full flex justify-center">
-//       <div className="w-full max-w-6xl aspect-video">
-
-//         <ReactPlayer
-//           ref={playerRef}
-//           src={movie.videoUrl}
-//           playing={playing}
-//           controls={false}
-//           width="100%"
-//           height="100%"
-
-//           // current progress
-//           onProgress={({ played }) => {
-//             setPlayed(played);
-//           }}
-
-//           // total duration
-//           onDuration={(duration) => {
-//             setDuration(duration);
-//           }}
-//         />
-
-//         {/* Controls */}
-//         <div className="bg-black p-4 text-white flex flex-col gap-3">
-
-//           {/* Progress */}
-//           <input
-//             type="range"
-//             min={0}
-//             max={1}
-//             step="0.01"
-//             value={played}
-//             onChange={(e) => {
-//               const seekTo = parseFloat(e.target.value);
-
-//               setPlayed(seekTo);
-
-//               playerRef.current?.seekTo(seekTo);
-//             }}
-//             className="w-full"
-//           />
-
-//           {/* Buttons */}
-//           <div className="flex gap-4 items-center">
-
-//             <button
-//               onClick={() => setPlaying(!playing)}
-//               className="bg-white text-black px-4 py-1 rounded"
-//             >
-//               {playing ? "Pause" : "Play"}
-//             </button>
-
-//             <p>
-//               {Math.floor(duration)} sec
-//             </p>
-
-//           </div>
-
-//         </div>
-
-//       </div>
-//     </div>
-//   );
-// }

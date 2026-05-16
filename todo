@@ -6,3 +6,21 @@
 
 - scrolling in genres
 - keep search in search input -> good
+
+
+<!-- me kaoutar -->
+-comments backend
+-ui watch movie done
+
+-reset password in settings
+-reset password serialze it for errors handling
+-logout
+
+
+- change language
+- cache for fetching apis
+- in case of craching of an apis it should be handled
+- settings / profile
+- user authentication UI
+- watchlist
+- history
