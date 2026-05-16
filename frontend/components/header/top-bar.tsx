@@ -10,6 +10,7 @@ import ProfileMenu from "./profile-menu"
 import MobileToggle from "./mobile-toggle"
 import LanguageMenu from "./language-menu"
 import { usePathname } from "next/navigation"
+import { LogOut } from "lucide-react"
 
 export default function TopBar() {
   const [currentLang, setCurrentLang] = useState<Language>(languages[0])
@@ -150,6 +151,31 @@ export default function TopBar() {
                   onOpen={() => setSearchOpen(false)}
                 />
               </motion.div>
+          </AnimatePresence>
+
+          {/* Logout button */}
+          <AnimatePresence>
+            <motion.button
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ duration: 0.2 }}
+              // onClick={() => signOut()}
+              className="
+                hidden md:flex
+                items-center justify-center
+                p-1!
+                rounded-md
+                text-white/70
+                hover:text-white
+                hover:bg-white/10
+                transition-all duration-200 border
+                border-white/30 bg-white/10 hover:scale-110
+                backdrop-blur-2xl! backdrop-saturate-150!
+              "
+            >
+              <LogOut size={22} strokeWidth={3} />
+            </motion.button>
           </AnimatePresence>
 
           {/* ProfileMenu fades out when search is open */}

@@ -3,6 +3,7 @@ from . import views
 
 urlpatterns = [
     path("movies/",                                views.movies_list),
+    path("movies/stream/",                         views.library_search_stream),
     path("movies/runtime/",                        views.movies_runtime_batch),
     path("movies/collection/<int:collection_id>/", views.movie_collection),
     path("movies/<str:movie_id>/",                 views.movie_detail),

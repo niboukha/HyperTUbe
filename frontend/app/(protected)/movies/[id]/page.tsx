@@ -7,7 +7,6 @@ import Crow from "@/components/VedioDetails/Crow";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Clapperboard,Play,Plus, Star } from 'lucide-react';
-import { formatRuntime } from "@/utils/formatRuntime";
 import { Button } from "@/components/ui/button";
 import ReviewsList from "@/components/VedioDetails/ReviewsList";
 import {
@@ -22,10 +21,7 @@ import { AvailabilityBadge } from "@/components/ui/AvailabilityBadge";
 import { MovieDetail } from "@/types/movie";
 import { useParams } from "next/navigation"
 import PrimeRow from "@/components/sections/prime-row";
-import { getMovies } from "@/lib/utils/fetchMovies";
-import { MovieResult } from "@/types/search";
 import { useCollection } from "@/hooks/use-collection";
-
 
 async function fetchMovieDetail(id: string): Promise<MovieDetail | null> {
   try {
@@ -90,8 +86,6 @@ const INITIAL_REVIEWS: Review[] = [
 
 export default function VedioDetails()
 {
-  const [movieDetails,setMovieDetails] =useState("")
-  const [movieCollections,setMovieCollections] =useState("")
   const [trailerOpen, setTrailerOpen] = useState<boolean>(false);
   const [trailer, setTrailer] = useState<string | null>(null);
 
@@ -99,7 +93,6 @@ export default function VedioDetails()
   const movieId  = params.id as string   // e.g. "tmdb-1266127"
 
   const [trailerUrl,  setTrailerUrl]  = useState<string | null>(null)
-  const [reviews,     setReviews]     = useState<Review[]>([])
 
   const { data: movie, pending } = useMovieDetail(movieId)
 
@@ -459,3 +452,6 @@ export function CastRow({ cast }: Props) {
     </div>
   )
 }
+
+
+

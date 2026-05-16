@@ -30,9 +30,9 @@ export default function Crow({ cast, crew }: { cast: CastMember[], crew: CrewMem
   
   const visibleCast = cast.slice(0, MAX_VISIBLE)
   
-  console.log("Cast component:", cast)
+  // console.log("Cast component:", cast)
   
-  console.log("Crew component:", crew)
+  // console.log("Crew component:", crew)
 
   return (
     <>

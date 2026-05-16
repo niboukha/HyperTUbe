@@ -26,11 +26,11 @@ BLOCKED_PATTERN = re.compile(
 BLOCKED_TITLES = {
     "cosmos: war of the planets", "het is weer zomer in zandvoort!",
     "teaserama", "adı vasfiye, turkish movie", "desire", "mark of zorro",
-    "raw force [1982] - trailer", "maken-ki! battling venus",
+    "raw force [1982] - trailer", "maken-ki! battling venus","Milf", "Fantasy Island", "The Last Christmas Party", "The Last Christmas Party", "The Last Christmas Party", "The Last Christmas Party",
 }
 
 
-# ── Quality gates ─────────────────────────────────────────────────────────────
+# Quality gates─
 
 def is_safe_content(doc: dict) -> bool:
     title = str(doc.get("title", ""))
@@ -47,7 +47,7 @@ def is_quality_movie(doc: dict) -> bool:
     return (doc.get("downloads") or 0) > 100 and doc.get("title") and doc.get("year")
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# Helper
 
 def _parse_subjects(doc: dict) -> list[str]:
     s = doc.get("subject", [])
@@ -87,7 +87,7 @@ def _parse_cast(doc: dict) -> list:
     return cast
 
 
-# ── Normalizers ───────────────────────────────────────────────────────────────
+# Normalizers
 
 def _normalize_list(doc: dict) -> dict:
     identifier = doc.get("identifier", "")
@@ -167,14 +167,105 @@ def _stub_detail(archive_id: str) -> dict:
         "_pending": True,   # frontend can poll if it sees this
     }
 
+# Public fetch API
 
-# ── Public fetch API ──────────────────────────────────────────────────────────
+# def fetch_movies(search: str = None, genre_ids: list = None, year: int = None,
+#                  sort_by: str = "downloads", page: int = 1, rows: int = 20) -> dict:
+#     """List fetch — real-time but fast (search index, not metadata)."""
+#     parts = ["collection:moviesandfilms", "mediatype:movies"]
+#     if search:    parts.append(f"title:({search})")
+#     if genre_ids:
+#         subjects = [GENRE_SUBJECTS[g] for g in genre_ids if g in GENRE_SUBJECTS]
+#         if subjects:
+#             parts.append("(" + " OR ".join(f"subject:{s}" for s in subjects) + ")")
+#     if year:      parts.append(f"year:{year}")
+
+#     sort_map = {"downloads": "downloads desc", "year": "year desc", "title": "title asc"}
+#     body = safe_get(BASE_URL, params={
+#         "q": " AND ".join(parts),
+#         "fl[]": "identifier,title,description,year,subject,downloads",
+#         "sort[]": sort_map.get(sort_by, "downloads desc"),
+#         "rows": rows, "page": page, "output": "json",
+#     }, timeout=8, retries=2, fallback={})
+
+#     response = (body or {}).get("response", {})
+#     docs     = [d for d in response.get("docs", [])
+#                 if is_safe_content(d) and is_quality_movie(d)]
+
+#     # Kick off background prefetch for any uncached items
+#     _prefetch_uncached([d["identifier"] for d in docs if d.get("identifier")])
+
+#     return build_response(response, [_normalize_list(d) for d in docs])
+
+
+
+# def fetch_movies(search: str = None, genre_ids: list = None, year: int = None,
+#                  sort_by: str = "downloads", page: int = 1, rows: int = 20) -> dict:
+#     from ..cache.movie_cache import get_archive_search, set_archive_search
+
+#     genre_key = ",".join(str(g) for g in sorted(genre_ids or []))
+
+#     # Cache hit — return immediately, no Archive call
+#     if search or genre_ids:
+#         cached = get_archive_search(search or "", genre_key, page)
+#         if cached is not None:
+#             return cached
+
+#     parts = ["collection:moviesandfilms", "mediatype:movies"]
+#     if search:    parts.append(f"title:({search})")
+#     if genre_ids:
+#         subjects = [GENRE_SUBJECTS[g] for g in genre_ids if g in GENRE_SUBJECTS]
+#         if subjects:
+#             parts.append("(" + " OR ".join(f"subject:{s}" for s in subjects) + ")")
+#     if year:      parts.append(f"year:{year}")
+
+#     sort_map = {"downloads": "downloads desc", "year": "year desc", "title": "title asc"}
+#     body = safe_get(BASE_URL, params={
+#         "q": " AND ".join(parts),
+#         "fl[]": "identifier,title,description,year,subject,downloads",
+#         "sort[]": sort_map.get(sort_by, "downloads desc"),
+#         "rows": rows, "page": page, "output": "json",
+#     }, timeout=8, retries=2, fallback={})
+
+#     response = (body or {}).get("response", {})
+#     docs     = [d for d in response.get("docs", [])
+#                 if is_safe_content(d) and is_quality_movie(d)]
+#     result   = build_response(response, [_normalize_list(d) for d in docs])
+
+#     # Cache the result so the same query is instant next time
+#     if search or genre_ids:
+#         set_archive_search(search or "", result, genre_key, page)
+
+#     # Prefetch detail for discovered movies
+#     _prefetch_uncached([d["identifier"] for d in docs if d.get("identifier")])
+
+#     return result
+# movies/adapters/archive.py — short timeout, single attempt, never retries in request cycle
 
 def fetch_movies(search: str = None, genre_ids: list = None, year: int = None,
                  sort_by: str = "downloads", page: int = 1, rows: int = 20) -> dict:
-    """List fetch — real-time but fast (search index, not metadata)."""
+    from ..cache.movie_cache import get_archive_search, set_archive_search
+
+    genre_key = ",".join(str(g) for g in sorted(genre_ids or []))
+    query_str = search or ""
+
+    # Always check cache first — if hit, zero network call
+    cached = get_archive_search(query_str, genre_key, page)
+    if cached is not None:
+        return cached
+
     parts = ["collection:moviesandfilms", "mediatype:movies"]
-    if search:    parts.append(f"title:({search})")
+    # if search:    parts.append(f"title:({search})")
+    if search:
+        term = search.strip()
+        if " " in term:
+            words = term.split()
+            last  = words[-1]
+            rest  = " AND ".join(f"title:({w})" for w in words[:-1])
+            wildcard = f"title:({last}*)"
+            parts.append(f"({rest} AND {wildcard})" if rest else wildcard)
+        else:
+            parts.append(f"title:({term}*)")
     if genre_ids:
         subjects = [GENRE_SUBJECTS[g] for g in genre_ids if g in GENRE_SUBJECTS]
         if subjects:
@@ -182,22 +273,28 @@ def fetch_movies(search: str = None, genre_ids: list = None, year: int = None,
     if year:      parts.append(f"year:{year}")
 
     sort_map = {"downloads": "downloads desc", "year": "year desc", "title": "title asc"}
+
+    # timeout=5, retries=1 — fail fast, never block the user 16s
     body = safe_get(BASE_URL, params={
-        "q": " AND ".join(parts),
-        "fl[]": "identifier,title,description,year,subject,downloads",
+        "q":      " AND ".join(parts),
+        "fl[]":   "identifier,title,description,year,subject,downloads",
         "sort[]": sort_map.get(sort_by, "downloads desc"),
-        "rows": rows, "page": page, "output": "json",
-    }, timeout=8, retries=2, fallback={})
+        "rows":   rows, "page": page, "output": "json",
+    }, timeout=50, retries=10, fallback=None)
+
+    if body is None:
+        # Don't cache failure — let Celery retry in background
+        return build_response({}, [])
 
     response = (body or {}).get("response", {})
     docs     = [d for d in response.get("docs", [])
                 if is_safe_content(d) and is_quality_movie(d)]
+    result   = build_response(response, [_normalize_list(d) for d in docs])
 
-    # Kick off background prefetch for any uncached items
+    # Cache successful results
+    set_archive_search(query_str, result, genre_key, page)
     _prefetch_uncached([d["identifier"] for d in docs if d.get("identifier")])
-
-    return build_response(response, [_normalize_list(d) for d in docs])
-
+    return result
 
 def _prefetch_uncached(identifiers: list[str]) -> None:
     """Queue background tasks for movies not yet in cache — fire and forget."""

@@ -31,6 +31,8 @@ export default function PrimeRow({ title, movies }: MovieRowProps) {
     movies.map(m => m.id)
   )
 
+  // console.log("PrimeRow: ", { title, movies })
+
   const loading = !movies || movies.length === 0 
   
   if (loading)
@@ -96,6 +98,9 @@ export default function PrimeRow({ title, movies }: MovieRowProps) {
         >
           {movies.map((movie, index) => {
             const isActive = index === activeIndex
+            const backdropSrc = movie.backdrop_path || null;
+            const posterSrc = movie.poster_path || null;
+            // {console.log("=======>movie: ", movie)}
             // const releaseYear = getReleaseYear(movie.release_date)
             return (
               <motion.div
@@ -116,17 +121,23 @@ export default function PrimeRow({ title, movies }: MovieRowProps) {
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       transition={{ duration: 0.3 }}
-                      className="absolute inset-0  "
+                      className="absolute inset-0"
                     >
-                      <Image
-                        src={`${movie.backdrop_path}`}
-                        alt={movie.title}
-                        fill
-                        priority
-                        sizes="500px"
-                        className="object-cover"
-                        quality={100}
-                      />
+                      {backdropSrc ? (
+                        <Image
+                          src={backdropSrc}
+                          alt={movie.title}
+                          fill
+                          priority
+                          sizes="500px"
+                          className="object-cover"
+                          quality={100}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-black/40">
+                          <span className="text-white/15 text-4xl">🎬</span>
+                        </div>
+                      )}
                     </motion.div>
                   ) : (
                     <motion.div
@@ -137,15 +148,21 @@ export default function PrimeRow({ title, movies }: MovieRowProps) {
                       transition={{ duration: 0.3 }}
                       className="absolute inset-0"
                     >
-                      <Image
-                        src={`${movie.poster_path}`}
-                        alt={movie.title}
-                        fill
-                        priority
-                        sizes="160px"
-                        quality={100}
-                        className="object-cover"
-                      />
+                      {posterSrc ? (
+                        <Image
+                          src={posterSrc}
+                          alt={movie.title}
+                          fill
+                          priority
+                          sizes="160px"
+                          quality={100}
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-black/40">
+                          <span className="text-white/15 text-4xl">🎬</span>
+                        </div>
+                      )}
                     </motion.div>
                   )}
                 </AnimatePresence>

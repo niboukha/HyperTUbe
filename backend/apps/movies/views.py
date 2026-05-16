@@ -1,5 +1,8 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FT
+import json
+import time
+from django.http import StreamingHttpResponse
 
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
@@ -92,10 +95,10 @@ def movie_trailer(request, movie_id: str):
     if not movie_id.startswith("tmdb-"):
         return Response({"url": None})
 
-    tmdb_id = movie_id.removeprefix("tmdb-")
-    body    = safe_get(f"{TMDB_BASE}/movie/{tmdb_id}/videos",
+    tmdb_id     = movie_id.removeprefix("tmdb-")
+    body        = safe_get(f"{TMDB_BASE}/movie/{tmdb_id}/videos",
                        headers=HEADERS, fallback={})
-    trailers = [v for v in (body or {}).get("results", [])
+    trailers    = [v for v in (body or {}).get("results", [])
                 if v["type"] == "Trailer" and v["site"] == "YouTube"]
 
     if not trailers:
@@ -112,7 +115,6 @@ def movie_collection(request, collection_id: int):
         return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
     return Response(data)
 
-
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def movie_search(request):
@@ -122,27 +124,54 @@ def movie_search(request):
     if not q:
         return Response({"results": [], "totalPages": 0, "page": 1})
 
-    from .adapters.tmdb    import search as tmdb_search
-    from .adapters.archive import fetch_movies as archive_search
+    from .cache.movie_cache import (
+        get_search_results, set_search_results,
+        get_archive_search, TTL_SEARCH_RESULTS,
+    )
+    from .services.filters import _queue_archive_search
+    from .services.utils import _shuffle_merge
+    from .adapters.tmdb import search as tmdb_search
 
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        tf = pool.submit(tmdb_search,    query=q, page=page)
-        af = pool.submit(archive_search, search=q, page=page)
-        tmdb_data = tf.result()
-        try:
-            archive_data = af.result(timeout=8)
-        except Exception:
-            archive_data = {"results": [], "total_pages": 1}
+    nav_key = f"{q.lower().strip()}:p{page}"
 
-    merged = _shuffle_merge(tmdb_data.get("results", []),
-                            archive_data.get("results", []))
-    return Response({
-        "results":    merged,
-        "page":       page,
-        "totalPages": max(tmdb_data.get("total_pages", 1),
-                          archive_data.get("total_pages", 1)),
-    })
+    # Full cache hit — both sources already merged
+    cached = get_search_results(nav_key, source="navbar")
+    if cached:
+        return Response(cached)
 
+    # TMDB — always sync, never skipped
+    tmdb_data = tmdb_search(query=q, page=page)
+
+    # Archive — cache only, zero network, always page=1 key
+    archive_cached  = get_archive_search(q, "", 1)
+    archive_results = (archive_cached or {}).get("results", [])
+
+    if archive_cached is None:
+        # Fire and forget — next request will hit the warm cache
+        _queue_archive_search(q, genre_ids=[], page=1)
+
+    merged = _shuffle_merge(tmdb_data.get("results", []), archive_results)
+    result = {
+        "results":          merged,
+        "page":             page,
+        "totalPages":       tmdb_data.get("total_pages", 1),
+        "archive_included": bool(archive_results),
+    }
+
+    # Don't cache partial results — Celery is filling archive right now.
+    # Next request will find the archive cache warm and write a complete entry.
+    if not archive_results:
+        return Response(result)
+
+    set_search_results(nav_key, result, source="navbar", ttl=TTL_SEARCH_RESULTS)
+    return Response(result)
+
+def _queue_navbar_archive(query: str, page: int) -> None:
+    try:
+        from .tasks import search_archive_task
+        search_archive_task.delay(query, page)
+    except Exception:
+        pass
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
@@ -169,3 +198,189 @@ def movies_runtime_batch(request):
         results = dict(pool.map(get_runtime, movie_ids))
 
     return Response(results)
+
+
+import json
+import time
+from django.http import StreamingHttpResponse
+
+@permission_classes([AllowAny])
+def library_search_stream(request):
+    """
+    SSE: sends TMDB immediately, archive when ready.
+    Handles all filters: q, genre, sort, minRating, yearFrom, yearTo.
+    """
+    q          = request.GET.get("q", "").strip()
+    genre      = request.GET.get("genre", "")
+    sort       = request.GET.get("sort", "popular")
+    min_rating = float(request.GET.get("minRating", 0) or 0)
+    year_from  = request.GET.get("yearFrom")
+    year_to    = request.GET.get("yearTo")
+    page       = max(1, int(request.GET.get("page", 1) or 1))
+    genre_ids  = _parse_genre_ids(genre) if genre else []
+    sort_by    = SORT_MAP.get(sort, "popularity")
+
+    year_from_int = int(year_from) if year_from else None
+    year_to_int   = int(year_to)   if year_to   else None
+
+    def event_stream():
+        import json, time
+        from .cache.movie_cache import get_archive_search, TTL_SEARCH_RESULTS
+        from .adapters import tmdb as tmdb_adapter
+        from .services.utils import _shuffle_merge
+        from .tasks import search_archive_task
+
+        genre_key = ",".join(str(g) for g in sorted(genre_ids))
+
+        # ── Phase 1: TMDB ─────────────────────────────────────────────────────
+        try:
+            tmdb_data    = tmdb_adapter.search(
+                query=q, genre_ids=genre_ids,
+                year_from=year_from_int, year_to=year_to_int,
+                sort_by=sort_by, page=page,
+            )
+            tmdb_results = tmdb_data.get("results", [])
+
+            if min_rating > 0:
+                tmdb_results = [
+                    m for m in tmdb_results
+                    if float(m.get("rating") or 0) >= min_rating
+                ]
+
+            yield f"event: tmdb\ndata: {json.dumps({'results': tmdb_results, 'page': page, 'totalPages': tmdb_data.get('total_pages', 1)})}\n\n"
+
+        except Exception as e:
+            logger.error("SSE tmdb fetch failed: %s", e)
+            yield f"event: tmdb\ndata: {json.dumps({'results': [], 'page': page, 'totalPages': 1})}\n\n"
+
+        # ── Phase 2: Archive ──────────────────────────────────────────────────
+        archive_cached = (
+            get_archive_search(q, genre_key, page)
+            or get_archive_search(q, genre_key, 1)
+        )
+
+        if archive_cached is not None:
+            # Cache hit — send immediately
+            archive_results = archive_cached.get("results", [])
+            if min_rating > 0:
+                archive_results = [
+                    m for m in archive_results
+                    if float(m.get("rating") or 0) >= min_rating
+                ]
+            yield f"event: archive\ndata: {json.dumps({'results': archive_results, 'cached': True})}\n\n"
+
+        else:
+            # Queue Celery + poll cache for up to 8s
+            try:
+                search_archive_task.delay(q, 1, genre_ids)
+            except Exception as e:
+                logger.warning("SSE: failed to queue archive task: %s", e)
+
+            deadline = time.time() + 8.0
+            sent     = False
+
+            while time.time() < deadline:
+                time.sleep(0.5)
+                filled = get_archive_search(q, genre_key, 1)
+                if filled is not None:
+                    archive_results = filled.get("results", [])
+                    if min_rating > 0:
+                        archive_results = [
+                            m for m in archive_results
+                            if float(m.get("rating") or 0) >= min_rating
+                        ]
+                    yield f"event: archive\ndata: {json.dumps({'results': archive_results, 'cached': False})}\n\n"
+                    sent = True
+                    break
+
+            if not sent:
+                yield f"event: archive\ndata: {json.dumps({'results': [], 'timeout': True})}\n\n"
+
+        yield "event: done\ndata: {}\n\n"
+
+    response = StreamingHttpResponse(
+        streaming_content=event_stream(),
+        content_type="text/event-stream; charset=utf-8",
+    )
+    response["Cache-Control"]               = "no-cache"
+    response["X-Accel-Buffering"]           = "no"
+    response["Access-Control-Allow-Origin"] = "*"
+    return response
+
+def _sse(event: str, data: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+
+
+
+
+# @api_view(["GET"])
+# @permission_classes([AllowAny])
+# def movie_search(request):
+#     q    = request.GET.get("q", "").strip()
+#     page = max(1, int(request.GET.get("page", 1) or 1))
+
+#     if not q:
+#         return Response({"results": [], "totalPages": 0, "page": 1})
+
+#     from .adapters.tmdb    import search as tmdb_search
+#     from .adapters.archive import fetch_movies as archive_search
+
+#     with ThreadPoolExecutor(max_workers=2) as pool:
+#         tf = pool.submit(tmdb_search,    query=q, page=page)
+#         af = pool.submit(archive_search, search=q, page=page)
+#         tmdb_data = tf.result()
+#         try:
+#             archive_data = af.result(timeout=8)
+#         except Exception:
+#             archive_data = {"results": [], "total_pages": 1}
+
+#     merged = _shuffle_merge(tmdb_data.get("results", []),
+#                             archive_data.get("results", []))
+#     return Response({
+#         "results":    merged,
+#         "page":       page,
+#         "totalPages": max(tmdb_data.get("total_pages", 1),
+#                           archive_data.get("total_pages", 1)),
+#     })
+
+
+# movies/views.py — movie_search (navbar) uses same archive cache
+
+# @api_view(["GET"])
+# @permission_classes([AllowAny])
+# def movie_search(request):
+#     q    = request.GET.get("q", "").strip()
+#     page = max(1, int(request.GET.get("page", 1) or 1))
+
+#     if not q:
+#         return Response({"results": [], "totalPages": 0, "page": 1})
+
+#     from .cache.movie_cache import get_search_results, set_search_results, get_archive_search
+
+#     nav_key = f"{q.lower().strip()}:p{page}"
+#     cached  = get_search_results(nav_key, source="navbar")
+#     if cached:
+#         return Response(cached)
+
+#     from .adapters.tmdb import search as tmdb_search
+
+#     # TMDB — always fetch
+#     tmdb_data = tmdb_search(query=q, page=page)
+
+#     # Archive — only if already cached under archive:search: key (zero latency)
+#     archive_cached  = get_archive_search(q, "", page)
+#     archive_results = (archive_cached or {}).get("results", [])
+
+#     # Queue background fetch if not cached — next navbar search gets it
+#     if archive_cached is None:
+#         _queue_navbar_archive(q, page)
+
+#     merged = _shuffle_merge(tmdb_data.get("results", []), archive_results)
+#     result = {
+#         "results":    merged,
+#         "page":       page,
+#         "totalPages": tmdb_data.get("total_pages", 1),
+#     }
+#     set_search_results(nav_key, result, source="navbar")
+#     return Response(result)

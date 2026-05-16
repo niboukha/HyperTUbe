@@ -2,8 +2,7 @@
 
 import { InfiniteScroll } from "@/components/ui/infinite-scroll";
 import { Movie, MovieCard, normaliseTMDB } from "@/components/watchlist/watchlist-card";
-import { useEffect, useMemo, useState, useCallback } from "react";
-
+import { useMemo, useState, useCallback } from "react";
 
 const GENRE_MAP: Record<number, string> = {
   28: "Action", 12: "Adventure", 16: "Animation", 35: "Comedy",

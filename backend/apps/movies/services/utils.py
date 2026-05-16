@@ -2,7 +2,6 @@
 import random
 import re
 
-
 def build_response(body: dict, results: list) -> dict:
     """Standard paginated response shape."""
     return {

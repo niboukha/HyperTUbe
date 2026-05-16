@@ -141,7 +141,6 @@ export default function ContinueWatching( { title = "Continue Watching" }: { tit
       {hoveredMovie && (
         <CarouselPortal
           hover={hover}
-          movieId={hoveredMovie.id.toString()} //temporary workaround since CarouselPortal expects string id for fetching details, but ContinueWatchingMovie has numeric id
           image={ hoveredimagepath ? `https://image.tmdb.org/t/p/w342${hoveredimagepath}` : null }
           title={hoveredMovie.title}
           year={hoveredMovie.year}

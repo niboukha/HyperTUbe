@@ -7,17 +7,17 @@ import { MovieResult, UserResult } from "@/types/search"
 import { RecentSection } from "./recent-section"
 
 type Props = {
-  query: string
-  movies: MovieResult[]
-  users: UserResult[]
-  loading: boolean
-  activeIndex: number
-  recentSearches: string[]
-  onSelectMovie: (movie: MovieResult) => void
-  onSelectUser: (user: UserResult) => void
-  onSelectGenre: (genre: string) => void
-  onSelectRecent: (term: string) => void
-  onRemoveRecent: (e: React.MouseEvent, term: string) => void
+  query           : string
+  movies          : MovieResult[]
+  users           : UserResult[]
+  loading         : boolean
+  activeIndex     : number
+  recentSearches  : string[]
+  onSelectMovie   : (movie: MovieResult) => void
+  onSelectUser    : (user: UserResult) => void
+  onSelectGenre   : (genre: string) => void
+  onSelectRecent  : (term: string) => void
+  onRemoveRecent  : (e: React.MouseEvent, term: string) => void
   onSelectTrending: (term: string) => void
 }
 
@@ -37,7 +37,7 @@ export function SearchPanel({
       <div className="p-2!">
         <RecentSection searches={recentSearches} onSelect={onSelectRecent} onRemove={onRemoveRecent} />
         <TrendingSection onSelect={onSelectTrending} />
-        <GenresSection onSelect={onSelectGenre} />
+        {/* <GenresSection onSelect={onSelectGenre} /> */}
       </div>
     )
   }
@@ -58,7 +58,7 @@ export function SearchPanel({
       <TopResultsSection movies={topMovies} query={query} activeIndex={activeIndex} onSelect={onSelectMovie} />
       <MoviesSection movies={listMovies} query={query} activeIndex={activeIndex} topCount={topMovies.length} onSelect={onSelectMovie} />
       <UsersSection users={users} query={query} onSelect={onSelectUser} />
-      <GenresSection onSelect={onSelectGenre} />
+      {/* <GenresSection onSelect={onSelectGenre} /> */}
     </div>
   )
 }

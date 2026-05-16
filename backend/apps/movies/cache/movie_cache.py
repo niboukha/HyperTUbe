@@ -16,7 +16,6 @@ TTL_TRENDING          = 60 * 30            # 30 min
 # Sentinel — marks "we fetched and got nothing"
 NOT_FOUND = "__NOT_FOUND__"
 
-
 def _get(key: str) -> Any:
     try:
         return cache.get(key)
@@ -39,8 +38,7 @@ def _delete(key: str) -> None:
         pass
 
 
-# ── Archive detail ─────────────────────────────────────────────────────────────
-
+# Archive detail
 def get_archive_detail(archive_id: str) -> dict | None:
     """Returns cached detail, NOT_FOUND sentinel, or None (cache miss)."""
     return _get(f"archive:detail:{archive_id}")
@@ -53,8 +51,7 @@ def set_archive_detail_not_found(archive_id: str) -> None:
     _set(f"archive:detail:{archive_id}", NOT_FOUND, TTL_ARCHIVE_DETAIL)
 
 
-# ── Archive downloads ─────────────────────────────────────────────────────────
-
+# Archive downloads
 def get_archive_downloads(archive_id: str) -> int | None:
     return _get(f"archive:downloads:{archive_id}")
 
@@ -62,8 +59,7 @@ def set_archive_downloads(archive_id: str, count: int) -> None:
     _set(f"archive:downloads:{archive_id}", count, TTL_ARCHIVE_DOWNLOADS)
 
 
-# ── Archive runtime ───────────────────────────────────────────────────────────
-
+# Archive runtime
 def get_archive_runtime(archive_id: str) -> str | None:
     return _get(f"archive:runtime:{archive_id}")
 
@@ -71,8 +67,7 @@ def set_archive_runtime(archive_id: str, runtime: str) -> None:
     _set(f"archive:runtime:{archive_id}", runtime, TTL_ARCHIVE_RUNTIME)
 
 
-# ── TMDB runtime (batch endpoint) ────────────────────────────────────────────
-
+# TMDB runtime (batch endpoint)
 def get_tmdb_runtime(tmdb_id: int) -> str | None:
     return _get(f"tmdb:runtime:{tmdb_id}")
 
@@ -80,8 +75,7 @@ def set_tmdb_runtime(tmdb_id: int, runtime: str) -> None:
     _set(f"tmdb:runtime:{tmdb_id}", runtime, TTL_ARCHIVE_RUNTIME)
 
 
-# ── Home sections ─────────────────────────────────────────────────────────────
-
+# Home sections
 def get_home_section(key: str) -> dict | None:
     return _get(f"home:{key}")
 
@@ -89,8 +83,7 @@ def set_home_section(key: str, data: dict, ttl: int = TTL_HOME_SECTION) -> None:
     _set(f"home:{key}", data, ttl)
 
 
-# ── Request deduplication lock ────────────────────────────────────────────────
-
+# Request deduplication lock
 def acquire_fetch_lock(archive_id: str, ttl: int = 30) -> bool:
     """
     Returns True if this caller acquired the lock (should fetch).
@@ -104,3 +97,34 @@ def acquire_fetch_lock(archive_id: str, ttl: int = 30) -> bool:
 
 def release_fetch_lock(archive_id: str) -> None:
     _delete(f"lock:archive:{archive_id}")
+
+
+# Search results
+TTL_SEARCH_RESULTS  = 60 * 10   # 10 min
+TTL_ARCHIVE_SEARCH  = 60 * 10   # 10 min
+
+def _search_key(cache_key: str, source: str) -> str:
+    """Single key builder — used by both get and set."""
+    return f"search:{source}:{cache_key}"
+
+def get_search_results(cache_key: str, source: str = "all") -> dict | None:
+    return _get(_search_key(cache_key, source))
+
+def set_search_results(cache_key: str, data: dict,
+                       source: str = "all", ttl: int = None) -> None:
+    _set(_search_key(cache_key, source), data, ttl or TTL_SEARCH_RESULTS)
+
+# Archive search cache (used by fetch_movies + library_search)
+
+def _archive_search_key(query: str, genre_key: str, page: int) -> str:
+    return f"archive:search:{query.lower().strip()}:g{genre_key}:p{page}"
+
+def get_archive_search(query: str, genre_key: str = "", page: int = 1) -> dict | None:
+    return _get(_archive_search_key(query, genre_key, page))
+
+def set_archive_search(query: str, data: dict,
+                       genre_key: str = "", page: int = 1) -> None:
+    _set(_archive_search_key(query, genre_key, page), data, TTL_ARCHIVE_SEARCH)
+
+
+    
