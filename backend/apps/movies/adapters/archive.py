@@ -30,8 +30,7 @@ BLOCKED_TITLES = {
 }
 
 
-# Quality gates─
-
+# Quality gates
 def is_safe_content(doc: dict) -> bool:
     title = str(doc.get("title", ""))
     if title.lower() in BLOCKED_TITLES:
@@ -48,7 +47,6 @@ def is_quality_movie(doc: dict) -> bool:
 
 
 # Helper
-
 def _parse_subjects(doc: dict) -> list[str]:
     s = doc.get("subject", [])
     if isinstance(s, str):
@@ -88,7 +86,6 @@ def _parse_cast(doc: dict) -> list:
 
 
 # Normalizers
-
 def _normalize_list(doc: dict) -> dict:
     identifier = doc.get("identifier", "")
     subjects   = _parse_subjects(doc)
@@ -167,6 +164,103 @@ def _stub_detail(archive_id: str) -> dict:
         "_pending": True,   # frontend can poll if it sees this
     }
 
+def fetch_movies(search: str = None, genre_ids: list = None, year: int = None,
+                 sort_by: str = "downloads", page: int = 1, rows: int = 20) -> dict:
+    from ..cache.movie_cache import get_archive_search, set_archive_search
+
+    genre_key   = ",".join(str(g) for g in sorted(genre_ids or []))
+    query_str   = search or ""
+
+    cached      = get_archive_search(query_str, genre_key, page)
+    if cached is not None:
+        return cached
+
+    parts = ["collection:moviesandfilms", "mediatype:movies"]
+    if search:
+        term = search.strip()
+        if " " in term:
+            words       = term.split()
+            last        = words[-1]
+            rest        = " AND ".join(f"title:({w})" for w in words[:-1])
+            wildcard    = f"title:({last}*)"
+            parts.append(f"({rest} AND {wildcard})" if rest else wildcard)
+        else:
+            parts.append(f"title:({term}*)")
+    
+    if genre_ids:
+        subjects = [GENRE_SUBJECTS[g] for g in genre_ids if g in GENRE_SUBJECTS]
+        if subjects:
+            parts.append("(" + " OR ".join(f"subject:{s}" for s in subjects) + ")")
+
+    if year:
+        parts.append(f"year:{year}")
+
+    sort_map    = {"downloads": "downloads desc", "year": "year desc", "title": "title asc"}
+
+    body        = safe_get(BASE_URL, params={
+        "q":      " AND ".join(parts),
+        "fl[]":   "identifier,title,description,year,subject,downloads",
+        "sort[]": sort_map.get(sort_by, "downloads desc"),
+        "rows":   rows, "page": page, "output": "json",
+    }, timeout=50, retries=10, fallback=None)
+
+    if body is None:
+        return build_response({}, [])
+
+    response = (body or {}).get("response", {})
+    docs     = [d for d in response.get("docs", [])
+                if is_safe_content(d) and is_quality_movie(d)]
+    result   = build_response(response, [_normalize_list(d) for d in docs])
+
+    set_archive_search(query_str, result, genre_key, page)
+    _prefetch_uncached([d["identifier"] for d in docs if d.get("identifier")])
+    return result
+
+def _prefetch_uncached(identifiers: list[str]) -> None:
+    """Queue background tasks for movies not yet in cache — fire and forget."""
+    from ..tasks import fetch_archive_detail_task
+    for archive_id in identifiers:
+        if get_archive_detail(archive_id) is None:
+            if acquire_fetch_lock(archive_id):
+                fetch_archive_detail_task.delay(archive_id)
+
+def fetch_detail(archive_id: str) -> dict:
+    """
+    Cache-first detail fetch.
+    States:
+      HIT     → return immediately
+      NOT_FOUND sentinel → return None
+      MISS    → return stub + queue background fetch
+    """
+    cached = get_archive_detail(archive_id)
+
+    if cached is not None:
+        if cached == NOT_FOUND:
+            return None
+        return cached
+
+    if acquire_fetch_lock(archive_id):
+        from ..tasks import fetch_archive_detail_task
+        fetch_archive_detail_task.delay(archive_id)
+        logger.info("fetch_detail: queued background fetch for %s", archive_id)
+
+    return _stub_detail(archive_id)
+
+def fetch_runtime(archive_id: str) -> str:
+    """Runtime — cache only, queue background refresh on miss."""
+    cached = get_archive_runtime(archive_id)
+    if cached is not None:
+        return cached
+
+    if acquire_fetch_lock(f"runtime:{archive_id}", ttl=15):
+        from ..tasks import fetch_archive_runtime_task
+        fetch_archive_runtime_task.delay(archive_id)
+
+    return "N/A"
+
+
+
+
 # Public fetch API
 
 # def fetch_movies(search: str = None, genre_ids: list = None, year: int = None,
@@ -241,103 +335,3 @@ def _stub_detail(archive_id: str) -> dict:
 
 #     return result
 # movies/adapters/archive.py — short timeout, single attempt, never retries in request cycle
-
-def fetch_movies(search: str = None, genre_ids: list = None, year: int = None,
-                 sort_by: str = "downloads", page: int = 1, rows: int = 20) -> dict:
-    from ..cache.movie_cache import get_archive_search, set_archive_search
-
-    genre_key = ",".join(str(g) for g in sorted(genre_ids or []))
-    query_str = search or ""
-
-    # Always check cache first — if hit, zero network call
-    cached = get_archive_search(query_str, genre_key, page)
-    if cached is not None:
-        return cached
-
-    parts = ["collection:moviesandfilms", "mediatype:movies"]
-    # if search:    parts.append(f"title:({search})")
-    if search:
-        term = search.strip()
-        if " " in term:
-            words = term.split()
-            last  = words[-1]
-            rest  = " AND ".join(f"title:({w})" for w in words[:-1])
-            wildcard = f"title:({last}*)"
-            parts.append(f"({rest} AND {wildcard})" if rest else wildcard)
-        else:
-            parts.append(f"title:({term}*)")
-    if genre_ids:
-        subjects = [GENRE_SUBJECTS[g] for g in genre_ids if g in GENRE_SUBJECTS]
-        if subjects:
-            parts.append("(" + " OR ".join(f"subject:{s}" for s in subjects) + ")")
-    if year:      parts.append(f"year:{year}")
-
-    sort_map = {"downloads": "downloads desc", "year": "year desc", "title": "title asc"}
-
-    # timeout=5, retries=1 — fail fast, never block the user 16s
-    body = safe_get(BASE_URL, params={
-        "q":      " AND ".join(parts),
-        "fl[]":   "identifier,title,description,year,subject,downloads",
-        "sort[]": sort_map.get(sort_by, "downloads desc"),
-        "rows":   rows, "page": page, "output": "json",
-    }, timeout=50, retries=10, fallback=None)
-
-    if body is None:
-        # Don't cache failure — let Celery retry in background
-        return build_response({}, [])
-
-    response = (body or {}).get("response", {})
-    docs     = [d for d in response.get("docs", [])
-                if is_safe_content(d) and is_quality_movie(d)]
-    result   = build_response(response, [_normalize_list(d) for d in docs])
-
-    # Cache successful results
-    set_archive_search(query_str, result, genre_key, page)
-    _prefetch_uncached([d["identifier"] for d in docs if d.get("identifier")])
-    return result
-
-def _prefetch_uncached(identifiers: list[str]) -> None:
-    """Queue background tasks for movies not yet in cache — fire and forget."""
-    from ..tasks import fetch_archive_detail_task
-    for archive_id in identifiers:
-        if get_archive_detail(archive_id) is None:
-            if acquire_fetch_lock(archive_id):
-                fetch_archive_detail_task.delay(archive_id)
-
-
-def fetch_detail(archive_id: str) -> dict:
-    """
-    Cache-first detail fetch.
-    States:
-      HIT     → return immediately
-      NOT_FOUND sentinel → return None
-      MISS    → return stub + queue background fetch
-    """
-    cached = get_archive_detail(archive_id)
-
-    if cached is not None:
-        if cached == NOT_FOUND:
-            return None
-        return cached  # cache hit
-
-    # Cache miss — queue background fetch, return stub immediately
-    if acquire_fetch_lock(archive_id):
-        from ..tasks import fetch_archive_detail_task
-        fetch_archive_detail_task.delay(archive_id)
-        logger.info("fetch_detail: queued background fetch for %s", archive_id)
-
-    return _stub_detail(archive_id)
-
-
-def fetch_runtime(archive_id: str) -> str:
-    """Runtime — cache only, queue background refresh on miss."""
-    cached = get_archive_runtime(archive_id)
-    if cached is not None:
-        return cached
-
-    # Queue a lightweight background task
-    if acquire_fetch_lock(f"runtime:{archive_id}", ttl=15):
-        from ..tasks import fetch_archive_runtime_task
-        fetch_archive_runtime_task.delay(archive_id)
-
-    return "N/A"

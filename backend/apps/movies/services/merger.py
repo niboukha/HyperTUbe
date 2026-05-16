@@ -25,7 +25,6 @@ def _cache_set(key, value, ttl):
 def _cache_key(type_: str, genre_ids: list, page: int) -> str:
     return f"movies:{type_}:g{','.join(str(g) for g in sorted(genre_ids or []))}:p{page}"
 
-
 def get_home_section(type_: str, genre_ids: list = None, page: int = 1) -> dict:
     key    = _cache_key(type_, genre_ids, page)
     cached = _cache_get(key)

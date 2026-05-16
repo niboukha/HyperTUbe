@@ -11,18 +11,22 @@ HEADERS   = {"Authorization": f"Bearer {settings.TMDB_TOKEN}"}
 
 BLOCKED_GENRE_IDS = {10749, 18, 53, 99}
 BLOCKED_TITLES    = {"cosmos: war of the planets"}
-ADULT_KEYWORDS    = re.compile(r"\b(xxx|porn|erotic|sex|adult|nude|naked|hentai)\b", re.IGNORECASE)
+ADULT_KEYWORDS = re.compile(
+    r"\b(xxx|porn|erotic|eroti[ck]|sex|adult|nude|naked|hentai|softcore|hardcore)\b",
+    re.IGNORECASE,
+)
 MIN_VOTE_COUNT    = 10
 
 # Quality gate ----------------------------------------------------------------------------------------
-
 def is_quality_movie(movie: dict) -> bool:
     title = movie.get("title") or movie.get("name") or ""
-    if movie.get("adult"):                                               return False
-    if not title:                                                        return False
-    if ADULT_KEYWORDS.search(title):                                     return False
-    if title.lower() in BLOCKED_TITLES:                                  return False
-    if any(g in BLOCKED_GENRE_IDS for g in movie.get("genre_ids", [])): return False
+    if movie.get("adult"):                                                   return False
+    if not title:                                                            return False
+    if ADULT_KEYWORDS.search(title):                                         return False
+    if title.lower() in BLOCKED_TITLES:                                      return False
+    genre_ids = movie.get("genre_ids") or []
+    if genre_ids and any(g in BLOCKED_GENRE_IDS for g in genre_ids):        return False
+    if movie.get("vote_count", 0) < MIN_VOTE_COUNT:                         return False
     return True
 
 # Normalizers ----------------------------------------------------------------------------------------

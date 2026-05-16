@@ -3,13 +3,12 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FT
 import json
 import time
 from django.http import StreamingHttpResponse
-
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 
-from .adapters.tmdb    import HEADERS, TMDB_BASE, fetch_credits
+from .adapters.tmdb    import BLOCKED_GENRE_IDS, HEADERS, TMDB_BASE, fetch_credits
 from .client           import safe_get
 from .services.merger  import get_home_section
 from .services.filters import library_search
@@ -37,7 +36,6 @@ def _parse_genre_ids(genre_param: str) -> list[int]:
         if g.isdigit():            ids.append(int(g))
         elif g in GENRE_NAME_TO_ID: ids.append(GENRE_NAME_TO_ID[g])
     return ids
-
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
@@ -105,7 +103,6 @@ def movie_trailer(request, movie_id: str):
         return Response({"url": None}, status=status.HTTP_404_NOT_FOUND)
     return Response({"url": f"https://www.youtube.com/embed/{trailers[0]['key']}?autoplay=1&rel=0"})
 
-
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def movie_collection(request, collection_id: int):
@@ -158,8 +155,6 @@ def movie_search(request):
         "archive_included": bool(archive_results),
     }
 
-    # Don't cache partial results — Celery is filling archive right now.
-    # Next request will find the archive cache warm and write a complete entry.
     if not archive_results:
         return Response(result)
 
@@ -200,16 +195,26 @@ def movies_runtime_batch(request):
     return Response(results)
 
 
-import json
-import time
-from django.http import StreamingHttpResponse
+from .adapters.tmdb import BLOCKED_GENRE_IDS
+
+def _is_safe(movie: dict) -> bool:
+    """Post-normalization gate — runs after both TMDB and Archive normalize."""
+    genre_ids = movie.get("genre_ids") or []
+    if genre_ids and any(g in BLOCKED_GENRE_IDS for g in genre_ids):
+        return False
+    if float(movie.get("rating") or 0) == 0 and movie.get("source") == "tmdb":
+        return False
+    return True
+
+def _apply_filters(results: list, min_rating: float) -> list:
+    results = [m for m in results if _is_safe(m)]
+    if min_rating > 0:
+        results = [m for m in results if float(m.get("rating") or 0) >= min_rating]
+    return results
+
 
 @permission_classes([AllowAny])
 def library_search_stream(request):
-    """
-    SSE: sends TMDB immediately, archive when ready.
-    Handles all filters: q, genre, sort, minRating, yearFrom, yearTo.
-    """
     q          = request.GET.get("q", "").strip()
     genre      = request.GET.get("genre", "")
     sort       = request.GET.get("sort", "popular")
@@ -225,52 +230,42 @@ def library_search_stream(request):
 
     def event_stream():
         import json, time
-        from .cache.movie_cache import get_archive_search, TTL_SEARCH_RESULTS
+        from .cache.movie_cache import get_archive_search
         from .adapters import tmdb as tmdb_adapter
-        from .services.utils import _shuffle_merge
         from .tasks import search_archive_task
 
         genre_key = ",".join(str(g) for g in sorted(genre_ids))
 
-        # ── Phase 1: TMDB ─────────────────────────────────────────────────────
+        # ── TMDB event ────────────────────────────────────────────────────────
         try:
             tmdb_data    = tmdb_adapter.search(
                 query=q, genre_ids=genre_ids,
                 year_from=year_from_int, year_to=year_to_int,
                 sort_by=sort_by, page=page,
             )
-            tmdb_results = tmdb_data.get("results", [])
-
-            if min_rating > 0:
-                tmdb_results = [
-                    m for m in tmdb_results
-                    if float(m.get("rating") or 0) >= min_rating
-                ]
-
-            yield f"event: tmdb\ndata: {json.dumps({'results': tmdb_results, 'page': page, 'totalPages': tmdb_data.get('total_pages', 1)})}\n\n"
-
+            tmdb_results = _apply_filters(tmdb_data.get("results", []), min_rating)
+            yield _sse("tmdb", {
+                "results":    tmdb_results,
+                "page":       page,
+                "totalPages": tmdb_data.get("total_pages", 1),
+            })
         except Exception as e:
             logger.error("SSE tmdb fetch failed: %s", e)
-            yield f"event: tmdb\ndata: {json.dumps({'results': [], 'page': page, 'totalPages': 1})}\n\n"
+            yield _sse("tmdb", {"results": [], "page": page, "totalPages": 1})
 
-        # ── Phase 2: Archive ──────────────────────────────────────────────────
+        # ── Archive event ─────────────────────────────────────────────────────
         archive_cached = (
             get_archive_search(q, genre_key, page)
             or get_archive_search(q, genre_key, 1)
         )
 
         if archive_cached is not None:
-            # Cache hit — send immediately
-            archive_results = archive_cached.get("results", [])
-            if min_rating > 0:
-                archive_results = [
-                    m for m in archive_results
-                    if float(m.get("rating") or 0) >= min_rating
-                ]
-            yield f"event: archive\ndata: {json.dumps({'results': archive_results, 'cached': True})}\n\n"
+            archive_results = _apply_filters(
+                archive_cached.get("results", []), min_rating
+            )
+            yield _sse("archive", {"results": archive_results, "cached": True})
 
         else:
-            # Queue Celery + poll cache for up to 8s
             try:
                 search_archive_task.delay(q, 1, genre_ids)
             except Exception as e:
@@ -278,23 +273,19 @@ def library_search_stream(request):
 
             deadline = time.time() + 8.0
             sent     = False
-
             while time.time() < deadline:
                 time.sleep(0.5)
                 filled = get_archive_search(q, genre_key, 1)
                 if filled is not None:
-                    archive_results = filled.get("results", [])
-                    if min_rating > 0:
-                        archive_results = [
-                            m for m in archive_results
-                            if float(m.get("rating") or 0) >= min_rating
-                        ]
-                    yield f"event: archive\ndata: {json.dumps({'results': archive_results, 'cached': False})}\n\n"
+                    archive_results = _apply_filters(
+                        filled.get("results", []), min_rating
+                    )
+                    yield _sse("archive", {"results": archive_results, "cached": False})
                     sent = True
                     break
 
             if not sent:
-                yield f"event: archive\ndata: {json.dumps({'results': [], 'timeout': True})}\n\n"
+                yield _sse("archive", {"results": [], "timeout": True})
 
         yield "event: done\ndata: {}\n\n"
 
@@ -307,9 +298,10 @@ def library_search_stream(request):
     response["Access-Control-Allow-Origin"] = "*"
     return response
 
-def _sse(event: str, data: dict) -> str:
-    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
+def _sse(event: str, data: dict) -> str:
+    import json
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
 
