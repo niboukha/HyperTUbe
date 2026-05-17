@@ -52,7 +52,32 @@ def format_runtime(runtime) -> str:
     return "N/A"
 
 
+def _deduplicate(movies: list) -> list:
+    """Remove duplicates by id, preserving first-seen order."""
+    seen   = set()
+    result = []
+    for m in movies:
+        mid = m.get("id")
+        if mid and mid not in seen:
+            seen.add(mid)
+            result.append(m)
+    return result
 
+
+def _sort_results(movies: list, sort_by: str) -> list:
+    """Sort a list of normalized movies by the given criterion."""
+    config = {
+        # key: (sort_function, reverse)
+        "popularity":                (lambda m: float(m.get("vote_count") or 0),  True),
+        "vote_average":              (lambda m: float(m.get("rating") or 0),       True),
+        "rating":                    (lambda m: float(m.get("rating") or 0),       True),
+        "name":                      (lambda m: (m.get("title") or "").lower(),    False),
+        "primary_release_date_desc": (lambda m: m.get("year") or "0",             True),
+        "primary_release_date_asc":  (lambda m: m.get("year") or "9999",          False),
+    }
+    fn, reverse = config.get(sort_by, (lambda m: float(m.get("vote_count") or 0), True))
+    movies.sort(key=fn, reverse=reverse)
+    return movies
 
 #  {
 #       "adult": false,

@@ -1,25 +1,72 @@
-# movies/services/merger.py
-def get_home_section(type_: str, genre_ids: list = None, page: int = 1) -> dict:
-    try:
-        if type_ != "genre":
-            resp = tmdb.fetch_by_type(type_, page)
-            return {"results": resp["results"], "page": page,
-                    "total_pages": resp["total_pages"]}
+import requests
 
-        if genre_ids:
-            tmdb_resp    = tmdb.fetch_by_genre(genre_ids, page)
-            archive_resp = archive.fetch_movies(genre_ids=genre_ids, page=page)
-            return {
-                "results":     _shuffle_merge(tmdb_resp["results"], archive_resp["results"]),
-                "page":        page,
-                "total_pages": max(tmdb_resp["total_pages"], archive_resp["total_pages"]),
-            }
+SEARCH_URL = "https://archive.org/advancedsearch.php"
+METADATA_URL = "https://archive.org/metadata/{}"
 
-        resp = tmdb.fetch_by_type("trending", page)
-        return {"results": resp["results"], "page": page,
-                "total_pages": resp["total_pages"]}
 
-    except Exception as e:
-        import traceback
-        traceback.print_exc()      # ✅ prints full traceback to Django console
-        raise                      # re-raise so DRF returns 500 with detailZ
+def search_movie(title):
+    params = {
+        "q": f'title:("{title}") AND mediatype:(movies)',
+        "fl[]": ["identifier", "title"],
+        "rows": 5,
+        "output": "json",
+    }
+
+    response = requests.get(SEARCH_URL, params=params)
+    data = response.json()
+
+    docs = data["response"]["docs"]
+
+    if not docs:
+        print("No movie found")
+        return None
+
+    print("\nMovies found:\n")
+
+    for i, doc in enumerate(docs):
+        print(f"{i+1}. {doc.get('title')} ({doc.get('identifier')})")
+
+    return docs[0]["identifier"]
+
+
+def show_files(identifier):
+    url = METADATA_URL.format(identifier)
+
+    response = requests.get(url)
+    data = response.json()
+
+    files = data.get("files", [])
+
+    print(f"\nFiles for: {identifier}\n")
+
+    video_exts = (".mp4", ".mkv", ".avi")
+    subtitle_exts = (".srt", ".vtt", ".ass", ".ssa")
+
+    videos = []
+    subtitles = []
+
+    for file in files:
+        name = file.get("name", "")
+
+        if name.lower().endswith(video_exts):
+            videos.append(name)
+
+        if name.lower().endswith(subtitle_exts):
+            subtitles.append(name)
+
+    print("=== VIDEO FILES ===")
+    for v in videos:
+        print(v)
+
+    print("\n=== SUBTITLE FILES ===")
+    for s in subtitles:
+        print(s)
+
+
+if __name__ == "__main__":
+    movie_name = input("Movie name: ")
+
+    identifier = search_movie(movie_name)
+
+    if identifier:
+        show_files(identifier)

@@ -1,3 +1,4 @@
+import json
 import logging
 from celery import shared_task
 from .cache.movie_cache import (
@@ -21,6 +22,7 @@ def fetch_archive_detail_task(self, archive_id: str) -> None:
     """
     logger.info("fetch_archive_detail_task: %s", archive_id)
     try:
+        print(f"Fetching archive detail for {archive_id}...")
         from concurrent.futures import ThreadPoolExecutor
 
         def get_metadata():
@@ -46,6 +48,10 @@ def fetch_archive_detail_task(self, archive_id: str) -> None:
             set_archive_detail_not_found(archive_id)
             logger.warning("fetch_archive_detail_task: no metadata for %s", archive_id)
             return
+        
+        print(json.dumps(metadata, indent=4))
+        print(json.dumps(downloads, indent=4))
+    
 
         from .adapters.archive import _normalize_detail
         data = _normalize_detail(metadata, downloads)

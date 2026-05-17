@@ -2,18 +2,14 @@ import logging
 import math
 import re
 
-from ..cache.movie_cache import (
-    NOT_FOUND, acquire_lock, release_lock,
-    get_archive_detail, set_archive_detail, set_archive_detail_not_found,
-    get_archive_downloads, set_archive_downloads,
-    get_archive_runtime, set_archive_runtime,
-    get_archive_search, set_archive_search,
-)
+from ..cache.movie_cache import ( NOT_FOUND, acquire_lock, get_archive_detail, get_archive_runtime )
 from ..client import safe_get
 from ..services.utils import build_response, format_runtime
 
-logger   = logging.getLogger(__name__)
-BASE_URL = "https://archive.org/advancedsearch.php"
+logger          = logging.getLogger(__name__)
+BASE_URL        = "https://archive.org/advancedsearch.php"
+SCRAPE_URL      = "https://archive.org/services/search/v1/scrape"  # faster for search
+METADATA_URL    = "https://archive.org/metadata"
 
 GENRE_SUBJECTS = {
     28: "action", 16: "animation", 27: "horror", 878: "science fiction",
@@ -211,11 +207,11 @@ def _parse_cast(doc: dict) -> list:
 def fetch_movies(search: str = None, genre_ids: list = None, year: int = None,
                  sort_by: str = "downloads", page: int = 1, rows: int = 20) -> dict:
     """
-    Cache-first search. If cache miss, fetches from archive.org with SHORT timeout
-    (this runs in request cycle).
-    
-    Cache key includes query + genre + page so each combination is independent.
+    Uses Scrape API for search queries (faster).
+    Falls back to advancedsearch for genre/browse (better filter support).
     """
+    from ..cache.movie_cache import get_archive_search, set_archive_search
+
     genre_key = ",".join(str(g) for g in sorted(genre_ids or []))
     query_str = search or ""
 
@@ -223,26 +219,87 @@ def fetch_movies(search: str = None, genre_ids: list = None, year: int = None,
     if cached is not None:
         return cached
 
-    query  = _build_search_query(search, genre_ids, year)
-    sort_map = {"downloads": "downloads desc", "year": "year desc", "title": "title asc"}
+    # Use faster Scrape API when searching by title
+    if search and not genre_ids:
+        result = _fetch_via_scrape(search, page, rows)
+    else:
+        result = _fetch_via_advancedsearch(search, genre_ids, year, sort_by, page, rows)
+
+    set_archive_search(query_str, result, genre_key, page)
+    _schedule_detail_prefetch([d["archive_id"] for d in result.get("results", [])])
+    return result
+
+
+def _fetch_via_scrape(search: str, page: int = 1, rows: int = 20) -> dict:
+    """
+    Archive Scrape API — faster for title search.
+    Does not support page parameter — uses cursor for pagination.
+    For simplicity, we just fetch `rows * page` and slice.
+    """
+    term = search.strip()
+    if " " in term:
+        words    = term.split()
+        q_parts  = [f"title:({w})" for w in words[:-1]]
+        q_parts.append(f"title:({words[-1]}*)")
+        q        = " AND ".join(q_parts)
+    else:
+        q = f"title:({term}*)"
+
+    # Add mediatype filter
+    q = f"({q}) AND mediatype:movies AND collection:moviesandfilms"
+
+    body = safe_get(SCRAPE_URL, params={
+        "q":      q,
+        "fields": "identifier,title,year,downloads,description,subject",
+        "sorts":  "downloads desc",
+        "count":  rows * page,   # fetch all pages up to current
+    }, timeout=5, retries=1, fallback=None)
+
+    if body is None:
+        return build_response({}, [])
+
+    all_items = body.get("items", [])
+    # Slice to get the current page
+    start = (page - 1) * rows
+    docs  = all_items[start:start + rows]
+    total = body.get("total", len(all_items))
+
+    docs = [d for d in docs if is_safe_content(d) and is_quality_movie(d)]
+    return {
+        "results":       [_normalize_list(d) for d in docs],
+        "page":          page,
+        "total_pages":   max(1, -(-total // rows)),
+        "total_results": total,
+    }
+
+def _fetch_via_advancedsearch(search, genre_ids, year, sort_by, page, rows) -> dict:
+    """Standard advancedsearch — used for genre/browse, no search term."""
+    parts = ["collection:moviesandfilms", "mediatype:movies"]
+
+    if genre_ids:
+        subjects = [GENRE_SUBJECTS[g] for g in genre_ids if g in GENRE_SUBJECTS]
+        if subjects:
+            parts.append("(" + " OR ".join(f"subject:{s}" for s in subjects) + ")")
+    if year:
+        parts.append(f"year:{year}")
+
+    sort_map = {"downloads": "downloads desc", "year": "year desc",
+                "title": "title asc", "name": "title asc"}
 
     body = safe_get(BASE_URL, params={
-        "q": query, "fl[]": "identifier,title,description,year,subject,downloads",
+        "q":      " AND ".join(parts),
+        "fl[]":   "identifier,title,description,year,subject,downloads",
         "sort[]": sort_map.get(sort_by, "downloads desc"),
-        "rows": rows, "page": page, "output": "json",
+        "rows":   rows, "page": page, "output": "json",
     }, timeout=6, retries=1, fallback=None)
 
     if body is None:
         return build_response({}, [])
 
-    response = body.get("response", {})
+    response = (body or {}).get("response", {})
     docs     = [d for d in response.get("docs", [])
                 if is_safe_content(d) and is_quality_movie(d)]
-    result   = build_response(response, [_normalize_list(d) for d in docs])
-
-    set_archive_search(query_str, result, genre_key, page)
-    _schedule_detail_prefetch([d["identifier"] for d in docs if d.get("identifier")])
-    return result
+    return build_response(response, [_normalize_list(d) for d in docs])
 
 
 def fetch_detail(archive_id: str) -> dict | None:

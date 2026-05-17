@@ -25,7 +25,7 @@ export default function LibraryPage() {
     suggestions, isEmpty, loadMoreSuggestions, loadingMoreSugg, suggHasMore
   } = useLibraryMovies(urlQuery, filters)
 
-  console.log(`LibraryPage: urlQuery="${urlQuery}", filters=${JSON.stringify(filters)}`)
+  // console.log(`LibraryPage: urlQuery="${urlQuery}", filters=${JSON.stringify(filters)}`)
   
   return (
     <div className="min-h-screen flex flex-col gap-4 pb-30! overflow-x-hidden pt-18! px-5! md:px-13! lg:px-16!">

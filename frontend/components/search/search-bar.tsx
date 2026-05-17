@@ -85,7 +85,7 @@ export default function SearchBar({
         const res = await fetch( `${API}/search/?q=${encodeURIComponent(debouncedQuery)}` )
         const data = await res.json()
 
-        console.log("Search results:", data)
+        // console.log("Search results:", data)
 
         const results = Array.isArray(data?.results)
           ? data.results

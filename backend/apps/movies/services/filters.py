@@ -1,227 +1,178 @@
+# movies/services/filters.py
+
 import logging
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FT, as_completed
+
+from .utils import _deduplicate, _sort_results
 from ..adapters import tmdb, archive
-from .utils import _shuffle_merge
 
 logger = logging.getLogger(__name__)
 
+PAGE_SIZE       = 20
+ARCHIVE_TIMEOUT = 8    # seconds — give archive a fair chance
+TMDB_MAX_PAGES  = 3    # fetch up to 3 TMDB pages (~60 results)
+ARCHIVE_PAGES   = 2    # fetch up to 2 archive pages (~40 results)
 
-def library_search(query: str = "", genre_ids: list = None, year_from: int = None,
-                   year_to: int = None, min_rating: float = 0,
-                   sort_by: str = "popularity", page: int = 1,
-                   page_size: int = 20) -> dict:
+
+def library_search(
+    query:      str   = "",
+    genre_ids:  list  = None,
+    year_from:  int   = None,
+    year_to:    int   = None,
+    min_rating: float = 0,
+    sort_by:    str   = "popularity",
+    page:       int   = 1,
+    page_size:  int   = PAGE_SIZE,
+) -> dict:
     """
-    Powers /movies/ endpoint (non-streaming, used for scroll pages 2+).
-    
     Strategy:
-    - TMDB: always fetched live (fast ~300ms)
-    - Archive: read from cache only (Celery fills it in background)
-    - Page 1 without archive: NOT cached (forces retry on next request)
-    - Page 2+: archive from cache or fallback to page 1 cache
+      1. Check Redis for the full sorted list (cache key = all filters except page)
+      2. Cache miss → fetch TMDB + Archive in parallel, merge, sort, cache
+      3. Slice the cached list for the requested page
+
+    This guarantees:
+      - Global sort is always correct (sorted once on full merged list)
+      - Archive results ARE included (not just TMDB)
+      - All filters applied before sorting
+      - Scroll pages 2+ are instant (Redis slice, no API call)
     """
     from ..cache.movie_cache import (
-        get_search_results, set_search_results,
-        get_archive_search, TTL_SEARCH_RESULTS,
+        get_search_results, set_search_results, TTL_SEARCH_RESULTS
     )
 
-    lib_key = _make_cache_key(query, genre_ids, year_from, year_to,
-                               min_rating, sort_by, page)
-    cached = get_search_results(lib_key, source="library")
-    if cached:
-        return cached
+    # Cache key covers everything except page — same key for all pages of same search
+    full_key = _full_result_key(query, genre_ids, year_from, year_to,
+                                 min_rating, sort_by)
+    full_cached = get_search_results(full_key, source="library_full")
 
-    genre_key = ",".join(str(g) for g in sorted(genre_ids or []))
-
-    # For scroll pages 2+, try the matching archive page first, then fall back to page 1
-    # This ensures scroll pages show different archive results when available
-    archive_cached = (
-        get_archive_search(query or "", genre_key, page)
-        or (get_archive_search(query or "", genre_key, 1) if page > 1 else None)
-    )
-
-    # TMDB always fetched live
-    tmdb_data    = tmdb.search(query=query, genre_ids=genre_ids,
-                                year_from=year_from, year_to=year_to,
-                                sort_by=sort_by, page=page)
-    tmdb_results = tmdb_data.get("results", [])
-
-    if archive_cached is not None:
-        archive_results = archive_cached.get("results", [])
-        archive_pages   = archive_cached.get("total_pages", 1)
+    if full_cached is None:
+        logger.info("library_search: cache miss, fetching all sources q=%r g=%s",
+                    query, genre_ids)
+        full_cached = _fetch_merge_sort(
+            query, genre_ids, year_from, year_to, min_rating, sort_by
+        )
+        ttl = TTL_SEARCH_RESULTS if full_cached["results"] else 20
+        set_search_results(full_key, full_cached, source="library_full", ttl=ttl)
     else:
-        archive_results = []
-        archive_pages   = 1
-        # Queue page 1, it will chain-queue pages 2-5 automatically
-        if not query or len(query.strip()) >= 2:
-            _queue_archive(query, genre_ids, page=1)
+        logger.debug("library_search: cache HIT q=%r p=%d", query, page)
 
-    # Apply filters
-    if min_rating > 0:
-        tmdb_results    = [m for m in tmdb_results
-                           if float(m.get("rating") or 0) >= min_rating]
-        archive_results = [m for m in archive_results
-                           if float(m.get("rating") or 0) >= min_rating]
+    # Slice for requested page
+    all_results = full_cached["results"]
+    total       = len(all_results)
+    total_pages = max(1, -(-total // page_size))
+    start       = (page - 1) * page_size
 
-    # Sort TMDB results, then append archive at end
-    sort_fns = {
-        "vote_average":              lambda m: float(m.get("rating") or 0),
-        "rating":                    lambda m: float(m.get("rating") or 0),
-        "primary_release_date_desc": lambda m: m.get("year") or "0",
-        "primary_release_date_asc":  lambda m: m.get("year") or "9999",
-    }
-    if sort_by in sort_fns:
-        tmdb_results.sort(key=sort_fns[sort_by], reverse="asc" not in sort_by)
-
-    # Archive appended at end, clearly a secondary source
-    results     = tmdb_results + archive_results
-    total_pages = max(tmdb_data.get("total_pages", 1), archive_pages, 1)
-
-    result = {
-        "results":          results,
+    return {
+        "results":          all_results[start : start + page_size],
         "page":             page,
         "totalPages":       total_pages,
         "has_more":         page < total_pages,
-        "archive_included": bool(archive_results),
+        "total":            total,
+        "archive_included": full_cached.get("archive_included", False),
     }
 
-    # Don't cache page 1 without archive, let next request retry
-    # Cache other pages even without archive (they're scroll pages, TMDB-only is fine)
-    if page == 1 and not archive_results:
-        return result
 
-    ttl = TTL_SEARCH_RESULTS if archive_results else 30
-    set_search_results(lib_key, result, source="library", ttl=ttl)
-    return result
+def _fetch_merge_sort(query, genre_ids, year_from, year_to,
+                       min_rating, sort_by) -> dict:
+    """
+    Fetch from TMDB and Archive in parallel.
+    Merge, deduplicate, filter, sort — once on the full combined list.
+    """
+    all_results      = []
+    archive_included = False
+
+    # Build all tasks: TMDB pages + Archive pages
+    tasks = []
+
+    # TMDB page 1 always, then more if no query (browse mode has many pages)
+    tmdb_page_count = TMDB_MAX_PAGES if not query else 2
+    for p in range(1, tmdb_page_count + 1):
+        tasks.append(("tmdb", p))
+
+    # Archive pages
+    for p in range(1, ARCHIVE_PAGES + 1):
+        tasks.append(("archive", p))
+
+    # Run all tasks in parallel with a shared thread pool
+    with ThreadPoolExecutor(max_workers=len(tasks)) as pool:
+        future_map = {}
+
+        for source, p in tasks:
+            if source == "tmdb":
+                f = pool.submit(
+                    tmdb.search,
+                    query=query,
+                    genre_ids=genre_ids,
+                    year_from=year_from,
+                    year_to=year_to,
+                    sort_by=sort_by,
+                    page=p,
+                )
+            else:
+                f = pool.submit(
+                    archive.fetch_movies,
+                    search=query or None,
+                    genre_ids=genre_ids or None,
+                    year=year_from,     # archive supports single year only
+                    page=p,
+                    rows=20,
+                )
+            future_map[f] = (source, p)
+
+        # Collect results as they complete — don't wait for slowest
+        for future in as_completed(future_map, timeout=ARCHIVE_TIMEOUT + 2):
+            source, p = future_map[future]
+            try:
+                data    = future.result(timeout=0)   # already done, no extra wait
+                results = data.get("results", [])
+                all_results.extend(results)
+                if source == "archive" and results:
+                    archive_included = True
+                logger.debug("fetched %s p=%d → %d results", source, p, len(results))
+            except (FT, Exception) as e:
+                logger.info("fetch failed source=%s p=%d: %s", source, p, type(e).__name__)
+
+    # Apply min_rating filter across all results
+    if min_rating > 0:
+        all_results = [
+            m for m in all_results
+            if float(m.get("rating") or 0) >= min_rating
+        ]
+
+    # Deduplicate by id
+    merged = _deduplicate(all_results)
+
+    # Global sort — applied ONCE to the full merged list
+    if query:
+        # Spec: search results → sort by title (A→Z)
+        merged.sort(key=lambda m: (m.get("title") or "").lower())
+    else:
+        # Browse: sort by user's chosen criterion
+        merged = _sort_results(merged, sort_by)
+
+    logger.info(
+        "library_search: total=%d tmdb+archive merged, archive_included=%s q=%r",
+        len(merged), archive_included, query
+    )
+
+    return {
+        "results":          merged,
+        "archive_included": archive_included,
+    }
 
 
-def _queue_archive(query: str, genre_ids: list | None, page: int = 1) -> None:
-    if query and len(query.strip()) < 2:
-        return
-    try:
-        from ..tasks import search_archive_task
-        search_archive_task.delay(query or "", page, genre_ids or [])
-    except Exception as e:
-        logger.warning("_queue_archive failed: %s", e)
-
-
-def _make_cache_key(query, genre_ids, year_from, year_to,
-                     min_rating, sort_by, page) -> str:
-    """Unique string for this exact filter combination."""
+def _full_result_key(query, genre_ids, year_from, year_to,
+                      min_rating, sort_by) -> str:
+    """
+    Cache key for the FULL sorted result set.
+    Does NOT include page — same key used for all pages of the same search.
+    """
     return ":".join([
+        "full",
         (query or "").lower().strip(),
         ",".join(str(g) for g in sorted(genre_ids or [])),
         str(year_from or ""),
         str(year_to or ""),
         str(min_rating),
         sort_by,
-        str(page),
     ])
-
-
-
-
-# import logging
-# from ..adapters import tmdb, archive
-# from .utils import _shuffle_merge
-
-# logger = logging.getLogger(__name__)
-# def library_search(query: str = "", genre_ids: list = None, year_from: int = None,
-#                    year_to: int = None, min_rating: float = 0,
-#                    sort_by: str = "popularity", page: int = 1,
-#                    page_size: int = 20) -> dict:
-
-#     from ..cache.movie_cache import (
-#         get_search_results, set_search_results,
-#         get_archive_search, TTL_SEARCH_RESULTS,
-#     )
-
-#     lib_key = _library_cache_key(query, genre_ids, year_from, year_to, min_rating, sort_by, page)
-#     cached  = get_search_results(lib_key, source="library")
-#     if cached:
-#         return cached
-
-#     genre_key = ",".join(str(g) for g in sorted(genre_ids or []))
-
-#     # Read archive page matching current scroll page
-#     # Page 1 -> archive page 1, page 2 -> archive page 2, etc.
-#     # Falls back to page 1 if requested page not cached yet
-#     archive_cached = (
-#         get_archive_search(query or "", genre_key, page)
-#         or get_archive_search(query or "", genre_key, 1)
-#     )
-
-#     # TMDB
-#     tmdb_data    = tmdb.search(
-#         query=query, genre_ids=genre_ids,
-#         year_from=year_from, year_to=year_to,
-#         sort_by=sort_by, page=page,
-#     )
-#     tmdb_results = tmdb_data.get("results", [])
-
-#     # Archive from cache
-#     if archive_cached is not None:
-#         archive_results = archive_cached.get("results", [])
-#         archive_pages   = archive_cached.get("total_pages", 1)
-#     else:
-#         archive_results = []
-#         archive_pages   = 1
-        
-#         _queue_archive_search(query, genre_ids, page=1)
-
-#     merged = _shuffle_merge(tmdb_results, archive_results)
-
-#     if min_rating > 0:
-#         merged = [m for m in merged if float(m.get("rating") or 0) >= min_rating]
-#         archive_results = [
-#             m for m in archive_results
-#             if float(m.get("rating") or 0) >= min_rating
-#         ]
-
-#     sort_keys = {
-#         "vote_average":              lambda m: float(m.get("rating") or 0),
-#         "rating":                    lambda m: float(m.get("rating") or 0),
-#         "primary_release_date_desc": lambda m: m.get("year") or "0",
-#         "primary_release_date_asc":  lambda m: m.get("year") or "9999",
-#     }
-#     if sort_by in sort_keys:
-#         merged.sort(key=sort_keys[sort_by], reverse="asc" not in sort_by)
-
-#     # Archive appended at end — different per page because task caches each page
-#     # merged = merged + archive_results
-
-#     total_pages = max(tmdb_data.get("total_pages", 1), archive_pages, 1)
-
-#     result = {
-#         "results":          merged,
-#         "page":             page,
-#         "totalPages":       total_pages,
-#         "has_more":         page < total_pages,
-#         "archive_included": bool(archive_results),
-#     }
-
-#     if page == 1 and not archive_results:
-#         return result
-
-#     ttl = TTL_SEARCH_RESULTS if archive_results else 20
-#     set_search_results(lib_key, result, source="library", ttl=ttl)
-#     return result
-
-
-# def _queue_archive_search(query: str, genre_ids: list, page: int = 1) -> None:
-#     try:
-#         from ..tasks import search_archive_task
-#         search_archive_task.delay(query or "", page, genre_ids or [])
-#     except Exception as e:
-#         logger.warning("failed to queue archive search: %s", e)
-
-
-# def _library_cache_key(query, genre_ids, year_from, year_to,
-#                         min_rating, sort_by, page) -> str:
-#     return ":".join([
-#         (query or "").lower().strip(),
-#         ",".join(str(g) for g in sorted(genre_ids or [])),
-#         str(year_from or ""),
-#         str(year_to or ""),
-#         str(min_rating),
-#         sort_by,
-#         str(page),
-#     ])

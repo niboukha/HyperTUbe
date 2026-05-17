@@ -174,7 +174,7 @@ export default function TopBar() {
                 backdrop-blur-2xl! backdrop-saturate-150!
               "
             >
-              <LogOut size={22} strokeWidth={3} />
+              <LogOut size={21.5} strokeWidth={2.5} />
             </motion.button>
           </AnimatePresence>
 

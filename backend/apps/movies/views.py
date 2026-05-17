@@ -235,6 +235,8 @@ def movie_detail(request, movie_id: str):
         if data is None:
             return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
         http_status = status.HTTP_202_ACCEPTED if data.get("_pending") else status.HTTP_200_OK
+
+       
         return Response(data, status=http_status)
 
     elif movie_id.startswith("tmdb-"):
