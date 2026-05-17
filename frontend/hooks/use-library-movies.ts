@@ -1,4 +1,3 @@
-// hooks/use-library-movies.ts
 "use client"
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
@@ -136,6 +135,7 @@ export function useLibraryMovies(urlQuery: string, filters: Filters) {
         try {
           const data           = JSON.parse(e.data)
           const archiveResults: MovieResult[] = data.results ?? []
+          console.log("[library] Archive arrived:", archiveResults.length, "results")
           setArchiveReady(true)
 
           if (archiveResults.length > 0) {
@@ -143,7 +143,7 @@ export function useLibraryMovies(urlQuery: string, filters: Filters) {
               const ids   = new Set(prev.map(m => m.id))
               const fresh = archiveResults.filter(m => !ids.has(m.id))
               if (fresh.length === 0) return prev
-              // append at end — no position juggling, no re-render flash
+
               return [...prev, ...fresh]
             })
           }

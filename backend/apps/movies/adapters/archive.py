@@ -1,14 +1,13 @@
-# movies/adapters/archive.py
 import logging
 import math
 import re
 
 from ..cache.movie_cache import (
-    NOT_FOUND,
-    acquire_fetch_lock,
+    NOT_FOUND, acquire_lock, release_lock,
     get_archive_detail, set_archive_detail, set_archive_detail_not_found,
-    get_archive_downloads,
+    get_archive_downloads, set_archive_downloads,
     get_archive_runtime, set_archive_runtime,
+    get_archive_search, set_archive_search,
 )
 from ..client import safe_get
 from ..services.utils import build_response, format_runtime
@@ -21,32 +20,40 @@ GENRE_SUBJECTS = {
     10752: "war", 35: "comedy", 9648: "mystery", 80: "crime",
 }
 BLOCKED_PATTERN = re.compile(
-    r"\b(adult|xxx|porn|sex|erotic|nsfw|fetish|nude|nudity|hardcore)\b", re.IGNORECASE
+    r"\b(adult|xxx|porn|sex|erotic|nsfw|fetish|nude|nudity|hardcore)\b",
+    re.IGNORECASE,
 )
 BLOCKED_TITLES = {
     "cosmos: war of the planets", "het is weer zomer in zandvoort!",
     "teaserama", "adı vasfiye, turkish movie", "desire", "mark of zorro",
-    "raw force [1982] - trailer", "maken-ki! battling venus","Milf", "Fantasy Island", "The Last Christmas Party", "The Last Christmas Party", "The Last Christmas Party", "The Last Christmas Party",
+    "raw force [1982] - trailer", "maken-ki! battling venus",
 }
 
 
-# Quality gates
+# Quality gates ---------------------------------------------------------
+
 def is_safe_content(doc: dict) -> bool:
-    title = str(doc.get("title", ""))
-    if title.lower() in BLOCKED_TITLES:
+    title = str(doc.get("title", "")).lower()
+    if title in BLOCKED_TITLES:
         return False
     text = " ".join([
-        title, str(doc.get("description", "")),
+        str(doc.get("title", "")),
+        str(doc.get("description", "")),
         " ".join(doc.get("subject", [])) if isinstance(doc.get("subject"), list)
         else str(doc.get("subject", "")),
     ])
     return len(text.strip()) >= 20 and not BLOCKED_PATTERN.search(text)
 
 def is_quality_movie(doc: dict) -> bool:
-    return (doc.get("downloads") or 0) > 100 and doc.get("title") and doc.get("year")
+    return (
+        (doc.get("downloads") or 0) > 100
+        and bool(doc.get("title"))
+        and bool(doc.get("year"))
+    )
 
 
-# Helper
+# Shared helpers ---------------------------------------------------------
+
 def _parse_subjects(doc: dict) -> list[str]:
     s = doc.get("subject", [])
     if isinstance(s, str):
@@ -62,31 +69,42 @@ def _parse_description(doc: dict) -> str:
     return (" ".join(d) if isinstance(d, list) else d).strip()
 
 def _fake_rating(downloads: int) -> float:
+    """Proxy rating: log scale so 10k downloads ≈ 6.0, 1M downloads ≈ 9.6"""
     return round(min(math.log10(downloads + 1) * 1.2, 10), 1) if downloads > 0 else 0.0
 
-def _parse_cast(doc: dict) -> list:
-    cast, seen = [], set()
-    def add(name: str, role: str):
-        name = name.strip()
-        if not name or name.lower() in seen: return
-        seen.add(name.lower())
-        cast.append({"id": abs(hash(name)), "name": name, "character": role,
-                     "profile_path": None, "order": len(cast)})
-    director = doc.get("director") or doc.get("creator")
-    if director:
-        for d in (director if isinstance(director, list) else [director]):
-            add(d, "Director")
-    for field in ("contributor", "cast", "performer"):
-        raw = doc.get(field, "")
-        if not raw: continue
-        entries = raw if isinstance(raw, list) else [x.strip() for x in re.split(r"[;,]", raw)]
-        for e in entries:
-            if e: add(e, "Cast")
-    return cast
+def _build_search_query(search: str | None, genre_ids: list | None,
+                         year: int | None) -> str:
+    """Build archive.org Lucene query string."""
+    parts = ["collection:moviesandfilms", "mediatype:movies"]
+
+    if search:
+        term = search.strip()
+        if " " in term:
+            # Multi-word: exact match on all but last, wildcard on last
+            # "harry potter" → title:(harry) AND title:(potter*)
+            words    = term.split()
+            parts_q  = [f"title:({w})" for w in words[:-1]]
+            parts_q.append(f"title:({words[-1]}*)")
+            parts.append("(" + " AND ".join(parts_q) + ")")
+        else:
+            # Single word: wildcard suffix — "batm*" matches "batman"
+            parts.append(f"title:({term}*)")
+
+    if genre_ids:
+        subjects = [GENRE_SUBJECTS[g] for g in genre_ids if g in GENRE_SUBJECTS]
+        if subjects:
+            parts.append("(" + " OR ".join(f"subject:{s}" for s in subjects) + ")")
+
+    if year:
+        parts.append(f"year:{year}")
+
+    return " AND ".join(parts)
 
 
-# Normalizers
+# Normalizers ---------------------------------------------------------
+
 def _normalize_list(doc: dict) -> dict:
+    """Lean shape for cards/carousels — only fields the UI needs."""
     identifier = doc.get("identifier", "")
     subjects   = _parse_subjects(doc)
     downloads  = doc.get("downloads") or 0
@@ -109,6 +127,7 @@ def _normalize_list(doc: dict) -> dict:
     }
 
 def _normalize_detail(doc: dict, downloads: int = 0) -> dict:
+    """Full shape for detail page — all available fields."""
     identifier = doc.get("identifier", "")
     subjects   = _parse_subjects(doc)
     genre_ids  = _subjects_to_genre_ids(subjects)
@@ -138,125 +157,412 @@ def _normalize_detail(doc: dict, downloads: int = 0) -> dict:
                            for gid in genre_ids],
         "collection":     None,
         "studios":        [doc["publisher"]] if doc.get("publisher") else [],
-        "countries":      [], "languages":  [],
+        "countries":      [], "languages": [],
         "watch_url":      f"https://archive.org/details/{identifier}",
         "director":       doc.get("director") or doc.get("creator"),
         "subjects":       subjects,
     }
 
 def _stub_detail(archive_id: str) -> dict:
-    """Safe placeholder returned while background fetch is pending."""
+    """
+    Placeholder returned when detail is not cached yet.
+    Frontend sees _pending=True and polls every 3s.
+    """
     return {
         "id": f"archive-{archive_id}", "type": "movie",
         "archive_id": archive_id, "source": "archive",
-        "availability": "free", "cast": [],
-        "title": "Loading...", "original_title": "",
-        "tagline": "", "overview": "Details are being fetched, please refresh shortly.",
-        "year": "", "release_date": None,
-        "runtime": "N/A", "status": "Released",
+        "availability": "free", "cast": [], "title": "Loading...",
+        "original_title": "", "tagline": "",
+        "overview": "Details are being fetched, please refresh shortly.",
+        "year": "", "release_date": None, "runtime": "N/A",
+        "status": "Released",
         "poster_path": f"https://archive.org/services/img/{archive_id}",
-        "backdrop_path": None,
-        "rating": 0.0, "vote_count": 0, "popularity": 0,
-        "genre_ids": [], "genres": [], "collection": None,
+        "backdrop_path": None, "rating": 0.0, "vote_count": 0,
+        "popularity": 0, "genre_ids": [], "genres": [], "collection": None,
         "studios": [], "countries": [], "languages": [],
         "watch_url": f"https://archive.org/details/{archive_id}",
         "director": None, "subjects": [],
-        "_pending": True,   # frontend can poll if it sees this
+        "_pending": True,
     }
+
+def _parse_cast(doc: dict) -> list:
+    cast, seen = [], set()
+    def add(name: str, role: str):
+        name = name.strip()
+        if not name or name.lower() in seen: return
+        seen.add(name.lower())
+        cast.append({"id": abs(hash(name)), "name": name,
+                     "character": role, "profile_path": None, "order": len(cast)})
+    director = doc.get("director") or doc.get("creator")
+    if director:
+        for d in (director if isinstance(director, list) else [director]):
+            add(d, "Director")
+    for field in ("contributor", "cast", "performer"):
+        raw = doc.get(field, "")
+        if not raw: continue
+        entries = raw if isinstance(raw, list) else [x.strip() for x in re.split(r"[;,]", raw)]
+        for e in entries:
+            if e: add(e, "Cast")
+    return cast
+
+
+# Public fetch API ---------------------------------------------------------
 
 def fetch_movies(search: str = None, genre_ids: list = None, year: int = None,
                  sort_by: str = "downloads", page: int = 1, rows: int = 20) -> dict:
-    from ..cache.movie_cache import get_archive_search, set_archive_search
+    """
+    Cache-first search. If cache miss, fetches from archive.org with SHORT timeout
+    (this runs in request cycle).
+    
+    Cache key includes query + genre + page so each combination is independent.
+    """
+    genre_key = ",".join(str(g) for g in sorted(genre_ids or []))
+    query_str = search or ""
 
-    genre_key   = ",".join(str(g) for g in sorted(genre_ids or []))
-    query_str   = search or ""
-
-    cached      = get_archive_search(query_str, genre_key, page)
+    cached = get_archive_search(query_str, genre_key, page)
     if cached is not None:
         return cached
 
-    parts = ["collection:moviesandfilms", "mediatype:movies"]
-    if search:
-        term = search.strip()
-        if " " in term:
-            words       = term.split()
-            last        = words[-1]
-            rest        = " AND ".join(f"title:({w})" for w in words[:-1])
-            wildcard    = f"title:({last}*)"
-            parts.append(f"({rest} AND {wildcard})" if rest else wildcard)
-        else:
-            parts.append(f"title:({term}*)")
-    
-    if genre_ids:
-        subjects = [GENRE_SUBJECTS[g] for g in genre_ids if g in GENRE_SUBJECTS]
-        if subjects:
-            parts.append("(" + " OR ".join(f"subject:{s}" for s in subjects) + ")")
+    query  = _build_search_query(search, genre_ids, year)
+    sort_map = {"downloads": "downloads desc", "year": "year desc", "title": "title asc"}
 
-    if year:
-        parts.append(f"year:{year}")
-
-    sort_map    = {"downloads": "downloads desc", "year": "year desc", "title": "title asc"}
-
-    body        = safe_get(BASE_URL, params={
-        "q":      " AND ".join(parts),
-        "fl[]":   "identifier,title,description,year,subject,downloads",
+    body = safe_get(BASE_URL, params={
+        "q": query, "fl[]": "identifier,title,description,year,subject,downloads",
         "sort[]": sort_map.get(sort_by, "downloads desc"),
-        "rows":   rows, "page": page, "output": "json",
-    }, timeout=50, retries=10, fallback=None)
+        "rows": rows, "page": page, "output": "json",
+    }, timeout=6, retries=1, fallback=None)
 
     if body is None:
         return build_response({}, [])
 
-    response = (body or {}).get("response", {})
+    response = body.get("response", {})
     docs     = [d for d in response.get("docs", [])
                 if is_safe_content(d) and is_quality_movie(d)]
     result   = build_response(response, [_normalize_list(d) for d in docs])
 
     set_archive_search(query_str, result, genre_key, page)
-    _prefetch_uncached([d["identifier"] for d in docs if d.get("identifier")])
+    _schedule_detail_prefetch([d["identifier"] for d in docs if d.get("identifier")])
     return result
 
-def _prefetch_uncached(identifiers: list[str]) -> None:
-    """Queue background tasks for movies not yet in cache — fire and forget."""
-    from ..tasks import fetch_archive_detail_task
-    for archive_id in identifiers:
-        if get_archive_detail(archive_id) is None:
-            if acquire_fetch_lock(archive_id):
-                fetch_archive_detail_task.delay(archive_id)
 
-def fetch_detail(archive_id: str) -> dict:
+def fetch_detail(archive_id: str) -> dict | None:
     """
-    Cache-first detail fetch.
-    States:
-      HIT     → return immediately
-      NOT_FOUND sentinel → return None
-      MISS    → return stub + queue background fetch
+    Cache-first detail page.
+    Returns: cached data | None (NOT_FOUND) | stub (pending background fetch)
     """
     cached = get_archive_detail(archive_id)
-
     if cached is not None:
-        if cached == NOT_FOUND:
-            return None
-        return cached
+        return None if cached == NOT_FOUND else cached
 
-    if acquire_fetch_lock(archive_id):
+    # Not cached, queue background fetch, return stub immediately
+    if acquire_lock(f"detail:{archive_id}"):
         from ..tasks import fetch_archive_detail_task
         fetch_archive_detail_task.delay(archive_id)
         logger.info("fetch_detail: queued background fetch for %s", archive_id)
 
     return _stub_detail(archive_id)
 
+
 def fetch_runtime(archive_id: str) -> str:
-    """Runtime — cache only, queue background refresh on miss."""
+    """
+    Runtime from cache only — no live fetch.
+    If not cached, queue a lightweight background task.
+    """
     cached = get_archive_runtime(archive_id)
     if cached is not None:
         return cached
 
-    if acquire_fetch_lock(f"runtime:{archive_id}", ttl=15):
+    if acquire_lock(f"runtime:{archive_id}", ttl=15):
         from ..tasks import fetch_archive_runtime_task
         fetch_archive_runtime_task.delay(archive_id)
 
     return "N/A"
+
+
+def _schedule_detail_prefetch(identifiers: list[str]) -> None:
+    """
+    After a search returns results, pre-warm detail cache in background.
+    Only queues for items not already cached, avoids duplicate work.
+    Uses lock to prevent parallel Celery workers from fetching same item.
+    """
+    from ..tasks import fetch_archive_detail_task
+    for archive_id in identifiers:
+        if get_archive_detail(archive_id) is None:
+            if acquire_lock(f"detail:{archive_id}"):
+                fetch_archive_detail_task.delay(archive_id)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# import logging
+# import math
+# import re
+
+# from ..cache.movie_cache import (
+#     NOT_FOUND,
+#     acquire_fetch_lock,
+#     get_archive_detail, set_archive_detail, set_archive_detail_not_found,
+#     get_archive_downloads,
+#     get_archive_runtime, set_archive_runtime,
+# )
+# from ..client import safe_get
+# from ..services.utils import build_response, format_runtime
+
+# logger   = logging.getLogger(__name__)
+# BASE_URL = "https://archive.org/advancedsearch.php"
+
+# GENRE_SUBJECTS = {
+#     28: "action", 16: "animation", 27: "horror", 878: "science fiction",
+#     10752: "war", 35: "comedy", 9648: "mystery", 80: "crime",
+# }
+# BLOCKED_PATTERN = re.compile(
+#     r"\b(adult|xxx|porn|sex|erotic|nsfw|fetish|nude|nudity|hardcore)\b", re.IGNORECASE
+# )
+# BLOCKED_TITLES = {
+#     "cosmos: war of the planets", "het is weer zomer in zandvoort!",
+#     "teaserama", "adı vasfiye, turkish movie", "desire", "mark of zorro",
+#     "raw force [1982] - trailer", "maken-ki! battling venus","Milf", "Fantasy Island", "The Last Christmas Party", "The Last Christmas Party", "The Last Christmas Party", "The Last Christmas Party",
+# }
+
+
+# # Quality gates
+# def is_safe_content(doc: dict) -> bool:
+#     title = str(doc.get("title", ""))
+#     if title.lower() in BLOCKED_TITLES:
+#         return False
+#     text = " ".join([
+#         title, str(doc.get("description", "")),
+#         " ".join(doc.get("subject", [])) if isinstance(doc.get("subject"), list)
+#         else str(doc.get("subject", "")),
+#     ])
+#     return len(text.strip()) >= 20 and not BLOCKED_PATTERN.search(text)
+
+# def is_quality_movie(doc: dict) -> bool:
+#     return (doc.get("downloads") or 0) > 100 and doc.get("title") and doc.get("year")
+
+
+# # Helper
+# def _parse_subjects(doc: dict) -> list[str]:
+#     s = doc.get("subject", [])
+#     if isinstance(s, str):
+#         s = [x.strip() for x in re.split(r"[;,]", s)]
+#     return [x.lower() for x in s if isinstance(x, str)]
+
+# def _subjects_to_genre_ids(subjects: list[str]) -> list[int]:
+#     return [gid for gid, name in GENRE_SUBJECTS.items()
+#             if any(name.lower() in s for s in subjects)]
+
+# def _parse_description(doc: dict) -> str:
+#     d = doc.get("description", "")
+#     return (" ".join(d) if isinstance(d, list) else d).strip()
+
+# def _fake_rating(downloads: int) -> float:
+#     return round(min(math.log10(downloads + 1) * 1.2, 10), 1) if downloads > 0 else 0.0
+
+# def _parse_cast(doc: dict) -> list:
+#     cast, seen = [], set()
+#     def add(name: str, role: str):
+#         name = name.strip()
+#         if not name or name.lower() in seen: return
+#         seen.add(name.lower())
+#         cast.append({"id": abs(hash(name)), "name": name, "character": role,
+#                      "profile_path": None, "order": len(cast)})
+#     director = doc.get("director") or doc.get("creator")
+#     if director:
+#         for d in (director if isinstance(director, list) else [director]):
+#             add(d, "Director")
+#     for field in ("contributor", "cast", "performer"):
+#         raw = doc.get(field, "")
+#         if not raw: continue
+#         entries = raw if isinstance(raw, list) else [x.strip() for x in re.split(r"[;,]", raw)]
+#         for e in entries:
+#             if e: add(e, "Cast")
+#     return cast
+
+
+# # Normalizers
+# def _normalize_list(doc: dict) -> dict:
+#     identifier = doc.get("identifier", "")
+#     subjects   = _parse_subjects(doc)
+#     downloads  = doc.get("downloads") or 0
+#     return {
+#         "id":            f"archive-{identifier}",
+#         "type":          "movie",
+#         "archive_id":    identifier,
+#         "source":        "archive",
+#         "availability":  "free",
+#         "title":         doc.get("title") or "Unavailable",
+#         "overview":      _parse_description(doc)[:300],
+#         "year":          str(doc.get("year", "")),
+#         "rating":        _fake_rating(downloads),
+#         "vote_count":    downloads,
+#         "genre_ids":     _subjects_to_genre_ids(subjects),
+#         "poster_path":   f"https://archive.org/services/img/{identifier}" if identifier else None,
+#         "backdrop_path": None,
+#         "runtime":       format_runtime(doc.get("runtime")),
+#         "watch_url":     f"https://archive.org/details/{identifier}",
+#     }
+
+# def _normalize_detail(doc: dict, downloads: int = 0) -> dict:
+#     identifier = doc.get("identifier", "")
+#     subjects   = _parse_subjects(doc)
+#     genre_ids  = _subjects_to_genre_ids(subjects)
+#     downloads  = downloads or doc.get("downloads") or 0
+#     return {
+#         "id":             f"archive-{identifier}",
+#         "type":           "movie",
+#         "archive_id":     identifier,
+#         "source":         "archive",
+#         "availability":   "free",
+#         "cast":           _parse_cast(doc),
+#         "title":          doc.get("title") or "Unavailable",
+#         "original_title": doc.get("title") or "",
+#         "tagline":        "",
+#         "overview":       _parse_description(doc) or "Data temporarily unavailable",
+#         "year":           str(doc.get("year") or (doc.get("date") or "")[:4]),
+#         "release_date":   doc.get("date"),
+#         "runtime":        format_runtime(doc.get("runtime")),
+#         "status":         "Released",
+#         "poster_path":    f"https://archive.org/services/img/{identifier}" if identifier else None,
+#         "backdrop_path":  None,
+#         "rating":         _fake_rating(downloads),
+#         "vote_count":     downloads,
+#         "popularity":     downloads,
+#         "genre_ids":      genre_ids,
+#         "genres":         [{"id": gid, "name": GENRE_SUBJECTS.get(gid, "").title()}
+#                            for gid in genre_ids],
+#         "collection":     None,
+#         "studios":        [doc["publisher"]] if doc.get("publisher") else [],
+#         "countries":      [], "languages":  [],
+#         "watch_url":      f"https://archive.org/details/{identifier}",
+#         "director":       doc.get("director") or doc.get("creator"),
+#         "subjects":       subjects,
+#     }
+
+# def _stub_detail(archive_id: str) -> dict:
+#     """Safe placeholder returned while background fetch is pending."""
+#     return {
+#         "id": f"archive-{archive_id}", "type": "movie",
+#         "archive_id": archive_id, "source": "archive",
+#         "availability": "free", "cast": [],
+#         "title": "Loading...", "original_title": "",
+#         "tagline": "", "overview": "Details are being fetched, please refresh shortly.",
+#         "year": "", "release_date": None,
+#         "runtime": "N/A", "status": "Released",
+#         "poster_path": f"https://archive.org/services/img/{archive_id}",
+#         "backdrop_path": None,
+#         "rating": 0.0, "vote_count": 0, "popularity": 0,
+#         "genre_ids": [], "genres": [], "collection": None,
+#         "studios": [], "countries": [], "languages": [],
+#         "watch_url": f"https://archive.org/details/{archive_id}",
+#         "director": None, "subjects": [],
+#         "_pending": True,   # frontend can poll if it sees this
+#     }
+
+# def fetch_movies(search: str = None, genre_ids: list = None, year: int = None,
+#                  sort_by: str = "downloads", page: int = 1, rows: int = 20) -> dict:
+#     from ..cache.movie_cache import get_archive_search, set_archive_search
+
+#     genre_key   = ",".join(str(g) for g in sorted(genre_ids or []))
+#     query_str   = search or ""
+
+#     cached      = get_archive_search(query_str, genre_key, page)
+#     if cached is not None:
+#         return cached
+
+#     parts = ["collection:moviesandfilms", "mediatype:movies"]
+#     if search:
+#         term = search.strip()
+#         if " " in term:
+#             words       = term.split()
+#             last        = words[-1]
+#             rest        = " AND ".join(f"title:({w})" for w in words[:-1])
+#             wildcard    = f"title:({last}*)"
+#             parts.append(f"({rest} AND {wildcard})" if rest else wildcard)
+#         else:
+#             parts.append(f"title:({term}*)")
+    
+#     if genre_ids:
+#         subjects = [GENRE_SUBJECTS[g] for g in genre_ids if g in GENRE_SUBJECTS]
+#         if subjects:
+#             parts.append("(" + " OR ".join(f"subject:{s}" for s in subjects) + ")")
+
+#     if year:
+#         parts.append(f"year:{year}")
+
+#     sort_map    = {"downloads": "downloads desc", "year": "year desc", "title": "title asc"}
+
+#     body        = safe_get(BASE_URL, params={
+#         "q":      " AND ".join(parts),
+#         "fl[]":   "identifier,title,description,year,subject,downloads",
+#         "sort[]": sort_map.get(sort_by, "downloads desc"),
+#         "rows":   rows, "page": page, "output": "json",
+#     }, timeout=50, retries=10, fallback=None)
+
+#     if body is None:
+#         return build_response({}, [])
+
+#     response = (body or {}).get("response", {})
+#     docs     = [d for d in response.get("docs", [])
+#                 if is_safe_content(d) and is_quality_movie(d)]
+#     result   = build_response(response, [_normalize_list(d) for d in docs])
+
+#     set_archive_search(query_str, result, genre_key, page)
+#     _prefetch_uncached([d["identifier"] for d in docs if d.get("identifier")])
+#     return result
+
+# def _prefetch_uncached(identifiers: list[str]) -> None:
+#     """Queue background tasks for movies not yet in cache — fire and forget."""
+#     from ..tasks import fetch_archive_detail_task
+#     for archive_id in identifiers:
+#         if get_archive_detail(archive_id) is None:
+#             if acquire_fetch_lock(archive_id):
+#                 fetch_archive_detail_task.delay(archive_id)
+
+# def fetch_detail(archive_id: str) -> dict:
+#     """
+#     Cache-first detail fetch.
+#     States:
+#       HIT     → return immediately
+#       NOT_FOUND sentinel → return None
+#       MISS    → return stub + queue background fetch
+#     """
+#     cached = get_archive_detail(archive_id)
+
+#     if cached is not None:
+#         if cached == NOT_FOUND:
+#             return None
+#         return cached
+
+#     if acquire_fetch_lock(archive_id):
+#         from ..tasks import fetch_archive_detail_task
+#         fetch_archive_detail_task.delay(archive_id)
+#         logger.info("fetch_detail: queued background fetch for %s", archive_id)
+
+#     return _stub_detail(archive_id)
+
+# def fetch_runtime(archive_id: str) -> str:
+#     """Runtime — cache only, queue background refresh on miss."""
+#     cached = get_archive_runtime(archive_id)
+#     if cached is not None:
+#         return cached
+
+#     if acquire_fetch_lock(f"runtime:{archive_id}", ttl=15):
+#         from ..tasks import fetch_archive_runtime_task
+#         fetch_archive_runtime_task.delay(archive_id)
+
+#     return "N/A"
 
 
 
