@@ -12,6 +12,8 @@ class Comment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     likes = models.IntegerField(default=0)
+    starts = models.IntegerField(default=0)
+
     dislikes = models.IntegerField(default=0)
 
 

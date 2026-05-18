@@ -1,18 +1,19 @@
-# # users/signals.py
-# from allauth.socialaccount.signals import social_account_updated, pre_social_login
+# # # users/signals.py
+
+# # from django.db.models.signals import post_save
+# # from django.contrib.auth.models import User
+# # from django.dispatch import receiver
+
+# from allauth.account.signals import user_signed_up
 # from django.dispatch import receiver
-# from rest_framework_simplejwt.tokens import RefreshToken
+# from .models import UserProfile
 
-# @receiver(pre_social_login)
-# def generate_jwt_after_social_login(sender, request, sociallogin, **kwargs):
-#     user = sociallogin.user
 
-#     if user.pk is None:
-#         return  # user not saved yet, skip
-
-#     refresh = RefreshToken.for_user(user)
-
-#     # store tokens in session temporarily
-#     # we'll set the cookie in the callback view
-#     request.session["access_token"]  = str(refresh.access_token)
-#     request.session["refresh_token"] = str(refresh)
+# @receiver(user_signed_up)
+# def create_user_profile(request, user, **kwargs):
+#     """
+#     Allauth creates a User row but NOT the child UserProfile row.
+#     This signal fires right after signup (including OAuth) and creates it.
+#     """
+#     if not UserProfile.objects.filter(user_ptr_id=user.pk).exists():
+#         UserProfile.objects.create(user_ptr_id=user.pk)

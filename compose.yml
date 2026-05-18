@@ -11,12 +11,11 @@ services:
             python3 manage.py migrate &&
             python manage.py seed_movies  &&
             python manage.py setup_oauth &&
-
-            python3 manage.py runserver 0.0.0.0:8000"
+            python3 manage.py runserver 0.0.0.0:8001"
     volumes:
       - ./src:/app
     ports:
-      - "8000:8000"
+      - "8001:8001"
     env_file:
       - .env
     depends_on:

@@ -31,7 +31,6 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
-
 # Application definition
 
 INSTALLED_APPS = [
@@ -42,7 +41,6 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'movies',      
-    'users.apps.UsersConfig',
     'comments',
     'downloads',
     'library',
@@ -60,6 +58,7 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.google',
     'allauth.socialaccount.providers.github',
 
+    'users.apps.UsersConfig',
     'users.providers.intra42',
 
 
@@ -180,9 +179,11 @@ CELERY_RESULT_BACKEND = 'redis://redis:6379/0'
 # CORS Configuration to check after
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "http://localhost:8000"
+    "http://localhost:8001"
 ]
-
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+]
 CORS_ALLOW_ALL_ORIGINS = True
 
 MEDIA_URL = "/media/"
@@ -194,7 +195,7 @@ SITE_ID = 1
 
 SOCIALACCOUNT_LOGIN_ON_GET = True
 
-LOGIN_REDIRECT_URL = "http://localhost:8000/api/auth/social/callback/"
+LOGIN_REDIRECT_URL = "http://localhost:8001/api/auth/social/callback/"
 
 # JWT_AUTH_COOKIE = 'access_token'          # ✅ cookie name
 # JWT_AUTH_REFRESH_COOKIE = 'refresh_token' # ✅ refresh cookie name
@@ -244,3 +245,7 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+SOCIALACCOUNT_ADAPTER="users.adapters.SocialAccountAdapter"
+
+CORS_ALLOW_CREDENTIALS = True

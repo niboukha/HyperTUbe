@@ -26,7 +26,7 @@ urlpatterns = [
     path('oauth/token', login_view, name='login'),  # ← here
     path('oauth/token/refresh', TokenRefreshView.as_view(), name='refresh'),  # optiona
 
-    path('comments',include("comments.urls")),  # optiona
+    path('comments/',include("comments.urls")),  # optiona
 
 
 ]

@@ -12,7 +12,7 @@ class Intra42OAuth2Adapter(OAuth2Adapter):
     profile_url      = "https://api.intra.42.fr/v2/me"
     def get_callback_url(self, request, app):
         url = os.getenv("INTRA_CALLBACK")
-        return "http://localhost:8000/accounts/intra42/login/callback/"
+        return "http://localhost:8001/accounts/intra42/login/callback/"
 
         
     def complete_login(self, request, app, token, **kwargs):
@@ -22,4 +22,6 @@ class Intra42OAuth2Adapter(OAuth2Adapter):
         )
         resp.raise_for_status()
         extra_data = resp.json()
-        return self.get_provider().sociallogin_from_response(request, extra_data)
+        login = self.get_provider().sociallogin_from_response(request, extra_data)
+
+        return login

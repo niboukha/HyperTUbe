@@ -8,7 +8,7 @@ class Command(BaseCommand):
 
         site, _ = Site.objects.get_or_create(
             id=1,
-            defaults={"domain": "localhost:8000", "name": "localhost"}
+            defaults={"domain": "localhost:8001", "name": "localhost"}
         )
 
         def create_app(provider, name, client_id, secret):

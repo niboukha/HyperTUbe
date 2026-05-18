@@ -111,7 +111,7 @@ def social_login_callback(request):
         refresh_token = str(refresh)
 
         # redirect to frontend with cookie set
-        response = redirect("http://localhost:8000/")
+        response = redirect("http://localhost:8001/")
 
         response.set_cookie(
             key      = "access_token",
@@ -124,7 +124,7 @@ def social_login_callback(request):
         return response
 
     #this to error page  page 
-    return redirect("http://localhost:8000") 
+    return redirect("http://localhost:8001") 
 
 @api_view(["POST"])
 @permission_classes([AllowAny])

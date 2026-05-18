@@ -18,14 +18,17 @@ from .models import Comment
 # @api_view(["GET", "POST", "PATCH", "DELETE"])
 class CommentsView(APIView):
     
-    def get(self, request):
-        comments = Comment.objects.all().order_by("-created_at")
+    def get(self, request,id):
+        
+        comments = Comment.objects.filter(movieId=id).order_by("-created_at")
         data = [
             {
                 "id": c.id,
                 "username": c.user.user.username if hasattr(c.user, "user") else c.user.username,
                 "content": c.content,
                 "created_at": c.created_at,
+                "starts" :c.starts
+
             }
             for c in comments
         ]
@@ -35,15 +38,17 @@ class CommentsView(APIView):
     def post(self, request):
         movie_id = request.data.get("movie_id")
         content = request.data.get("content")
+        starts = request.data.get("starts")
 
         user = UserProfile.objects.get(id=request.user.id)
         if not movie_id or not content:
                 return Response({"error": "there is missing data"}, status=400)
-        # movie = Movie.objects.get(id=movie_id)
+        
         comment = Comment.objects.create(
                 movieId=movie_id,
                 user=user,   # or UserProfile if you use that
                 content=content,
+                starts=starts
                
         ) 
         return Response({"message": "comment created"}, status=201)
@@ -71,3 +76,48 @@ class CommentsView(APIView):
                 {"error": "Comment not found"},
                 status=status.HTTP_404_NOT_FOUND
             )
+        
+    def patch(self,request,id):
+        try:
+            comment = Comment.objects.get(id=id)
+            if comment.user != request.user:
+                return Response(
+                    {"error": "Not allowed"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            new_comment = request.data.get("comment")
+
+            if not new_comment:
+                return Response(
+                    {"error": "Comment is required"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            comment.comment = new_comment
+            comment.save()
+            return Response(
+                {
+                    "message": "Comment updated successfully",
+                    "comment": comment.comment,
+                    "username": request.user.username
+                },
+                status=status.HTTP_200_OK
+            )
+
+
+        except Comment.DoesNotExist:
+            return Response(
+                {"error": "Comment not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+
+
+# def commentsLikes(request,comment_id):
+#     try:
+#         comment = Comment.objects.get(id=comment_id)
+#     except Comment.DoesNotExist:
+#         return Response({"error": "Comment not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+# add stars edit in patch I NEED LIKE

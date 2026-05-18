@@ -14,7 +14,7 @@ video.addEventListener("play", async () => {
         statusEl.textContent = "Starting download...";
 
         // STEP 1: start backend process (ONCE)
-        const response = await fetch(`http://localhost:8000/api/movies/${movieId}/watch/`, {
+        const response = await fetch(`http://localhost:8001/api/movies/${movieId}/watch/`, {
             method: "POST",
         });
         const data = await response.json();
@@ -37,7 +37,7 @@ video.addEventListener("play", async () => {
 async function waitForStream(movieId) {
     while (true) {
         const res = await fetch(
-            `http://localhost:8000/api/movies/${movieId}/status/`
+            `http://localhost:8001/api/movies/${movieId}/status/`
         );
         const data = await res.json();
         if (data.status === "ready" && data.hls_path) {
