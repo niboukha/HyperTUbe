@@ -6,12 +6,14 @@ function YearInput({
   min,
   max,
   onChange,
+  onCommit,
 }: {
   label: string
   value: number
   min: number
   max: number
   onChange: (v: number) => void
+  onCommit?: (v: number) => void
 }) {
   return (
     <div className="flex items-center gap-2 justify-between">
@@ -24,6 +26,15 @@ function YearInput({
         onChange={(e) => {
           const v = Number(e.target.value)
           if (v >= min && v <= max) onChange(v)
+        }}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter") return
+          e.preventDefault()
+          const v = Number(e.currentTarget.value)
+          if (v >= min && v <= max) {
+            onChange(v)
+            onCommit?.(v)
+          }
         }}
         className="flex-1 bg-white/10 border border-white/10 rounded-[6px] px-2! py-1! text-sm text-white/80 outline-none focus:border-white/25 transition-colors text-center"
       />

@@ -22,17 +22,7 @@ import { MovieDetail } from "@/types/movie";
 import { useParams } from "next/navigation"
 import PrimeRow from "@/components/sections/prime-row";
 import { useCollection } from "@/hooks/use-collection";
-
-async function fetchMovieDetail(id: string): Promise<MovieDetail | null> {
-  try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/movies/${id}/`)
-
-    if (!res.ok) return null
-    return res.json()
-  } catch {
-    return null
-  }
-}
+import { useMovieDetail } from "@/hooks/use-movie-details";
 
 async function fetchTrailer(movie: MovieDetail): Promise<string | null> {
   // Only TMDB movies have trailers via TMDB API
@@ -87,16 +77,15 @@ const INITIAL_REVIEWS: Review[] = [
 export default function VedioDetails()
 {
   const [trailerOpen, setTrailerOpen] = useState<boolean>(false);
-  const [trailer, setTrailer] = useState<string | null>(null);
 
   const params   = useParams()
   const movieId  = params.id as string   // e.g. "tmdb-1266127"
 
   const [trailerUrl,  setTrailerUrl]  = useState<string | null>(null)
 
-  const { data: movie, pending } = useMovieDetail(movieId)
+  const { data: movie, pending, error, notFound } = useMovieDetail(movieId)
 
-  const { data: collection, loading: collectionLoading } = useCollection(
+  const { data: collection } = useCollection(
     movie?.collection?.id
   )
 
@@ -109,12 +98,11 @@ export default function VedioDetails()
   }, [trailerOpen, movie])
 
     
-  if (!movie) return <DetailSkeleton />
-  
-  const isLoading = !movie && pending
+  if (pending) return <DetailSkeleton />
+  if (notFound) return <NotFound />
+  if (!movie || error) return <NotFound message="Could not load movie details." />
   
   const isArchive   = movie.source === "archive"
-  const watchUrl    = isArchive ? movie.watch_url : undefined
   const hasTrailer  = !isArchive
   const director    = isArchive ? movie.director : undefined
 
@@ -307,10 +295,7 @@ export default function VedioDetails()
         {/* Trailer Dialog */}
         <Dialog
           open={trailerOpen}
-          onOpenChange={(val) => {
-            setTrailerOpen(val);
-            if (!val) setTrailer(null);
-          }}           
+          onOpenChange={setTrailerOpen}
         >
           <DialogTitle className="sr-only hidden">Trailer</DialogTitle>
           <DialogContent
@@ -330,7 +315,7 @@ export default function VedioDetails()
               {(
                 <iframe
                   className="w-full h-full"
-                  src={`${trailer}`}
+                  src={trailerUrl ?? ""}
                   title="Movie Trailer"
                   allow="autoplay; encrypted-media"
                   allowFullScreen
@@ -386,26 +371,83 @@ export default function VedioDetails()
 
 function DetailSkeleton() {
   return (
-    <div className="h-screen bg-white/5 animate-pulse" />
+    <main>
+      <div className="relative h-screen bg-[#0E0E10] overflow-hidden">
+        {/* <div className="absolute inset-0 bg-linear-to-r from-[#0E0E10] via-[#0E0E10]/80 to-[#16161a]" />
+        <div className="absolute inset-0 bg-linear-to-t from-background via-transparent to-background/5" /> */}
+
+        <div className="z-40 w-[min(85vw,500px)] md:w-[min(40vw,700px)] absolute inset-0 top-[30%] md:top-[41%] left-4 md:left-16">
+          <SkeletonBlock className="h-14 md:h-20 w-[min(82vw,520px)] mb-3!" />
+          <SkeletonBlock className="h-4 w-56 mb-4!" />
+
+          <div className="flex flex-wrap items-center gap-2! mb-4!">
+            <SkeletonBlock className="h-6 w-18" />
+            <SkeletonBlock className="h-6 w-14" />
+            <SkeletonBlock className="h-6 w-12" />
+            <SkeletonBlock className="h-6 w-20" />
+          </div>
+
+          <div className="flex flex-col gap-2! max-w-140 mb-6!">
+            <SkeletonBlock className="h-4 w-full" />
+            <SkeletonBlock className="h-4 w-[92%]" />
+            <SkeletonBlock className="h-4 w-[78%]" />
+            <SkeletonBlock className="h-4 w-[64%]" />
+          </div>
+
+          <div className="flex gap-2! mb-6!">
+            {[0, 1, 2, 3, 4].map(i => (
+              <SkeletonBlock key={i} className="h-10 w-10 md:h-13 md:w-13 rounded-full" />
+            ))}
+          </div>
+
+          <div className="flex gap-2!">
+            <SkeletonBlock className="h-12 w-35" />
+            <SkeletonBlock className="h-12 w-12" />
+            <SkeletonBlock className="h-12 w-12" />
+          </div>
+        </div>
+      </div>
+
+      <div className="!px-4 md:!px-16 !py-6 flex flex-col gap-4">
+        <SkeletonBlock className="h-7 w-32" />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <SkeletonBlock className="h-64 lg:col-span-4" />
+          <div className="lg:col-span-8 flex flex-col gap-3">
+            <SkeletonBlock className="h-28" />
+            <SkeletonBlock className="h-28" />
+            <SkeletonBlock className="h-28" />
+          </div>
+        </div>
+      </div>
+    </main>
   )
 }
 
-function NotFound() {
+
+function SkeletonBlock({ className = "" }: { className?: string }) {
   return (
-    <div className="h-screen flex items-center justify-center text-white/40">
-      Movie not found.
+    <div className={`relative overflow-hidden rounded-md bg-white/5 ${className}`}>
+      <motion.div
+        className="absolute inset-y-0 -left-1/2 w-1/2 bg-linear-to-r from-transparent via-white/20 to-transparent"
+        animate={{ x: ["0%", "300%"] }}
+        transition={{ duration: 1.4, repeat: Infinity, ease: "linear" }}
+      />
     </div>
   )
 }
 
 
-// components/VideoDetails/CastRow.tsx
+function NotFound({ message = "Movie not found." }: { message?: string }) {
+  return (
+    <div className="h-screen flex items-center justify-center text-white/40">
+      {message}
+    </div>
+  )
+}
 
 import Image from "next/image"
 import { User } from "lucide-react"
 import { CastMember } from "@/types/movie"
-import { useMovieDetail } from "@/hooks/use-movie-details";
-
 type Props = { cast: CastMember[] }
 
 export function CastRow({ cast }: Props) {
@@ -452,6 +494,3 @@ export function CastRow({ cast }: Props) {
     </div>
   )
 }
-
-
-

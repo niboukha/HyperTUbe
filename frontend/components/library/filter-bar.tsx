@@ -2,12 +2,12 @@
 
 import { useRef, useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { X, Star, TrendingUp, Clock, Check } from "lucide-react"
+import { X, Star, TrendingUp, Clock, Check, ArrowUpAZ } from "lucide-react"
 import { GENRES } from "@/constants/search-bar"
 import FilterPill from "./filter-pill"
 import { FilterDropdown, YearInput } from "./utils"
 
-export type SortOption = "popular" | "rating" | "newest" | "oldest"
+export type SortOption = "popular" | "rating" | "newest" | "oldest" | "name"
 export type Filters = {
   genres: string[]
   sort: SortOption
@@ -19,6 +19,7 @@ export const CURRENT_YEAR = new Date().getFullYear()
 export const MIN_YEAR     = 1960
 
 const SORT_OPTIONS: { value: SortOption; label: string; icon: React.ReactNode }[] = [
+  { value: "name",    label: "",     icon: <ArrowUpAZ className="h-3.5 w-3.5" /> },
   { value: "popular", label: "Most Popular", icon: <TrendingUp className="h-3.5 w-3.5" /> },
   { value: "rating",  label: "Top Rated",    icon: <Star className="h-3.5 w-3.5" /> },
   { value: "newest",  label: "Newest First", icon: <Clock className="h-3.5 w-3.5" /> },
@@ -46,6 +47,11 @@ export function FilterBar({ filters, onChange }: Props) {
     onChange({ genres: [], sort: "popular", minRating: 0, yearRange: [MIN_YEAR, CURRENT_YEAR] })
 
   const selectedSort = SORT_OPTIONS.find((s) => s.value === filters.sort)
+  const commitYearRange = (yearRange: [number, number]) => {
+    setDraftYear(yearRange)
+    onChange({ ...filters, yearRange })
+    setActivePanel(null)
+  }
 
   useEffect(() => {
     setDraftYear(filters.yearRange)
@@ -167,6 +173,7 @@ export function FilterBar({ filters, onChange }: Props) {
                   min={MIN_YEAR}
                   max={draftYear[1]}
                   onChange={(v) => setDraftYear([v, draftYear[1]])}
+                  onCommit={(v) => commitYearRange([v, draftYear[1]])}
                 />
                 <YearInput
                   label="To"
@@ -174,6 +181,7 @@ export function FilterBar({ filters, onChange }: Props) {
                   min={draftYear[0]}
                   max={CURRENT_YEAR}
                   onChange={(v) => setDraftYear([draftYear[0], v])}
+                  onCommit={(v) => commitYearRange([draftYear[0], v])}
                 />
               </div>
               <button

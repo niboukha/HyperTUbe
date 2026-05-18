@@ -27,6 +27,7 @@ export default function HeroImage({ movie }: HeroImageProps) {
               className="object-cover transform-gpu will-change-transform"
               priority
               quality={100}
+              loading="eager"
           />
         </motion.div>
       )}

@@ -53,7 +53,7 @@ export default function LibraryPage() {
               </span>
             </p>
             <p className="text-white/20 text-sm mt-1!">
-              Try different keywords or browse our suggestions below
+              Showing top-rated movies instead
             </p>
           </div>
 
@@ -62,7 +62,7 @@ export default function LibraryPage() {
               <div className="flex items-center gap-3">
                 <span className="text-accent-red font-title text-lg">|</span>
                 <span className="text-white/70 font-title tracking-wide uppercase text-sm">
-                  You might like
+                  Top Rated Movies
                 </span>
               </div>
               <MovieGrid movies={suggestions} />

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { MovieResult } from "@/types/search"
 import Image from "next/image"
-import { Plus, ChevronLeft, ChevronRight } from "lucide-react"
+import { Plus, ChevronLeft, ChevronRight, Star } from "lucide-react"
 import { useCarousel } from "../carousel/use-carousel"
 import { containerVariants } from "@/lib/annimations/continue-watching-variants"
 import { Button } from "../ui/button"
@@ -270,8 +270,12 @@ export default function PrimeRow({ title, movies }: MovieRowProps) {
                           <Badge variant="secondary" className="bg-accent-gold text-foreground border-0 text-xs font-bold! rounded-[5px] px-1! py-0.5!">
                               TMDb
                           </Badge>
-                          <Badge variant="link" className=" text-text-muted text-xs gap-1 rounded-md">
+                          {/* <Badge variant="link" className=" text-text-muted text-xs gap-1 rounded-md">
                               {movie.rating}
+                          </Badge> */}
+                          <Badge variant="link" className="text-text-muted text-xs gap-1 rounded-md">
+                            <Star className="h-3 w-3 fill-yellow-400/70 text-yellow-400/70" />
+                            {movie.rating?.toFixed(1) ?? "0.0"}
                           </Badge>
                           <span className="text-text-muted/50 hidden md:inline">|</span>
                           <Badge variant="link" className=" text-text-muted text-xs rounded-md">
