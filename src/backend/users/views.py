@@ -17,6 +17,8 @@ from django.utils.http import urlsafe_base64_decode
 from django.conf import settings
 from django.contrib.auth import logout
 from .serializer import PasswordSerializer
+from rest_framework.permissions import IsAuthenticated  # ← change this
+
 
 
 # @csrf_exempt
@@ -88,6 +90,7 @@ def login_view(request):
 # this view just for testing
 
 @api_view(["GET"])
+@permission_classes([IsAuthenticated])  # ← not AllowAny
 def user_list(request):
     user = request.user
     return Response({

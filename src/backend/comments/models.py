@@ -12,11 +12,13 @@ class Comment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     likes = models.IntegerField(default=0)
-    starts = models.IntegerField(default=0)
+    stars = models.IntegerField(default=0)
 
-    dislikes = models.IntegerField(default=0)
-
-
+    isLiked = models.BooleanField(default=False)
 
 
 
+
+class CommentLike(models.Model):
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    comment = models.ForeignKey(Comment, on_delete=models.CASCADE)

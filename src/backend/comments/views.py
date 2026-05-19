@@ -8,10 +8,15 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
 from django.shortcuts import redirect
 from rest_framework.permissions import AllowAny
+from django.db.models import F
 
 from django.contrib.auth.models import User
 from rest_framework.views import APIView
 from .models import Comment
+from .models import CommentLike
+
+from rest_framework.permissions import IsAuthenticated  # ← change this
+
 
 
 
@@ -21,13 +26,18 @@ class CommentsView(APIView):
     def get(self, request,id):
         
         comments = Comment.objects.filter(movieId=id).order_by("-created_at")
+        # isLiked =False
+        # if request.user.id==comments.user.id:
+        #     isLiked =True
         data = [
             {
                 "id": c.id,
                 "username": c.user.user.username if hasattr(c.user, "user") else c.user.username,
                 "content": c.content,
                 "created_at": c.created_at,
-                "starts" :c.starts
+                "stars" :c.stars,
+                "likes" :c.likes,
+                "isLiked":False
 
             }
             for c in comments
@@ -38,7 +48,7 @@ class CommentsView(APIView):
     def post(self, request):
         movie_id = request.data.get("movie_id")
         content = request.data.get("content")
-        starts = request.data.get("starts")
+        stars = request.data.get("stars")
 
         user = UserProfile.objects.get(id=request.user.id)
         if not movie_id or not content:
@@ -48,10 +58,19 @@ class CommentsView(APIView):
                 movieId=movie_id,
                 user=user,   # or UserProfile if you use that
                 content=content,
-                starts=starts
+                stars=stars
                
         ) 
-        return Response({"message": "comment created"}, status=201)
+        return Response({
+                "id": comment.id,
+                "username": comment.user.username,
+                "content": comment.content,
+                "stars": comment.stars,
+                "likes": 0,
+                "isLiked": False,
+                "created_at": comment.created_at,
+            }, status=201
+            )
     
     def delete(self, request, id):
         try:
@@ -112,12 +131,32 @@ class CommentsView(APIView):
             )
 
 
+@api_view(["POST"])
+# @permission_classes([IsAuthenticated])  # ← not AllowAny
+def comments_likes(request,id):
+    try:
+      
+        user = request.user.userprofile
+        comment = Comment.objects.get(id=id)
 
-# def commentsLikes(request,comment_id):
-#     try:
-#         comment = Comment.objects.get(id=comment_id)
-#     except Comment.DoesNotExist:
-#         return Response({"error": "Comment not found"}, status=status.HTTP_404_NOT_FOUND)
+        like_obj = CommentLike.objects.filter(user=user, comment=comment)
+        if like_obj.exists():
+            like_obj.delete()
+            Comment.objects.filter(id=id).update(likes=F("likes") - 1)
 
+            return Response({
+                "message": "comment unliked",
+                "isLiked": False
+            })
 
-# add stars edit in patch I NEED LIKE
+        else:
+            CommentLike.objects.create(user=user, comment=comment)
+            Comment.objects.filter(id=id).update(likes=F("likes") + 1)
+
+            return Response({
+                "message": "comment liked",
+                "isLiked": True
+            })
+
+    except Comment.DoesNotExist:
+        return Response({"error": "Comment not found"}, status=status.HTTP_404_NOT_FOUND)

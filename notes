@@ -1,0 +1,34 @@
+- responsiveness hovering in home/library cards -> mobile part
+
+- search input responsive in library/top_bar
+
+- is_watched in search cards
+
+- scrolling in genres
+- keep search in search input -> good
+
+
+-users search
+
+
+- change language
+- cache for fetching apis
+- in case of craching of an apis it should be handled
+- settings / profile
+- user authentication UI
+- watchlist
+- history
+- the landing endpoint fetch
+
+
+
+
+-authentication and reset password to check
+-movie ui to check
+
+
+
+
+
+change starts in table to stars
+display something when i commnet
