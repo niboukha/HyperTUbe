@@ -9,15 +9,17 @@ logger    = logging.getLogger(__name__)
 TMDB_BASE = "https://api.themoviedb.org/3"
 HEADERS   = {"Authorization": f"Bearer {settings.TMDB_TOKEN}"}
 
-BLOCKED_GENRE_IDS = {10749, 18, 53, 99}
-BLOCKED_TITLES    = {"cosmos: war of the planets", "vampyres", "#selfieparty"}
-ADULT_KEYWORDS = re.compile(
+BLOCKED_GENRE_IDS   = {10749, 18, 53, 99}
+BLOCKED_TITLES      = {"cosmos: war of the planets", "vampyres", "#selfieparty"}
+ADULT_KEYWORDS      = re.compile(
     r"\b(xxx|porn|erotic|eroti[ck]|sex|adult|nude|naked|hentai|softcore|hardcore)\b",
     re.IGNORECASE,
 )
-MIN_VOTE_COUNT    = 10
+MIN_VOTE_COUNT      = 10
 TMDB_TARGET_RESULTS = 20
-TMDB_SCAN_PAGES = 5
+TMDB_SCAN_PAGES     = 5
+TMDB_TIMEOUT        = 4
+TMDB_RETRIES        = 1
 
 # Quality gate ----------------------------------------------------------------------------------------
 def _safety_text(movie: dict) -> str:
@@ -61,6 +63,7 @@ def _normalize_list(movie: dict) -> dict:
         "year":          (movie.get("release_date") or "")[:4],
         "rating":        round(float(movie.get("vote_average") or 0), 1),
         "vote_count":    movie.get("vote_count") or 0,
+        "downloads":     movie.get("vote_count") or 0,
         "popularity":    movie.get("popularity") or 0,
         "genre_ids":     movie.get("genre_ids") or [],
         "poster_path":   f"https://image.tmdb.org/t/p/original{movie['poster_path']}"
@@ -120,6 +123,8 @@ def _fetch_until_enough(fetch_page, page: int, target: int = TMDB_TARGET_RESULTS
     for offset in range(max_pages):
         current_page = page + offset
         body = fetch_page(current_page) or {}
+        if not body:
+            break
         total_pages = body.get("total_pages", 1)
 
         for movie in _filtered(body.get("results"), require_votes=require_votes):
@@ -148,6 +153,8 @@ def fetch_by_type(type_: str, page: int = 1, target: int = TMDB_TARGET_RESULTS) 
             url,
             params={"page": current_page},
             headers=HEADERS,
+            timeout=TMDB_TIMEOUT,
+            retries=TMDB_RETRIES,
             fallback={},
         )
 
@@ -165,6 +172,8 @@ def fetch_by_genre(genre_ids: list, page: int = 1, target: int = TMDB_TARGET_RES
             headers=HEADERS,
             params={"with_genres": ",".join(str(i) for i in genre_ids),
                     "page": current_page, "sort_by": "popularity.desc"},
+            timeout=TMDB_TIMEOUT,
+            retries=TMDB_RETRIES,
             fallback={},
         )
 
@@ -176,6 +185,8 @@ def search(query: str = "", genre_ids: list = None, year_from: int = None,
         body = safe_get(
             f"{TMDB_BASE}/search/movie", headers=HEADERS,
             params={"query": query, "page": page, "include_adult": False},
+            timeout=TMDB_TIMEOUT,
+            retries=TMDB_RETRIES,
             fallback={},
         )
     else:
@@ -193,8 +204,10 @@ def search(query: str = "", genre_ids: list = None, year_from: int = None,
         if year_from: params["primary_release_date.gte"] = f"{year_from}-01-01"
         if year_to:   params["primary_release_date.lte"] = f"{year_to}-12-31"
         body = safe_get(f"{TMDB_BASE}/discover/movie", headers=HEADERS,
-                        params=params, fallback={})
-
+                        params=params, timeout=TMDB_TIMEOUT,
+                        retries=TMDB_RETRIES, fallback={})
+        
+        print("-------------- length of results from tmdb discover:", len(body.get("results") or []))
     return build_response(body, _filtered(body.get("results")))
 
 def fetch_detail(tmdb_id: int) -> dict | None:
@@ -205,7 +218,8 @@ def fetch_detail(tmdb_id: int) -> dict | None:
     if cached:
         return cached
 
-    body = safe_get(f"{TMDB_BASE}/movie/{tmdb_id}", headers=HEADERS, fallback=None)
+    body = safe_get(f"{TMDB_BASE}/movie/{tmdb_id}", headers=HEADERS,
+                    timeout=TMDB_TIMEOUT, retries=TMDB_RETRIES, fallback=None)
     data = _normalize_detail(body) if body and body.get("id") else None
     if data:
         set_detail(cache_key, data)
@@ -213,7 +227,8 @@ def fetch_detail(tmdb_id: int) -> dict | None:
 
 def fetch_credits(tmdb_id: int) -> dict:
     body = safe_get(f"{TMDB_BASE}/movie/{tmdb_id}/credits",
-                    headers=HEADERS, fallback={})
+                    headers=HEADERS, timeout=TMDB_TIMEOUT,
+                    retries=TMDB_RETRIES, fallback={})
     cast = [
         {"id": p["id"], "name": p.get("name", ""), "character": p.get("character", ""),
          "profile_path": f"https://image.tmdb.org/t/p/w185{p['profile_path']}"
@@ -232,7 +247,8 @@ def fetch_credits(tmdb_id: int) -> dict:
 
 def fetch_collection(collection_id: int) -> dict | None:
     body = safe_get(f"{TMDB_BASE}/collection/{collection_id}",
-                    headers=HEADERS, fallback=None)
+                    headers=HEADERS, timeout=TMDB_TIMEOUT,
+                    retries=TMDB_RETRIES, fallback=None)
     if not body:
         return None
     return {
@@ -252,7 +268,8 @@ def fetch_runtime(tmdb_id: int) -> str:
     cached = get_runtime(tmdb_id)
     if cached is not None:
         return cached
-    body    = safe_get(f"{TMDB_BASE}/movie/{tmdb_id}", headers=HEADERS, fallback={})
+    body    = safe_get(f"{TMDB_BASE}/movie/{tmdb_id}", headers=HEADERS,
+                       timeout=TMDB_TIMEOUT, retries=TMDB_RETRIES, fallback={})
     runtime = format_runtime((body or {}).get("runtime"))
     set_runtime(tmdb_id, runtime)
     return runtime

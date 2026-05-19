@@ -48,7 +48,7 @@ def _movies_list_response(request):
         q          = request.GET.get("q", "").strip()
         type_      = request.GET.get("type", "").strip() or None
         genre      = request.GET.get("genre", "").strip()
-        sort       = request.GET.get("sort", "popular")
+        sort       = request.GET.get("sort") or ("name" if q else "popular")
         year_from  = request.GET.get("yearFrom")
         year_to    = request.GET.get("yearTo")
         page_raw   = request.GET.get("page", "1")

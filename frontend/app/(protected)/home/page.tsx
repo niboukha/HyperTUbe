@@ -19,11 +19,11 @@ const upcomingMovies  = "/movies/?type=upcoming"
 
 export default async function Home() {
 
-  const herodata = await getMovies(HeroMovies)
-  const heroMovies = herodata.results.slice(0, Math.min(10, herodata.results.length))
+  const herodata    = await getMovies(HeroMovies)
+  const heroMovies  = herodata.results.slice(0, Math.min(10, herodata.results.length))
   
-  const upcomingdata = await getMovies(upcomingMovies)
-  const upcoming = upcomingdata.results
+  const upcomingdata  = await getMovies(upcomingMovies)
+  const upcoming      = upcomingdata.results
 
   return (
     <div className="min-h-screen flex flex-col gap-6 pb-20! overflow-x-hidden">

@@ -1,4 +1,3 @@
-import math
 import re
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from urllib.parse import unquote
@@ -36,6 +35,7 @@ BLOCKED_TITLES = {
     "adı vasfiye, turkish movie",
     "desire",
     "mark of zorro",
+    "the last christmas party",
     "raw force [1982] - trailer",
     "maken-ki! battling venus",
     "maken-ki! battling venus - trailer",
@@ -94,6 +94,17 @@ def _parse_description(doc: dict) -> str:
     return text_value(doc.get("description"))
 
 
+def _rating_from_downloads(downloads: int) -> float:
+    """
+    Archive does not publish user ratings in the list API.
+    Use downloads as a stable popularity proxy so Archive cards still feel ranked.
+    """
+    downloads = max(int(downloads or 0), 0)
+    if downloads <= 0:
+        return 0
+    return round(min(9.4, 4.8 + (downloads / (downloads + 2500)) * 4.6), 1)
+
+
 def _normalize_list(doc: dict) -> dict:
     identifier  = text_value(doc.get("identifier"))
     subjects    = _parse_subjects(doc)
@@ -110,8 +121,9 @@ def _normalize_list(doc: dict) -> dict:
         "title":        text_value(doc.get("title")),
         "overview":     description[:300] if description else "",
         "year":         str(doc.get("year", "")),
-        "rating":       round(min(math.log10(downloads + 1) * 1.2, 10), 1),
+        "rating":       _rating_from_downloads(downloads),
         "vote_count":   downloads,
+        "downloads":    downloads,
         "popularity":   downloads,
         "genre_ids":    genre_ids,
         "poster_path":  f"https://archive.org/services/img/{identifier}" if identifier else None,
@@ -145,8 +157,9 @@ def _normalize_detail(doc: dict) -> dict:
         "status":         "Released",
         "poster_path":    f"https://archive.org/services/img/{identifier}" if identifier else None,
         "backdrop_path":  None,
-        "rating":         round(min(math.log10(downloads + 1) * 1.2, 10), 1),
+        "rating":         _rating_from_downloads(downloads),
         "vote_count":     downloads,
+        "downloads":      downloads,
         "popularity":     downloads,
         "genre_ids":      genre_ids,
         "genres":         [
@@ -218,9 +231,13 @@ def fetch_movies(
         r = requests.get(BASE_URL, params=params, timeout=timeout)
         r.raise_for_status()
     except requests.Timeout:
-        return build_response({}, [])
+        data = build_response({}, [])
+        data["upstream_failed"] = True
+        return data
     except requests.RequestException:
-        return build_response({}, [])
+        data = build_response({}, [])
+        data["upstream_failed"] = True
+        return data
 
     body      = r.json().get("response", {})
     num_found = body.get("numFound", 0)

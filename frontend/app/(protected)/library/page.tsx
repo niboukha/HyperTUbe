@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { FilterBar, Filters, MIN_YEAR, CURRENT_YEAR } from "@/components/library/filter-bar"
 import { MovieGridSkeleton } from "@/components/library/skeletons"
@@ -10,15 +10,26 @@ import { useLibraryMovies } from "@/hooks/use-library-movies"
 import { MovieGrid } from "@/components/library/movie-grid"
 
 const DEFAULT_FILTERS: Filters = {
-  genres: [],
-  sort: "popular",
-  minRating: 0,
-  yearRange: [MIN_YEAR, CURRENT_YEAR],
+  genres:     [],
+  sort:       "popular",
+  minRating:  0,
+  yearRange:  [MIN_YEAR, CURRENT_YEAR],
 }
 export default function LibraryPage() {
-  const searchParams = useSearchParams()
-  const urlQuery     = searchParams.get("q") ?? ""
-  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
+  const searchParams          = useSearchParams()
+  const urlQuery              = searchParams.get("q") ?? ""
+  const [filters, setFilters] = useState<Filters>({
+    ...DEFAULT_FILTERS,
+    sort: urlQuery ? "name" : DEFAULT_FILTERS.sort,
+  })
+  const previousQueryRef      = useRef(urlQuery)
+
+  useEffect(() => {
+    if (urlQuery && urlQuery !== previousQueryRef.current) {
+      setFilters((current) => ({ ...current, sort: "name" }))
+    }
+    previousQueryRef.current = urlQuery
+  }, [urlQuery])
 
   const {
     movies, loading, loadingMore, loadMore, hasMore,
@@ -30,7 +41,10 @@ export default function LibraryPage() {
   return (
     <div className="min-h-screen flex flex-col gap-4 pb-30! overflow-x-hidden pt-18! px-5! md:px-13! lg:px-16!">
 
-      <FilterBar filters={filters} onChange={setFilters} />
+      <FilterBar
+        filters={filters}
+        onChange={setFilters}
+      />
 
       <ResultsHeader
         loading={loading}

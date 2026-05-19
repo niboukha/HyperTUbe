@@ -19,7 +19,7 @@ export const CURRENT_YEAR = new Date().getFullYear()
 export const MIN_YEAR     = 1960
 
 const SORT_OPTIONS: { value: SortOption; label: string; icon: React.ReactNode }[] = [
-  { value: "name",    label: "",     icon: <ArrowUpAZ className="h-3.5 w-3.5" /> },
+  { value: "name",    label: "Name", icon: <ArrowUpAZ className="h-3.5 w-3.5" /> },
   { value: "popular", label: "Most Popular", icon: <TrendingUp className="h-3.5 w-3.5" /> },
   { value: "rating",  label: "Top Rated",    icon: <Star className="h-3.5 w-3.5" /> },
   { value: "newest",  label: "Newest First", icon: <Clock className="h-3.5 w-3.5" /> },
@@ -52,10 +52,6 @@ export function FilterBar({ filters, onChange }: Props) {
     onChange({ ...filters, yearRange })
     setActivePanel(null)
   }
-
-  useEffect(() => {
-    setDraftYear(filters.yearRange)
-  }, [filters.yearRange])
 
   const prevPanel = useRef<Panel>(null)
     useEffect(() => {
@@ -150,9 +146,12 @@ export function FilterBar({ filters, onChange }: Props) {
             </AnimatePresence>
           </FilterPill>
 
-          <FilterPill
+      <FilterPill
         active={activePanel === "year"}
-        onClick={() => setActivePanel((p) => (p === "year" ? null : "year"))}
+        onClick={() => {
+          if (activePanel !== "year") setDraftYear(filters.yearRange)
+          setActivePanel((p) => (p === "year" ? null : "year"))
+        }}
         label="Year"
         badge={
           filters.yearRange[0] !== MIN_YEAR || filters.yearRange[1] !== CURRENT_YEAR

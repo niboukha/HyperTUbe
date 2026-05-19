@@ -82,11 +82,19 @@ def sort_results(movies: list, sort_by: str) -> list:
         movies.sort(
             key=lambda m: (
                 -float(m.get("popularity") or 0),
-                -int(m.get("vote_count") or 0),
+                -int(m.get("vote_count") or -int(m.get("downloads")) or 0),
                 -float(m.get("rating") or 0),
                 title(m),
             )
         )
+    # elif sort_by == "downloads":
+    #     movies.sort(
+    #         key=lambda m: (
+    #             -int(m.get("downloads") or m.get("vote_count") or 0),
+    #             -float(m.get("rating") or 0),
+    #             title(m),
+    #         )
+    #     )
     else:
         movies.sort(key=title)
     return movies
@@ -96,3 +104,8 @@ def _shuffle_merge(a: list, b: list) -> list:
     merged = a + b
     random.shuffle(merged)
     return merged
+
+from django.core.cache import cache
+
+def clear_all_cache():
+    cache.clear()

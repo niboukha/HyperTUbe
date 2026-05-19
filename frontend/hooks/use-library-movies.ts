@@ -7,11 +7,11 @@ import { MovieResult } from "@/types/search"
 const API = process.env.NEXT_PUBLIC_API_URL || ""
 
 const SORT_MAP: Record<string, string> = {
+  name:    "name",
   popular: "popular",
   rating:  "rating",
   newest:  "newest",
   oldest:  "oldest",
-  name:    "name",
 }
 
 function buildUrl(q: string, page: number, filters: Filters): string {
@@ -29,6 +29,7 @@ function buildUrl(q: string, page: number, filters: Filters): string {
 function isDefaultFilters(f: Filters): boolean {
   return (
     f.genres.length === 0       &&
+    f.sort          === "popular" &&
     f.minRating     === 0       &&
     f.yearRange[0]  === MIN_YEAR &&
     f.yearRange[1]  === CURRENT_YEAR
