@@ -1,0 +1,109 @@
+"use client";
+
+import { motion } from "framer-motion";
+import { useState } from "react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Star } from "lucide-react";
+import { useEffect } from "react";
+import StarRating from "./ui/star-rating";
+
+export default function MovieHoverCard({ item }) {
+  const [hovered, setHovered] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+
+  useEffect(() => {
+      const check = () => setIsMobile(window.innerWidth < 768);
+      check();
+      window.addEventListener('resize', check);
+      return () => window.removeEventListener('resize', check);
+    }, []);
+
+
+  return (
+    <motion.div
+        id={item.id}
+      className="h-[300px] md:h-[400px] w-[220px] md:w-[290px]"
+      initial={{ width: 290, height: 400 }}
+      whileHover={{ width: 600, height: 400 }}
+      transition={{ duration: 0.3, ease: "easeInOut" }}
+      onHoverStart={() => setHovered(true)}
+      onHoverEnd={() => setHovered(false)}
+    >
+      <Card className="relative w-full h-full overflow-hidden !rounded-lg" >
+
+        {/* IMAGE */}
+        <img
+          src={
+            hovered
+              ? `https://image.tmdb.org/t/p/w780${item.backdrop_path}`
+              : `https://image.tmdb.org/t/p/w500${item.poster_path}`
+          }
+          className="w-full h-full object-cover  !rounded-lg"
+        />
+
+        {/* GRADIENT OVERLAY */}
+        <motion.div
+          className="absolute inset-0 pointer-events-none"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: (hovered || isMobile) ? 1 : 0 }}
+          transition={{ duration: 0.4 }}
+          style={{
+            background: `
+              linear-gradient(to top, rgba(0,0,0,0.85) 10%, rgba(0,0,0,0.3) 40%, transparent 60%),
+              linear-gradient(to right, rgba(0,0,0,0.5) 10%, transparent 60%),
+              linear-gradient(to left, rgba(0,0,0,0.5) 10%, transparent 60%)
+            `,
+          }}
+        />
+
+        {/* CONTENT */}
+        <div className="absolute top-2 right-3 flex flex-row justify-center items-center gap-1 bg-black/50 backdrop-blur-sm rounded px-1! py-0.5! text-[10px] text-yellow-400/90">
+          <StarRating rating={item.vote_average} />
+        </div>
+
+        <motion.div
+          className="absolute inset-0 top-1/2 left-4 max-w-[250px]"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{
+            opacity: hovered ? 1 : 0,
+            y: hovered ? 0 : 10,
+          }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+        >
+          <p className="text-white font-medium text-lg leading-tight font-[anton]">
+            {item.original_title}
+          </p>
+
+         
+
+          <Button className="!mt-2 rounded-sm !py-4 !px-2 text-md font-bold bg-white/30 backdrop-blur-lg">
+            More informations
+          </Button>
+        </motion.div>
+
+        <motion.div
+          className=" block md:hidden absolute inset-0 top-2/3 left-4  max-w-xs !px-2"
+          // initial={{ opacity: 0, y: 10 }}
+          // animate={{
+          //   opacity: hovered ? 1 : 0,
+          //   y: hovered ? 0 : 10,
+          // }}
+          // transition={{ duration: 0.3, delay: 0.1 }}
+        >
+          <p className="text-white font-medium text-lg leading-tight font-[anton]">
+            {item.original_title}
+          </p>
+
+         
+
+          <Button className="!mt-2 rounded-sm !py-4 !px-2 text-md font-bold bg-white/30 backdrop-blur-lg">
+            More informations
+          </Button>
+        </motion.div>
+
+      </Card>
+    </motion.div>
+  );
+}

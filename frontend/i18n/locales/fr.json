@@ -1,0 +1,12 @@
+{
+  "home": "Accueil",
+  "library": "Bibliothèque",
+  "watchlist": "Liste"
+}
+
+
+
+// import { useTranslations } from "next-intl";
+
+// const t = useTranslations();
+// <h1>{t("home")}</h1>
