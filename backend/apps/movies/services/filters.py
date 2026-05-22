@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from django.core.cache import cache
 
 from .utils import clear_all_cache, deduplicate, sort_results
-from ..adapters import tmdb, archive
+from ..adapters import tmdb, archive, publicdomain
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +18,7 @@ TMDB_FETCH_PAGES  = 5             # first TMDB batch
 TMDB_MAX_PAGES    = 14            # hard cap so bad filters cannot run forever
 TMDB_TARGET_ROWS  = 180           # enough for filtering + a few infinite-scroll pages
 LIBRARY_ROWS      = 500           # one larger Archive request for the snapshot
+PUBLIC_DOMAIN_ROWS = 300          # Public Domain Torrents catalog rows for library
 
 
 # Create a unique short name for the upstream movie pool. Sort and filters are
@@ -25,7 +26,7 @@ LIBRARY_ROWS      = 500           # one larger Archive request for the snapshot
 def _library_cache_key(query, partial: bool = False) -> str:
     raw = f"{(query or '').strip().lower()}"
     suffix = ":partial" if partial else ""
-    return "movies:library:v8:" + hashlib.md5(raw.encode()).hexdigest() + suffix
+    return "movies:library:v10:" + hashlib.md5(raw.encode()).hexdigest() + suffix
 
 
 def library_search(
@@ -52,7 +53,7 @@ def library_search(
         snapshot = _fetch_library_snapshot(
             query=query,
         )
-        if snapshot.get("archive_failed"):
+        if snapshot.get("partial"):
             cache.set(partial_key, snapshot, PARTIAL_CACHE_TTL)
         else:
             ttl = LIBRARY_CACHE_TTL if snapshot["results"] else PARTIAL_CACHE_TTL
@@ -67,6 +68,8 @@ def library_search(
         min_rating=min_rating,
     )
     sort_results(all_results, effective_sort)
+    if _should_blend_sources(query, genre_ids, year_from, year_to, min_rating, effective_sort):
+        all_results = _blend_sources(all_results)
 
     total       = len(all_results)
     total_pages = max(1, math.ceil(total / PAGE_SIZE))
@@ -82,6 +85,8 @@ def library_search(
         "totalResults":     total,
         "archive_included": snapshot.get("archive_included", False),
         "archive_failed":   snapshot.get("archive_failed", False),
+        "publicdomain_included": snapshot.get("publicdomain_included", False),
+        "publicdomain_failed":   snapshot.get("publicdomain_failed", False),
     }
 
     return result
@@ -92,17 +97,27 @@ def _fetch_library_snapshot(
 ) -> dict:
     tmdb_results = []
     archive_results = []
+    publicdomain_results = []
     has_search = bool(query)
     archive_sort = "title" if has_search else "downloads"
     archive_failed = False
+    publicdomain_failed = False
 
-    with ThreadPoolExecutor(max_workers=TMDB_FETCH_PAGES + 1) as pool:
+    with ThreadPoolExecutor(max_workers=TMDB_FETCH_PAGES + 2) as pool:
         archive_f = pool.submit(
             archive.fetch_movies,
             search=query,
             sort_by=archive_sort,
             page=1,
             rows=LIBRARY_ROWS,
+            timeout=ARCHIVE_WAIT,
+        )
+        publicdomain_f = pool.submit(
+            publicdomain.fetch_movies,
+            search=query,
+            sort_by=archive_sort,
+            page=1,
+            rows=PUBLIC_DOMAIN_ROWS,
             timeout=ARCHIVE_WAIT,
         )
 
@@ -116,12 +131,23 @@ def _fetch_library_snapshot(
             archive_failed = True
             logger.warning("library Archive fetch skipped: %s", exc)
 
-    merged = deduplicate(tmdb_results + archive_results)
+        try:
+            publicdomain_data = publicdomain_f.result(timeout=ARCHIVE_WAIT)
+            publicdomain_failed = bool(publicdomain_data.get("upstream_failed"))
+            publicdomain_results = publicdomain_data.get("results", [])
+        except (FutureTimeout, Exception) as exc:
+            publicdomain_failed = True
+            logger.warning("library Public Domain Torrents fetch skipped: %s", exc)
+
+    merged = deduplicate(tmdb_results + archive_results + publicdomain_results)
 
     return {
         "results": merged,
         "archive_included": bool(archive_results),
         "archive_failed": archive_failed,
+        "publicdomain_included": bool(publicdomain_results),
+        "publicdomain_failed": publicdomain_failed,
+        "partial": archive_failed or publicdomain_failed,
     }
 
 
@@ -162,6 +188,58 @@ def _fetch_tmdb_library_page(query: str, page: int) -> dict:
     if query:
         return tmdb.search(query=query, sort_by="name", page=page)
     return tmdb.search(sort_by="popularity", page=page)
+
+
+def _should_blend_sources(
+    query: str,
+    genre_ids: list = None,
+    year_from: int = None,
+    year_to: int = None,
+    min_rating: float = 0,
+    sort_by: str = "popularity",
+) -> bool:
+    return (
+        not query
+        and not genre_ids
+        and year_from is None
+        and year_to is None
+        and min_rating == 0
+        and sort_by == "popularity"
+    )
+
+
+def _blend_sources(movies: list) -> list:
+    buckets = {}
+    for movie in movies:
+        buckets.setdefault(movie.get("source") or "unknown", []).append(movie)
+
+    order = ["tmdb", "archive", "publicdomain"]
+    blended = []
+    seen = set()
+    while True:
+        added = False
+        for source in order:
+            bucket = buckets.get(source) or []
+            if not bucket:
+                continue
+            movie = bucket.pop(0)
+            movie_id = movie.get("id")
+            if movie_id in seen:
+                continue
+            seen.add(movie_id)
+            blended.append(movie)
+            added = True
+        if not added:
+            break
+
+    for bucket in buckets.values():
+        for movie in bucket:
+            movie_id = movie.get("id")
+            if movie_id not in seen:
+                seen.add(movie_id)
+                blended.append(movie)
+
+    return blended
 
 
 def _apply_library_filters(

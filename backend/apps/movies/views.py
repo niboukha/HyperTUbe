@@ -134,11 +134,22 @@ def movie_detail(request, movie_id: str):
     """
     /api/movies/tmdb-1266127/
     /api/movies/archive-AtlanticFlight/
+    /api/movies/publicdomain-374/
     """
     try:
         if movie_id.startswith("archive-"):
             from .adapters.archive import fetch_detail
             data = fetch_detail(movie_id.removeprefix("archive-"))
+
+        elif movie_id.startswith("publicdomain-"):
+            from .adapters.publicdomain import fetch_detail
+            raw = movie_id.removeprefix("publicdomain-")
+            if not raw.isdigit():
+                return Response(
+                    {"error": "Invalid Public Domain Torrents id"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            data = fetch_detail(raw)
 
         elif movie_id.startswith("tmdb-"):
             from .adapters.tmdb import fetch_detail
@@ -152,7 +163,7 @@ def movie_detail(request, movie_id: str):
 
         else:
             return Response(
-                {"error": "id must start with 'tmdb-' or 'archive-'"},
+                {"error": "id must start with 'tmdb-', 'archive-', or 'publicdomain-'"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -262,6 +273,8 @@ def movies_runtime_batch(request):
             elif movie_id.startswith("tmdb-"):
                 from .adapters.tmdb import fetch_runtime as tr
                 rt = tr(int(movie_id.removeprefix("tmdb-")))
+            elif movie_id.startswith("publicdomain-"):
+                rt = "N/A"
             else:
                 rt = "N/A"
             set_runtime(movie_id, rt)

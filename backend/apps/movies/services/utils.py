@@ -69,7 +69,7 @@ def sort_results(movies: list, sort_by: str) -> list:
     if sort_by == "primary_release_date_desc":
         movies.sort(key=lambda m: (-(year(m) or -1), title(m)))
     elif sort_by == "primary_release_date_asc":
-        movies.sort(key=lambda m: (year(m) if year(m) is not None else 9999, title(m)))
+        movies.sort(key=lambda m: (year(m) if year(m) is not None else "9999", title(m)))
     elif sort_by in {"rating", "vote_average"}:
         movies.sort(
             key=lambda m: (
