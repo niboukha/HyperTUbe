@@ -1,17 +1,11 @@
 .next/
 node_modules/
 dist/
-<<<<<<< HEAD
-.env
 
 __pycache__/
 *.pyc
 
-=======
-<<<<<<< HEAD
-.env
-=======
 .env
 data/
->>>>>>> feat/user-managment
->>>>>>> origin/main
+
+.venv
