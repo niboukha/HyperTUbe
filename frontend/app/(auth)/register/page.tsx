@@ -1,15 +1,54 @@
+"use client"
+
 import {  InputField } from '@/components/auth/InputField'
 import { Button } from '@/components/ui/button'
 import { PasswordInput } from '@/components/auth/PasswordInput'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import Logo from '@/components/ui/logo'
+import { useState } from 'react'
 
-export const metadata = {
-  title: 'HyperTube - Sign Up',
-  description: 'Stream your favorite movies and TV shows',
-}
+// export const metadata = {
+//   title: 'HyperTube - Sign Up',
+//   description: 'Stream your favorite movies and TV shows',
+// }
 
 export default function SignUpPage() {
+
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
+  const [username, setUsername] = useState("")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [loading, setLoading] = useState(false)
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+
+    try {
+      const res = await fetch("http://localhost:8000/api/auth/register", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          first_name: firstName,
+          last_name: lastName,
+          username,
+          email,
+          password,
+        }),
+      })
+
+      const data = await res.json()
+      console.log("REGISTER RESPONSE:", data)
+
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
   return (
     <div className="min-h-screen bg-black relative overflow-hidden">
        <header className="absolute top-0 left-0 w-full p-6! z-20">
@@ -36,28 +75,36 @@ export default function SignUpPage() {
         </CardHeader>
 
         <CardContent>
-          <form className=''>
+          <form className=''  onSubmit={handleSubmit}>
 
             <div className='flex flex-col justify-center items-center gap-2'>
               <div className='flex gap-2'>
                  <InputField
                 placeholder="First Name"
+                value={firstName}
+                onChange={(e: any) => setFirstName(e.target.value)}
                 type='text'
                 className='w-[155px] h-[50px] py-6! px-4! rounded-sm bg-[#333333]'
               />
                <InputField
                 placeholder="Last Name"
+                value={lastName}
+                onChange={(e: any) => setLastName(e.target.value)}
                 type='text'
                 className='w-[155px] h-[50px] py-6! px-4! rounded-sm bg-[#333333]'
               />
               </div>
               <InputField
                 placeholder="Username"
+                value={username}
+                onChange={(e: any) => setUsername(e.target.value)}
                 type='text'
                 className='w-[314px] h-[50px] py-6! px-4! rounded-sm bg-[#333333]'
               />
               <InputField
                 placeholder="Email Address"
+                value={email}
+                onChange={(e: any) => setEmail(e.target.value)}
                 type='email'
                 className='w-[314px] h-[50px] py-6! px-4! rounded-sm bg-[#333333]'
               />
@@ -65,6 +112,8 @@ export default function SignUpPage() {
               {/* Password Input */}
               <PasswordInput
                 placeholder="Password"
+                value={password}
+                onChange={(e: any) => setPassword(e.target.value)}
                 className="text-[#333333] w-[314px] h-[50px] rounded-sm text-white placeholder:text-gray-400 py-6! px-4! text-base"
               />
             </div>

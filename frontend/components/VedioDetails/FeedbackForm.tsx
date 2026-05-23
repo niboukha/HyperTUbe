@@ -7,47 +7,49 @@ import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { Star } from 'lucide-react'
 import type { Review } from '@/types'
+import { useParams } from 'next/navigation'
 
-interface FeedbackFormProps {
-  onSubmit: (review: Omit<Review, 'id' | 'likes' | 'isLiked' | 'date'>) => void
-}
 
-export default function FeedbackForm({ onSubmit }: FeedbackFormProps) {
-  const [author, setAuthor] = useState('')
+export default function FeedbackForm(onSubmit :any,movie_id:any) {
+
+  const params   = useParams()
+  const movieId  = params.id as string 
   const [comment, setComment] = useState('')
   const [rating, setRating] = useState(0)
   const [hoveredRating, setHoveredRating] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+
+  const postComment = async (movieI:any, content:any, stars:any) => {
+  const response = await fetch(`http://localhost:8000/comments/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include", // sends session cookie
+    body: JSON.stringify({
+      movie_id:movieId,content, stars:stars
+    }),
+  });
+  const data = await response.json();
+  console.log("te",data)
+  return data;
+};
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (!author.trim() || !comment.trim() || rating === 0) {
+    postComment(movie_id,comment,rating)
+    if (!comment.trim() || rating === 0) {
       alert('Please fill in all fields and select a rating')
       return
     }
 
-    setIsSubmitting(true)
-
-    // Simulate submission delay
-    setTimeout(() => {
-      onSubmit({
-        author,
-        comment,
-        rating,
-      })
-
-      // Reset form
-      setAuthor('')
       setComment('')
       setRating(0)
-      setIsSubmitting(false)
-    }, 300)
   }
 
   return (
-    <Card className="!rounded-sm !p-6 shadow-lg !bg-[#1A1A1D] !border-[#FFFFFF]/10 border max-h-100">
-      <h2 className="!text-md md:text-xl font-[bebasNeue] font-bold text-white !mb-3">Share your thoughts</h2>
+    <Card className="rounded-sm! p-6! shadow-lg bg-[#1A1A1D]! border-[#FFFFFF]/10! border max-h-100">
+      <h2 className="text-md! md:text-xl font-[bebasNeue] font-bold text-white mb-3!">Share your thoughts</h2>
 
       <form onSubmit={handleSubmit} className="">
         
@@ -85,21 +87,20 @@ export default function FeedbackForm({ onSubmit }: FeedbackFormProps) {
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             rows={6}
-            className="!h-30 !p-3 resize-none !bg-[#000000]/40 border-[#FFFFFF]/10 border border-white/10!  text-white placeholder:text-[#6B7280] placeholder:text-sm rounded-md focus:ring-0! focus:ring-offset-0 focus:ring-opacity-50 transition-all duration-150"
+            className="h-30! p-3! resize-none bg-[#000000]/40!  border border-white/10!  text-white placeholder:text-[#6B7280] placeholder:text-sm rounded-md focus:ring-0! focus:ring-offset-0 focus:ring-opacity-50 transition-all duration-150"
           />
         </div>
 
         {/* Submit Button */}
-        <div className='!mt-6'>
+        <div className='mt-6!'>
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="w-full text-md md:text-xl !font-semibold bg-[#BD0404] text-primary-foreground font !py-6 rounded-md hover:bg-[#BD0404]/90 transition-all duration-200 hover:scale-102"
+              className="w-full text-md md:text-xl font-semibold! bg-[#BD0404] text-primary-foreground font py-6! rounded-md hover:bg-[#BD0404]/90 transition-all duration-200 hover:scale-102"
             >
               {isSubmitting ? 'Submitting...' : 'Post Review'}
               {/* to change the button text when submitting */}
-            </Button>
-            
+            </Button>   
         </div>
       </form>
     </Card>

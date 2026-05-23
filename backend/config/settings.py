@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 import environ
 import os
 from pathlib import Path
+from datetime import timedelta
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -50,6 +52,19 @@ INSTALLED_APPS = [
     "rest_framework",
     "apps.movies",
     "apps.streaming",
+    "apps.users",
+    "apps.comments",
+
+    'django.contrib.sites',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
+    'allauth.socialaccount.providers.github',
+    # 'uapps.users.providers.intra42',
+
+
+
     # "apps.comments",
 ]
 
@@ -78,7 +93,24 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     "corsheaders.middleware.CorsMiddleware",
+    'allauth.account.middleware.AccountMiddleware',
+
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        # Remove this ↓ (session based)
+        # 'rest_framework.authentication.SessionAuthentication',
+
+        # Add this ↓ (JWT based)
+        # 'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'apps.users.jwtAuthentication.CookieJWTAuthentication',  # ✅ handles both
+
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+}
 
 LOGGING = {
     "version": 1,
@@ -135,12 +167,31 @@ DATABASES = {
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
 
+# AUTH_PASSWORD_VALIDATORS = [
+#     {
+#         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+#     },
+#     {
+#         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+#     },
+#     {
+#         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+#     },
+#     {
+#         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+#     },
+# ]
+
+
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
     },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {
+            'min_length': 8,
+        }
     },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
@@ -190,6 +241,46 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True
+
+
+
+
+REST_USE_JWT = True
+SITE_ID = 1
+SOCIALACCOUNT_LOGIN_ON_GET = True
+LOGIN_REDIRECT_URL = "http://localhost:8001/api/auth/social/callback/"
+
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+    "allauth.account.auth_backends.AuthenticationBackend",
+]
+
+
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+
+
+
+
+EMAIL_HOST_USER = "kaoutarelbaamrani@gmail.com"
+EMAIL_HOST_PASSWORD = "zrxq lbna avlz kixn"
+
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+SOCIALACCOUNT_ADAPTER="users.adapters.SocialAccountAdapter"
+
+CORS_ALLOW_CREDENTIALS = True
+
+PYTHONUNBUFFERED=1
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME':  timedelta(hours=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    # 'AUTH_HEADER_TYPES':      ('Bearer',),
+}
 
 # Celery Configuration Options
 # CELERY_BROKER_URL = 'redis://redis:6379/0'

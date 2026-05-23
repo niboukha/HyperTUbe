@@ -1,11 +1,12 @@
 export interface Review {
   id: string
-  author: string
-  rating: number
-  comment: string
+  username: string
+  stars: number
+  content: string
   likes: number
   isLiked: boolean
-  date: Date
-  avatar?: string
+  created_at: Date
+  avatar?: string  // ← add this
+  userId:number
 
 }

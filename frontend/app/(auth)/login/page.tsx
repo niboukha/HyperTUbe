@@ -1,15 +1,63 @@
+"use client"
+
 import {  InputField } from '@/components/auth/InputField'
 import { Button } from '@/components/ui/button'
 import { PasswordInput } from '@/components/auth/PasswordInput'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import Logo from '@/components/ui/logo'
+import router from 'next/dist/shared/lib/router/router'
+import { useState } from "react"
 
-export const metadata = {
-  title: 'HyperTube - Sign In',
-  description: 'Stream your favorite movies and TV shows',
-}
+// export const metadata = {
+//   title: 'HyperTube - Sign In',
+//   description: 'Stream your favorite movies and TV shows',
+// }
+
 
 export default function SignInPage() {
+  const [username, setUsername] = useState("")
+  const [password, setPassword] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
+
+    try {
+      const res = await fetch(
+        `http://localhost:8000/api/auth/login`,
+        {
+          method: "POST",
+          credentials: "include",
+
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            username,
+            password,
+          }),
+        }
+      )
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data?.detail || "Login failed")
+      }
+
+      console.log("LOGIN SUCCESS:", data)
+
+    
+
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
   return (
     <div className="min-h-screen bg-black relative overflow-hidden">
       {/* Movie Poster Background */}
@@ -38,13 +86,15 @@ export default function SignInPage() {
         </CardHeader>
 
         <CardContent className="px-6! sm:px-8!">
-          <form className="space-y-2!">
+          <form className="space-y-2!" onSubmit={handleLogin}>
 
             {/* Email Input */}
             <div>
               <InputField
+                value={username}
+                onChange={(e: any) => setUsername(e.target.value)}
                 placeholder="Email Address"
-                type="email"
+                type="text"
                 className="w-full rounded-md bg-[#333333] text-white placeholder:text-gray-500 border-0 py-5! px-4!"
               />
             </div>
@@ -52,6 +102,8 @@ export default function SignInPage() {
             {/* Password Input */}
             <div>
               <PasswordInput
+                value={password}
+                onChange={(e: any) => setPassword(e.target.value)}
                 placeholder="Password"
                 className="w-full rounded-md bg-[#333333] text-white placeholder:text-gray-500 border-0 py-5! px-4!"
               />
