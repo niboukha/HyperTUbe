@@ -1,3 +1,5 @@
+from urllib import request
+
 from django.shortcuts import render
 from rest_framework.response import Response
 from users.models import UserProfile
@@ -26,18 +28,25 @@ class CommentsView(APIView):
     def get(self, request,id):
         
         comments = Comment.objects.filter(movieId=id).order_by("-created_at")
-        # isLiked =False
         # if request.user.id==comments.user.id:
-        #     isLiked =True
+        isLiked =False
+        comments_likes = CommentLike.objects.filter(user=request.user.userprofile)
+        liked_comment_ids = set(
+            CommentLike.objects
+            .filter(user=request.user.userprofile)
+            .values_list('comment_id', flat=True)
+        )
+
         data = [
             {
                 "id": c.id,
                 "username": c.user.user.username if hasattr(c.user, "user") else c.user.username,
+                "userId": c.user.id,
                 "content": c.content,
                 "created_at": c.created_at,
                 "stars" :c.stars,
                 "likes" :c.likes,
-                "isLiked":False
+                "isLiked":c.id in liked_comment_ids, 
 
             }
             for c in comments
@@ -48,8 +57,7 @@ class CommentsView(APIView):
     def post(self, request):
         movie_id = request.data.get("movie_id")
         content = request.data.get("content")
-        stars = request.data.get("stars")
-
+        stars = request.data.get("stars", 0)
         user = UserProfile.objects.get(id=request.user.id)
         if not movie_id or not content:
                 return Response({"error": "there is missing data"}, status=400)
@@ -76,8 +84,7 @@ class CommentsView(APIView):
         try:
             comment = Comment.objects.get(id=id)
 
-            # optional: only allow owner to delete
-            if comment.user != request.user:
+            if comment.user != request.user.userprofile:
                 return Response(
                     {"error": "Not allowed"},
                     status=status.HTTP_403_FORBIDDEN
@@ -99,30 +106,33 @@ class CommentsView(APIView):
     def patch(self,request,id):
         try:
             comment = Comment.objects.get(id=id)
-            if comment.user != request.user:
+            if comment.user != request.user.userprofile:   # ✅ fixed comparison
                 return Response(
                     {"error": "Not allowed"},
                     status=status.HTTP_403_FORBIDDEN
                 )
+            new_content = request.data.get("content")
+            new_stars = request.data.get("stars")
+            new_username = request.data.get("username")
+
+            if new_content:
+                comment.content = new_content
+            if new_stars:
+                comment.stars = new_stars
+        
+            comment.save()   # ✅ was missing — content and stars never saved
             
-            new_comment = request.data.get("comment")
+            return Response({
+                "message": "Comment updated successfully",
+                "content": comment.content,
+                "stars": comment.stars,
+                "username": comment.user.userprofile.username,
+            }, status=status.HTTP_200_OK)
 
-            if not new_comment:
-                return Response(
-                    {"error": "Comment is required"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            comment.comment = new_comment
-            comment.save()
-            return Response(
-                {
-                    "message": "Comment updated successfully",
-                    "comment": comment.comment,
-                    "username": request.user.username
-                },
-                status=status.HTTP_200_OK
-            )
-
+            
+            
+           
+            
 
         except Comment.DoesNotExist:
             return Response(

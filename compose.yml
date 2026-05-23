@@ -1,4 +1,3 @@
-version: "3.9"
 
 services:
   backend:
@@ -7,13 +6,14 @@ services:
     container_name: backend
     command: >
       sh -c "
-            python3 manage.py makemigrations users movies library comments downloads && 
-            python3 manage.py migrate &&
-            python manage.py seed_movies  &&
-            python manage.py setup_oauth &&
-            python3 manage.py runserver 0.0.0.0:8001"
+            python3 /app/src/manage.py makemigrations --noinput users movies library comments downloads && 
+            python3 /app/src/manage.py migrate --noinput &&
+            python /app/src/manage.py seed_movies &&
+            python /app/src/manage.py runserver 0.0.0.0:8001"
     volumes:
-      - ./src:/app
+      - ./src:/app/src
+      - media_data:/media
+    working_dir: /app/src
     ports:
       - "8001:8001"
     env_file:
@@ -29,7 +29,7 @@ services:
     env_file:
       - .env
     volumes:
-      - ./data/kel-baam:/var/lib/postgresql/data
+      - ./data/postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -44,12 +44,7 @@ services:
       depends_on:
         db:
           condition: service_healthy
-  nginx:
-    image: nginx:latest
-    container_name: nginx
-    restart: unless-stopped
-    command: ["nginx", "-g", "daemon off;"]
-  
+
   redis:
     image: redis:alpine
     container_name: redis
@@ -57,23 +52,28 @@ services:
 
   celery:
     build: .
-    command: celery -A backend worker --loglevel=info
-    working_dir: /app
+    command: ["celery", "-A", "backend", "worker", "-l", "info", "--max-tasks-per-child", "10"]
+    working_dir: /app/src
     volumes:
-      - ./src:/app
+      - ./src:/app/src
+      - media_data:/media
     depends_on:
       - redis
       - db
     env_file:
       - .env
+    # network_mode: host
+    # ports:
+    #   - "6881:6881"
+    #   - "6881:6881/udp"
     
 
   celery-beat:
     build: .
     command: celery -A backend beat --loglevel=info
     volumes:
-      - ./src:/app
-    working_dir: /app
+      - ./src:/app/src
+    working_dir: /app/src
     depends_on:
       - redis
     env_file:
@@ -82,3 +82,4 @@ services:
 volumes:
   backend_data:
   postgres_data:
+  media_data:

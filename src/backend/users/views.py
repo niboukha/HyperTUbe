@@ -89,19 +89,14 @@ def login_view(request):
 
 # this view just for testing
 
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])  # ← not AllowAny
-def user_list(request):
-    user = request.user
+@api_view(['GET'])
+# @permission_classes([IsAuthenticated])
+def me(request):
     return Response({
-        "id": user.id,
-        "username": user.username,
-        "email": user.email,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "is_authenticated": True,
+        "id": str(request.user.id),
+        "username": request.user.username,
+        "email": request.user.email,
     })
-
 
 
 def social_login_callback(request):

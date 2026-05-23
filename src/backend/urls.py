@@ -17,7 +17,6 @@ urlpatterns = [
 
     
 
-    path("user", include("users.urls")),   #just for testing 
     path("api/auth/", include("users.urls")),
     
     path("accounts/", include("allauth.urls")), 
