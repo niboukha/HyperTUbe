@@ -96,7 +96,7 @@ useEffect(() => {
         <Logo/>
         <div className="  md:flex items-center gap-3">
           <LanguageMenu />
-          <Link href="/home">
+          <Link href="/login">
             <Button className="hidden md:flex bg-white  !px-7 !py-4 !text-lg  bg-[#BD0404] text-[#ffffff] hover:bg-[#BD0404] hover:scale-105 font-meduim rounded-sm">
               Sign In
             </Button>

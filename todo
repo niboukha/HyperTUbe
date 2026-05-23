@@ -5,6 +5,7 @@
 - is_watched in search cards
 
 - scrolling in genres
+<<<<<<< HEAD
 - keep search in search input -> good
 
 
@@ -17,3 +18,11 @@
 
 -------------> !!!!!!! If search has been done, the results will be displayed as thumbnails, sorted by
 names.
+=======
+<<<<<<< HEAD
+- keep search in search input -> good
+=======
+- keep search in search input -> good
+=> traduction
+>>>>>>> feat/user-managment
+>>>>>>> origin/main
