@@ -1,6 +1,6 @@
 "use client"
 
-import { Menu, X, User, Settings, LogOut } from "lucide-react"
+import { Menu, X, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -21,6 +21,7 @@ type Props = {
   setMobileMenuOpen: (v: boolean) => void
   currentLang: Language
   setCurrentLang: (lang: Language) => void
+  triggerClassName?: string
 } 
 
 export default function MobileToggle({
@@ -28,6 +29,7 @@ export default function MobileToggle({
   setMobileMenuOpen,
   currentLang,
   setCurrentLang,
+  triggerClassName = "md:hidden",
 }: Props) {
   return (
     <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
@@ -37,7 +39,7 @@ export default function MobileToggle({
         <Button
           variant="ghost"
           size="icon"
-          className="md:hidden relative duration-200 hover:text-text-primary hover:scale-110 transition rounded-md border h-8 px-1! backdrop-blur-2xl! border-white/30 bg-white/10 hover:bg-white/10 text-white"
+          className={`${triggerClassName} relative duration-200 hover:text-text-primary hover:scale-110 transition rounded-md border h-8 px-1! backdrop-blur-2xl! border-white/30 bg-white/10 hover:bg-white/10 text-white`}
         >
           <AnimatePresence mode="wait">
             {mobileMenuOpen ? (

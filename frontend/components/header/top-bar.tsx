@@ -10,21 +10,21 @@ import ProfileMenu from "./profile-menu"
 import MobileToggle from "./mobile-toggle"
 import LanguageMenu from "./language-menu"
 import { usePathname } from "next/navigation"
-import { LogOut } from "lucide-react"
 
 export default function TopBar() {
-  const [currentLang, setCurrentLang] = useState<Language>(languages[0])
+  const [currentLang, setCurrentLang]       = useState<Language>(languages[0])
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [searchOpen, setSearchOpen] = useState(false)
-  const [hidden, setHidden] = useState(false)
-  const lastScrollY = useRef(0)
-  const pathname = usePathname()
+  const [searchOpen, setSearchOpen]         = useState(false)
+  const [hidden, setHidden]                 = useState(false)
+  const lastScrollY                         = useRef(0)
+  const pathname                            = usePathname()
 
-  const isLibrary = pathname.startsWith("/library")
+  const isLibrary     = pathname.startsWith("/library")
   const isAnyMenuOpen = searchOpen || mobileMenuOpen
   
   const [isTop, setIsTop] = useState(true)
-
+  const desktopControlsClass = isLibrary ? "hidden xl:flex items-center" : "hidden md:flex items-center"
+  
   useEffect(() => {
     const handleScroll = () => {
       const y = window.scrollY
@@ -90,7 +90,7 @@ export default function TopBar() {
       <div className="flex items-center justify-between px-4! md:px-12! lg:px-16! h-14">
 
         {/* LEFT */}
-        <div className="flex items-center gap-10 min-w-0">
+        <div className="flex items-center gap-5 lg:gap-10 min-w-0">
 
           <AnimatePresence mode="wait">
               <motion.div
@@ -110,6 +110,7 @@ export default function TopBar() {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
                 transition={{ duration: 0.3, ease: "linear" }}
+                className={isLibrary ? "hidden xl:block" : undefined}
               >
                 <NavLinks />
               </motion.div>
@@ -143,7 +144,7 @@ export default function TopBar() {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
                 transition={{ duration: 0.3, ease: "linear" }}
-                className="hidden md:flex items-center"
+                className={desktopControlsClass}
               >
                 <LanguageMenu
                   currentLang={currentLang}
@@ -153,9 +154,6 @@ export default function TopBar() {
               </motion.div>
           </AnimatePresence>
 
-          {/* Logout button */}
-
-
           {/* ProfileMenu fades out when search is open */}
           <AnimatePresence>
               <motion.div
@@ -163,7 +161,7 @@ export default function TopBar() {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
                 transition={{ duration: 0.3, ease: "linear" }}
-                className="hidden md:flex items-center"
+                className={desktopControlsClass}
               >
                 <ProfileMenu
                   onOpen={() => setSearchOpen(false)}
@@ -179,31 +177,8 @@ export default function TopBar() {
             }}
             currentLang={currentLang}
             setCurrentLang={setCurrentLang}
+            triggerClassName={isLibrary ? "xl:hidden" : "md:hidden"}
           />
-
-          <AnimatePresence>
-            <motion.button
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ duration: 0.2 }}
-              // onClick={() => signOut()}
-              className="
-                hidden md:flex
-                items-center justify-center
-                p-1!
-                rounded-md
-                text-white/70
-                hover:text-white
-                hover:bg-white/10
-                transition-all duration-200 border
-                border-white/30 bg-white/10 hover:scale-110
-                backdrop-blur-2xl! backdrop-saturate-150!
-              "
-            >
-              <LogOut size={21.5} strokeWidth={2.5} />
-            </motion.button>
-          </AnimatePresence>
 
         </div>
       </div>

@@ -8,10 +8,11 @@ type Props = {
   loading: boolean
   placeholder?: string
   variant?: "navbar" | "inline" | "library"
+  autoFocus?: boolean
 }
 
 export const SearchInput = forwardRef<HTMLInputElement, Props>(
-  ({ value, onChange, onClear, loading, placeholder, variant = "navbar" }, ref) => {
+  ({ value, onChange, onClear, loading, placeholder, variant = "navbar", autoFocus }, ref) => {
     const isInline = variant === "inline"
     const isLibrary = variant === "library"
 
@@ -31,7 +32,7 @@ export const SearchInput = forwardRef<HTMLInputElement, Props>(
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder ?? "Search movies, series, genres..."}
           className="bg-transparent text-white text-sm outline-none flex-1 placeholder:text-white/30"
-          autoFocus={isLibrary}
+          autoFocus={autoFocus ?? isLibrary}
         />
 
         <div className="flex items-center gap-2">
