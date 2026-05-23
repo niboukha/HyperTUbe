@@ -13,15 +13,13 @@ export const InputField = forwardRef<HTMLInputElement, AuthInputProps>(
     return (
       <div>
         {label && (
-          <label className="block text-sm font-medium text-gray-300 mb-2">
+          <label className="block text-sm font-medium text-gray-300">
             {label}
           </label>
         )}
         <Input
           ref={ref}
-          type="email"
-          placeholder="Email Address"
-          className={`bg-[#333333] border-0 text-white placeholder:text-gray-400 py-6! px-4! text-base focus:ring-red-500 focus:border-red-500 ${className}`}
+          className={`bg-[#333333] border-0 text-white placeholder:text-gray-400 py-5! px-4! text-base focus:ring-red-500 focus:border-red-500 ${className}`}
           {...props}
         />
         {error && (

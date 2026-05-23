@@ -5,4 +5,9 @@
 - is_watched in search cards
 
 - scrolling in genres
+<<<<<<< HEAD
 - keep search in search input -> good
+=======
+- keep search in search input -> good
+=> traduction
+>>>>>>> feat/user-managment

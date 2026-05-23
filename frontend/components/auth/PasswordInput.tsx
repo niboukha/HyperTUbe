@@ -26,7 +26,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
             ref={ref}
             type={showPassword ? 'text' : 'password'}
             placeholder="Password"
-            className={`bg-[#333333] border-0 text-white placeholder:text-gray-400 py-6 px-4 text-base focus:ring-red-500 focus:border-red-500 ${showToggle ? 'pr-10' : ''} ${className}`}
+            className={`bg-[#333333] border-0 text-white placeholder:text-gray-400 py-5! px-4! text-base focus:ring-red-500 focus:border-red-500 ${showToggle ? 'pr-10' : ''} ${className}`}
             {...props}
           />
           {showToggle && (
