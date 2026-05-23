@@ -6,6 +6,6 @@ export interface Review {
   likes: number
   isLiked: boolean
   date: Date
-  avatar?: string  // ← add this
+  avatar?: string
 
 }

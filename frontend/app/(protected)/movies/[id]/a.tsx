@@ -15,7 +15,7 @@ import HeaderTitle from "@/components/ui/header-title"
 import Crow from "@/components/VedioDetails/Crow"
 import { Review } from "@/types/Review"
 
-const API = "http://localhost:8000"
+const API = process.env.NEXT_PUBLIC_API_URL
 
 // ── data fetching ─────────────────────────────────────────────────────────────
 async function fetchMovieDetail(id: string): Promise<MovieDetail | null> {

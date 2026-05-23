@@ -3,6 +3,7 @@ import { Film, Star } from "lucide-react"
 import { highlightMatch } from "@/lib/utils/search-bar"
 import { MovieResult } from "@/types/search"
 import { SectionHeading } from "../section-heading"
+import { resolveImage } from "./top-results-section"
 
 type Props = {
   movies: MovieResult[]
@@ -29,7 +30,7 @@ export function MoviesSection({ movies, query, activeIndex, topCount, onSelect }
             <div className="w-9 h-12 shrink-0 rounded-md bg-white/5 overflow-hidden relative">
               {movie.poster_path ? (
                 <Image
-                  src={`https://image.tmdb.org/t/p/w92${movie.poster_path}`}
+                  src={resolveImage(movie.poster_path)!}
                   alt={movie.title}
                   fill
                   priority

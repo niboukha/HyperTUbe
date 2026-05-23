@@ -35,7 +35,7 @@ export default function SignInPage() {
         </CardHeader>
 
         <CardContent>
-          <form className=''>
+          <form>
 
             {/* Email Input */}
             <div className='flex flex-col justify-center items-center gap-2'>

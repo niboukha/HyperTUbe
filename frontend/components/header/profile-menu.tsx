@@ -26,7 +26,7 @@ export default function ProfileMenu({ onOpen }: Props) {
         >
           <Avatar className="h-7 w-7 md:h-8 md:w-8 rounded-md border-0! shadow-none! ring-0! hover:ring-0! hover:border-0!">
             <AvatarImage
-              src="avatars/Name=chicken.svg"
+              src="/avatars/Name=chicken.svg"
               className="rounded-md"
             />
             <AvatarFallback className="bg-linear-to-br from-accent-gold to-accent-gold text-xs font-bold">

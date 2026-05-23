@@ -2,7 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 
 class Movie(models.Model):
-    tmdb_id = models.IntegerField(unique=True)
+    tmdb_id = models.CharField(max_length=255, unique=True)
 
     title = models.CharField(max_length=255)
     overview = models.TextField(blank=True, null=True)
@@ -17,6 +17,8 @@ class Movie(models.Model):
     duration = models.IntegerField(null=True, blank=True)
 
     is_watchable = models.BooleanField(default=False)
+
+    torrent_url = models.URLField(blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
 

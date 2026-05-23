@@ -27,7 +27,6 @@ export const TMDB_GENRE_MAP: Record<number, string> = {
   36:    "History",
   10402: "Music",
   10749: "Romance",
-  53:    "Thriller",
   10752: "War",
   37:    "Western",
 }
@@ -43,6 +42,5 @@ export const GENRES = [
   "Crime",
   "Mystery",
   "Family",
-  "Thriller",
   "History",
 ]

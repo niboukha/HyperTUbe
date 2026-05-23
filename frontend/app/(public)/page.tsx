@@ -30,7 +30,7 @@ export default function Landing() {
           `${TMDB_BASE}/trending/movie/day?api_key=${API_KEY}`
         );
         const data = await res.json();
-        console.log('Trending movies:', data.results);
+        // console.log('Trending movies:', data.results);
         setMovies(data.results);
       } catch (err) {
         console.error('Error fetching trending movies:', err);

@@ -1,537 +1,1046 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-import { Search, X, Clock, TrendingUp, Star, Film, Hash, Users } from "lucide-react"
+import { createPortal } from "react-dom"
+import { Search } from "lucide-react"
 import { useDebounce } from "@/hooks/useDebounce"
 import { useRouter, usePathname } from "next/navigation"
-import Image from "next/image"
-import { GENRES, TRENDING } from "@/constants/search-bar"
 import { MovieResult, UserResult } from "@/types/search"
-import { getRecentSearches, saveRecentSearch, removeRecentSearch, highlightMatch } from "@/lib/utils/search-bar"
+import { getRecentSearches, saveRecentSearch, removeRecentSearch } from "@/lib/utils/search-bar"
+import { SearchInput } from "./search-input"
+import { SearchPanel } from "./search-panel"
 import { MOCK_USERS } from "@/lib/mock-data"
 
+const API = "http://localhost:8000"
 
 type Props = {
   open?: boolean
   onOpenChange?: (open: boolean) => void
-  /**
-   * When true, renders an always-visible inline search input
-   * (used inside the Library page instead of the nav dropdown).
-   */
   inline?: boolean
-  /** Called with the current query whenever it changes (inline mode). */
   onQueryChange?: (q: string) => void
+  isLibraryMode?: boolean
 }
 
-
-export default function SearchBar({ open: externalOpen, onOpenChange, inline = false, onQueryChange }: Props) {
+export default function SearchBar({
+  open: externalOpen,
+  onOpenChange,
+  inline = false,
+  onQueryChange,
+  isLibraryMode = false,
+}: Props) {
   const [internalOpen, setInternalOpen] = useState(false)
   const open = inline ? true : (externalOpen ?? internalOpen)
 
-  const [query, setQuery] = useState("")
-  const [movies, setMovies] = useState<MovieResult[]>([])
-  const [loading, setLoading] = useState(false)
-  const [activeIndex, setActiveIndex] = useState(-1)
+  const [query,         setQuery]         = useState("")
+  const [movies,        setMovies]         = useState<MovieResult[]>([])
+  const [loading,       setLoading]       = useState(false)
+  const [activeIndex,   setActiveIndex]   = useState(-1)
   const [recentSearches, setRecentSearches] = useState<string[]>([])
+  const [mounted,       setMounted]       = useState(false)
 
-  const inputRef = useRef<HTMLInputElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const router = useRouter()
-  const pathname = usePathname()
+  const inputRef      = useRef<HTMLInputElement>(null)
+  const triggerRef    = useRef<HTMLButtonElement>(null)
+  const panelRef      = useRef<HTMLDivElement>(null)
+  const router        = useRouter()
+  const pathname      = usePathname()
   const debouncedQuery = useDebounce(query, 300)
 
-  const isLibrary = pathname?.startsWith("/library")
+  useEffect(() => { setMounted(true) }, [])
 
-  // Filter mock users by query
-  const matchedUsers = useMemo(() => {
-    const q = query || "popular"
-    return MOCK_USERS.filter((u) =>
-      u.username?.toLowerCase().includes(q.toLowerCase())
-    ).slice(0, 3)
-  }, [query])
+  // Close when route changes
+  useEffect(() => { closeSearch() }, [pathname]) // eslint-disable-line
 
-  const topMovies = movies.slice(0, 4)
-  const listMovies = movies.slice(0, 8)
-  const isEmpty = query.length === 0
-
-  // ── Fetch movies from real API ─────────────────────────────────────────────
-
-  useEffect(() => {
-    if (!debouncedQuery) return
-
-    let ignore = false
-
-    const run = async () => {
-      try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(debouncedQuery)}`)
-        const data = await res.json()
-
-        if (!ignore) {
-          setMovies((data ?? []).filter(r => r.type === "movie"))
-        }
-      } catch {
-        if (!ignore) setMovies([])
-      }
-    }
-
-    run()
-
-    return () => {
-      ignore = true
-    }
-  }, [debouncedQuery])
-  // Bubble query up for inline (library) mode
-  useEffect(() => {
-    if (inline) onQueryChange?.(query)
-  }, [query, inline, onQueryChange])
-
-  // ── Open / close ──────────────────────────────────────────────────────────
+  const matchedUsers = useMemo(() =>
+    !query ? [] : MOCK_USERS.filter(u =>
+      u.username?.toLowerCase().includes(query.toLowerCase())
+    ).slice(0, 3),
+  [query])
 
   const openSearch = useCallback(() => {
     setInternalOpen(true)
     onOpenChange?.(true)
     setRecentSearches(getRecentSearches())
+    setTimeout(() => inputRef.current?.focus(), 0)
   }, [onOpenChange])
 
   const closeSearch = useCallback(() => {
     setInternalOpen(false)
-    setQuery("")
-    setMovies([])
-    setActiveIndex(-1)
     onOpenChange?.(false)
+    setActiveIndex(-1)
+
+    // delay reset so the selected item's route push fires first
+    setTimeout(() => { setQuery(""); setMovies([]) }, 200)
   }, [onOpenChange])
 
-  // ── Side effects ──────────────────────────────────────────────────────────
-
   useEffect(() => {
-    if (open && !inline) inputRef.current?.focus()
-  }, [open, inline])
+    if (!debouncedQuery) { setMovies([]); return }
 
-  useEffect(() => {
-    if (inline) return
-    const handler = (e: MouseEvent) => {
-      if (!containerRef.current?.contains(e.target as Node)) closeSearch()
+    let ignore = false
+    const run = async () => {
+      try {
+        setLoading(true)
+        const res  = await fetch(`${API}/search/?q=${encodeURIComponent(debouncedQuery)}`)
+        const data = await res.json()
+        if (!ignore)
+          setMovies((data.results ?? []).filter((r: MovieResult) => r.type === "movie"))
+      } finally {
+        if (!ignore) setLoading(false)
+      }
     }
-    document.addEventListener("mousedown", handler)
-    return () => document.removeEventListener("mousedown", handler)
-  }, [closeSearch, inline])
+    run()
+    return () => { ignore = true }
+  }, [debouncedQuery])
 
+  useEffect(() => { if (inline) onQueryChange?.(query) }, [query, inline, onQueryChange])
+
+  // Outside click — check both trigger and panel
+  useEffect(() => {
+    if (inline || isLibraryMode) return
+    const h = (e: MouseEvent) => {
+      const target = e.target as Node
+      const insideTrigger = triggerRef.current?.contains(target)
+      const insidePanel   = panelRef.current?.contains(target)
+      if (!insideTrigger && !insidePanel) closeSearch()
+    }
+    // use capture phase so scroll events inside panel don't bubble wrong
+    document.addEventListener("mousedown", h, true)
+    return () => document.removeEventListener("mousedown", h, true)
+  }, [closeSearch, inline, isLibraryMode])
+
+  // Lock body scroll when open 
   useEffect(() => {
     if (!open || inline) return
-    const handler = () => closeSearch()
-    window.addEventListener("scroll", handler, { passive: true })
-    return () => window.removeEventListener("scroll", handler)
-  }, [open, closeSearch, inline])
+    document.body.style.overflow = "hidden"
+    return () => { document.body.style.overflow = "" }
+  }, [open, inline])
 
-  // ── Keyboard navigation ───────────────────────────────────────────────────
+  // Keyboard
+  const allNavigable = useMemo(() => [
+    ...movies.slice(0, 4).map(m => ({ type: "movie" as const, item: m })),
+    ...matchedUsers.map(u => ({ type: "user" as const, item: u as UserResult })),
+  ], [movies, matchedUsers])
 
-  const allNavigable = useMemo(
-    () => [
-      ...topMovies.map((m) => ({ type: "movie" as const, item: m })),
-      ...matchedUsers.map((u) => ({ type: "user" as const, item: u })),
-    ],
-    [topMovies, matchedUsers]
-  )
-
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (!open) return
-      if (e.key === "Escape") {
-        if (inline) setQuery("")
-        else closeSearch()
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (e.key === "/" && !open && !inline && document.activeElement?.tagName !== "INPUT") {
+        e.preventDefault()
+        openSearch()
         return
       }
-      if (e.key === "ArrowDown") {
-        e.preventDefault()
-        setActiveIndex((p) => Math.min(p + 1, allNavigable.length - 1))
+      if (!open) return
+      if (e.key === "Escape") {
+        inline ? setQuery("") : closeSearch()
+        return
       }
-      if (e.key === "ArrowUp") {
-        e.preventDefault()
-        setActiveIndex((p) => Math.max(p - 1, -1))
-      }
+      if (e.key === "ArrowDown") { e.preventDefault(); setActiveIndex(p => Math.min(p + 1, allNavigable.length - 1)) }
+      if (e.key === "ArrowUp")   { e.preventDefault(); setActiveIndex(p => Math.max(p - 1, -1)) }
       if (e.key === "Enter" && activeIndex >= 0) {
         const nav = allNavigable[activeIndex]
         if (nav?.type === "movie") {
           saveRecentSearch(query)
-          router.push(`/movie/${nav.item.id}`)
+          router.push(`/movies/${nav.item.id}`)
           if (!inline) closeSearch()
-        } else if (nav?.type === "user") {
+        }
+        if (nav?.type === "user") {
           router.push(`/user/${(nav.item as UserResult).id}`)
           if (!inline) closeSearch()
         }
       }
-    },
-    [open, activeIndex, allNavigable, query, router, closeSearch, inline]
-  )
+    }
+    window.addEventListener("keydown", h)
+    return () => window.removeEventListener("keydown", h)
+  }, [open, activeIndex, allNavigable, query, router, closeSearch, openSearch, inline])
 
+  // Panel position (anchored to trigger)
+  const [panelStyle, setPanelStyle] = useState<React.CSSProperties>({})
   useEffect(() => {
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [handleKeyDown])
+    if (!open || !triggerRef.current) return
+    const rect = triggerRef.current.getBoundingClientRect()
+    setPanelStyle({
+      position: "fixed",
+      top:      rect.bottom + 8,
+      right:    window.innerWidth - rect.right,
+      width:    "min(520px, 90vw)",
+      zIndex:   9999,
+    })
+  }, [open])
 
-  // ── Actions ───────────────────────────────────────────────────────────────
-
-  const handleSelectMovie = (movie: MovieResult) => {
-    saveRecentSearch(query || movie.title)
-    router.push(`/movie/${movie.id}`)
-    if (!inline) closeSearch()
+  const panelProps = {
+    query, movies, users: matchedUsers, loading, activeIndex, recentSearches,
+    onSelectMovie: (m: MovieResult) => {
+      saveRecentSearch(query || m.title)
+      router.push(`/movies/${m.id}`)
+      if (!inline) closeSearch()
+    },
+    onSelectUser: (u: UserResult) => {
+      router.push(`/user/${u.id}`)
+      if (!inline) closeSearch()
+    },
+    onSelectGenre:   (g: string) => { saveRecentSearch(g); router.push(`/library?genre=${g.toLowerCase()}`); if (!inline) closeSearch() },
+    onSelectRecent:  (t: string) => { setQuery(t); inputRef.current?.focus() },
+    onRemoveRecent:  (e: React.MouseEvent, t: string) => { e.stopPropagation(); removeRecentSearch(t); setRecentSearches(getRecentSearches()) },
+    onSelectTrending:(t: string) => { setQuery(t); inputRef.current?.focus() },
   }
 
-  const handleSelectUser = (user: UserResult) => {
-    router.push(`/user/${user.id}`)
-    if (!inline) closeSearch()
-  }
-
-  const handleSelectGenre = (genre: string) => {
-    saveRecentSearch(genre)
-    router.push(`/browse?genre=${genre.toLowerCase()}`)
-    if (!inline) closeSearch()
-  }
-
-  const handleSelectRecent = (term: string) => {
-    setQuery(term)
-    inputRef.current?.focus()
-  }
-
-  const handleRemoveRecent = (e: React.MouseEvent, term: string) => {
-    e.stopPropagation()
-    removeRecentSearch(term)
-    setRecentSearches(getRecentSearches())
-  }
-
-  // ── Dropdown panel content ─────────────────────────────────────────────────
-
-  const dropdownContent = (
-    <div className="z-40 w-full p-2!">
-      {isEmpty ? (
-        <>
-          {recentSearches.length > 0 && (
-            <div className="mb-4!">
-              <SectionHeading icon={<Clock className="h-3 w-3" />} label="Recent" />
-              <div className="flex flex-col gap-0.5">
-                {recentSearches.map((term, i) => (
-                  <div
-                    key={i}
-                    onClick={() => handleSelectRecent(term)}
-                    className="flex items-center justify-between px-2! py-1.5! rounded-[6px] cursor-pointer hover:bg-white/10 group transition-colors"
-                  >
-                    <span className="text-sm text-white group-hover:text-white/90 transition-colors">{term}</span>
-                    <button
-                      onClick={(e) => handleRemoveRecent(e, term)}
-                      className="opacity-0 group-hover:opacity-100 text-white/30 hover:text-white/70 transition-all"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="mb-4! border border-blue-400">
-            <SectionHeading icon={<TrendingUp className="h-3 w-3" />} label="Trending" />
-            <div className="flex flex-col gap-0.5">
-              {TRENDING.map((term, i) => (
-                <div
-                  key={i}
-                  onClick={() => { setQuery(term); inputRef.current?.focus() }}
-                  className="flex items-center gap-3 px-2! py-1.5! rounded-[6px] cursor-pointer hover:bg-white/10 group transition-colors"
-                >
-                  <span className="text-[11px] text-white/20 w-4 text-right font-mono">{i + 1}</span>
-                  <span className="text-sm text-white group-hover:text-white/90 transition-colors">{term}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="border border-green-400">
-            <SectionHeading icon={<Hash className="h-3 w-3" />} label="Browse genres" />
-            <div className="flex flex-wrap gap-1.5 px-2!">
-              {GENRES.map((genre) => (
-                <GenrePill key={genre} genre={genre} onClick={() => handleSelectGenre(genre)} />
-              ))}
-            </div>
-          </div>
-        </>
-      ) : movies.length === 0 && matchedUsers.length === 0 && !loading ? (
-        <div className="px-4! py-10! text-center border border-yellow-400 rounded-md">
-          <p className="text-white/30 text-sm">
-            No results for <span className="text-white/50">`{query}`</span>
-          </p>
-          <p className="text-white/20 text-xs mt-1">Try a different title or browse genres</p>
-        </div>
-      ) : (
-        <>
-          {topMovies.length > 0 && (
-            <div className="mb-4! border border-yellow-400">
-              <SectionHeading icon={<Film className="h-3 w-3" />} label="Top results" />
-              <div className="flex gap-2 overflow-x-auto pb-1! border border-pink-400" style={{ scrollbarWidth: "none" }}>
-                {topMovies.map((movie, i) => (
-                  <div
-                    key={movie.id}
-                    onClick={() => handleSelectMovie(movie)}
-                    className={`shrink-0 w-28 cursor-pointer rounded-md overflow-hidden border transition-all duration-150 hover:scale-105 hover:border-white/30 ${
-                      activeIndex === i ? "border-white/25 scale-105" : "border-white/8"
-                    }`}
-                  >
-                    <div className="aspect-2/3 bg-white/5 relative">
-                      {movie.poster_path ? (
-                        <Image
-                          src={`https://image.tmdb.org/t/p/w200${movie.poster_path}`}
-                          alt={movie.title}
-                          fill
-                          priority
-                          className="object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Film className="h-6 w-6 text-white/20" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-1.5! bg-black/40">
-                      <p className="text-white/80 text-[11px] font-medium truncate leading-tight">
-                        {highlightMatch(movie.title, query)}
-                      </p>
-                      {(movie.year || movie.rating) && (
-                        <div className="flex items-center gap-1 mt-0.5">
-                          {movie.rating && (
-                            <span className="text-[10px] text-yellow-400/70 flex items-center gap-0.5">
-                              <Star className="h-2 w-2 fill-yellow-400/70" />
-                              {movie.rating.toFixed(1)}
-                            </span>
-                          )}
-                          {movie.year && <span className="text-[10px] text-white/30">{movie.year}</span>}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {listMovies.length > 0 && (
-            <div className="mb-4! border border-blue-400">
-              <SectionHeading label="Movies" />
-              <div className="flex flex-col gap-0.5">
-                {listMovies.map((movie, i) => (
-                  <div
-                    key={movie.id}
-                    onClick={() => handleSelectMovie(movie)}
-                    className={`flex items-center gap-3 px-2! py-1.5! rounded-md cursor-pointer transition-all duration-100 ${
-                      activeIndex === topMovies.length + i ? "bg-white/10" : "hover:bg-white/6"
-                    }`}
-                  >
-                    <div className="w-9 h-12 shrink-0 rounded-md bg-white/5 overflow-hidden relative">
-                      {movie.poster_path ? (
-                        <Image
-                          src={`https://image.tmdb.org/t/p/w92${movie.poster_path}`}
-                          alt={movie.title}
-                          fill
-                          priority
-                          className="object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Film className="h-3 w-3 text-white/20" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-white/80 truncate font-medium">
-                        {highlightMatch(movie.title, query)}
-                      </p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        {movie.rating && (
-                          <span className="text-[11px] text-yellow-400/60 flex items-center gap-0.5">
-                            <Star className="h-2.5 w-2.5 fill-yellow-400/60" />
-                            {movie.rating.toFixed(1)}
-                          </span>
-                        )}
-                        {movie.year && <span className="text-[11px] text-white/30">{movie.year}</span>}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {matchedUsers.length > 0 && (
-            <div className="mb-4! border border-green-400">
-              <SectionHeading label="Users" icon={<Users className="h-3 w-3" />} />
-              <div className="flex flex-col gap-0.5">
-                {matchedUsers.map((user) => (
-                  <div
-                    key={user.id}
-                    onClick={() => handleSelectUser(user)}
-                    className="flex items-center gap-3 px-2! py-1.5! rounded-[6px] cursor-pointer hover:bg-white/6 transition-all"
-                  >
-                    <div className="w-8 h-8 shrink-0 rounded-md overflow-hidden relative bg-white/10">
-                      <Image src={user.avatar} alt={user.username} fill className="object-cover" />
-                    </div>
-                    <p className="text-sm text-white/80">
-                      @{highlightMatch(user.username, query)}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div>
-            <SectionHeading icon={<Hash className="h-3 w-3" />} label="Genres" />
-            <div className="flex flex-wrap gap-1.5 px-2!">
-              {GENRES.map((genre) => (
-                <GenrePill key={genre} genre={genre} onClick={() => handleSelectGenre(genre)} />
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  )
-
-  // ── Inline mode (Library page) ────────────────────────────────────────────
-
+  // Inline mode
   if (inline) {
     return (
-      <div className="relative w-full" ref={containerRef}>
-        <div className="flex items-center gap-2 rounded-[10px] px-3! py-2.5! border border-white/15 bg-white/6 backdrop-blur-md text-white focus-within:border-white/30 focus-within:bg-white/10 transition-all duration-200">
-          <Search className="h-4 w-4 text-white/35 shrink-0" />
-          <input
-            ref={inputRef}
-            value={query}
-            onChange={(e) => { setQuery(e.target.value); setActiveIndex(-1) }}
-            placeholder="Search movies, series..."
-            className="bg-transparent text-white text-sm outline-none flex-1 placeholder:text-white/30"
-          />
-          <div className="flex items-center gap-2">
-            {loading && (
-              <div className="w-3 h-3 border border-white/30 border-t-white/60 rounded-full animate-spin" />
-            )}
-            {query && (
-              <button onClick={() => setQuery("")} className="text-white/40 hover:text-white transition-colors">
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-        </div>
+      <div className="relative w-full">
+        <SearchInput
+          ref={inputRef}
+          value={query}
+          onChange={(v) => { setQuery(v); setActiveIndex(-1) }}
+          onClear={() => setQuery("")}
+          loading={loading}
+          placeholder="Search movies, series..."
+          variant="inline"
+        />
       </div>
     )
   }
 
-  // ── Dropdown mode (Navbar) ────────────────────────────────────────────────
+  // Library mode
+  if (isLibraryMode) {
+    return (
+      <div className="relative w-63 md:w-88 lg:w-100">
+        <SearchInput
+          ref={inputRef}
+          value={query}
+          onChange={(v) => {
+            setQuery(v)
+            const url = new URL(window.location.href)
+            if (v) url.searchParams.set("q", v)
+            else url.searchParams.delete("q")
+            window.history.replaceState({}, "", url.toString())
+          }}
+          onClear={() => {
+            setQuery("")
+            const url = new URL(window.location.href)
+            url.searchParams.delete("q")
+            window.history.replaceState({}, "", url.toString())
+          }}
+          loading={false}
+          placeholder="Search movies..."
+          variant="library"
+        />
+      </div>
+    )
+  }
 
+  // Navbar mode 
   return (
-    <div ref={containerRef} className="relative flex items-center">
-      {!open && (
-        <button
-          onClick={openSearch}
-          aria-label="Open search"
-          className="flex items-center gap-2 rounded-[8px] border h-8! px-2! backdrop-blur-2xl! backdrop-saturate-150! border-white/30 bg-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all duration-200 hover:scale-105"
-        >
-          <Search className="h-5 w-5" />
-          <span className="hidden md:block text-xs text-white">Search</span>
-          <kbd className="hidden md:flex items-center gap-0.5 text-[10px] text-white border border-white/15 rounded px-1 py-0.5 font-mono">
-            /
-          </kbd>
-        </button>
-      )}
+    <>
+      {/* Trigger button */}
+      <button
+        ref={triggerRef}
+        onClick={open ? closeSearch : openSearch}
+        className="flex items-center gap-2 h-8! px-2! duration-200 rounded-md backdrop-blur-2xl! backdrop-saturate-150! hover:scale-110 transition border-white/30 bg-white/10 text-white hover:text-text-primary hover:bg-white/10 border"
+      >
+        <Search className="h-5 w-5" />
+        <span className="hidden md:block text-xs text-white">Search</span>
+        <kbd className="hidden md:flex text-[10px] text-white border border-white/15 rounded px-1! py-0.5! font-mono">
+          /
+        </kbd>
+      </button>
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ width: 40, opacity: 0 }}
-            animate={{
-              width: typeof window !== "undefined" && window.innerWidth < 768 ? 300 : 520,
-              opacity: 1,
-            }}
-            exit={{ width: 40, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 320, damping: 28 }}
-            className="absolute right-0 z-50"
+      {/* Portal panel — lives outside the navbar DOM entirely */}
+      {mounted && open && createPortal(
+        <>
+          {/* Backdrop — clicking it closes, scrolling it doesn't */}
+          <div
+            className="fixed inset-0 z-[9998]"
+            onMouseDown={closeSearch}
+          />
+
+          {/* Panel */}
+          <div
+            ref={panelRef}
+            style={panelStyle}
+            className="rounded-xl border border-white/15 bg-[#0e0e10]/95 backdrop-blur-xl shadow-2xl flex flex-col overflow-hidden border"
+            // stop clicks/mousedowns inside panel from hitting the backdrop
+            onMouseDown={(e) => e.stopPropagation()}
           >
-            <div role="combobox" aria-expanded={open} aria-haspopup="listbox" className="relative">
-              <div
-                className="flex items-center gap-2 rounded-t-md px-3! py-2! border border-white/30 bg-white/10 backdrop-blur-2xl backdrop-saturate-150! text-white focus-within:border-white/35 transition-all duration-200"
-                style={{
-                  boxShadow: "0 0 0 1px rgba(255,255,255,0.08), 0 0 20px rgba(255,255,255,0.04)",
-                }}
-              >
-                <Search className="h-4 w-4 text-white/40 shrink-0" />
-                <input
-                  ref={inputRef}
-                  role="searchbox"
-                  aria-label="Search HyperTube"
-                  aria-autocomplete="list"
-                  value={query}
-                  onChange={(e) => { setQuery(e.target.value); setActiveIndex(-1) }}
-                  placeholder="Search movies, series, genres..."
-                  className="bg-transparent text-white text-sm outline-none flex-1 placeholder:text-white/30"
-                />
-                <div className="flex items-center gap-2">
-                  {loading && (
-                    <div className="w-3 h-3 border border-white/30 border-t-white/60 rounded-full animate-spin" />
-                  )}
-                  {query && (
-                    <button onClick={() => setQuery("")} className="text-white/40 hover:text-white transition-colors">
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                  <kbd className="text-[10px] text-white/20 border border-white/30 rounded px-1 py-0.5 font-mono">
-                    ESC
-                  </kbd>
-                </div>
-              </div>
-
-              <motion.div
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
-                role="listbox"
-                aria-label="Search results"
-                className="rounded-b-md border border-t-0 border-white/30 bg-white/10 backdrop-blur-2xl backdrop-saturate-150! overflow-hidden absolute right-0 left-0 mt-0!"
-                style={{ maxHeight: "520px", overflowY: "auto" }}
-              >
-                {dropdownContent}
-              </motion.div>
+            {/* Search input inside panel */}
+            <div className="px-3! pt-3! pb-2!">
+              <SearchInput
+                ref={inputRef}
+                value={query}
+                onChange={(v) => { setQuery(v); setActiveIndex(-1) }}
+                onClear={() => setQuery("")}
+                loading={loading}
+                variant="navbar"
+              />
             </div>
+
+            {/* Results — scrollable, stops at panel edge */}
+            <div
+              className="overflow-y-auto max-h-[min(480px,60vh)] overscroll-contain"
+              // prevent scroll from bubbling to body
+              onWheel={(e) => e.stopPropagation()}
+            >
+              <SearchPanel {...panelProps} />
+            </div>
+          </div>
+        </>,
+        document.body
+      )}
+    </>
+  )
+}
+
+  // return (
+  //   <Popover open={open} onOpenChange={(v) => {
+  //     if (v) openSearch()
+  //       else closeSearch()
+  //   }}>
+
+  //     <PopoverTrigger asChild>
+  //       {!open ? (
+  //         <button
+  //           // onClick={openSearch}
+  //           className="
+  //             flex items-center gap-2 h-8! px-2! duration-200
+  //             rounded-md backdrop-blur-2xl! backdrop-saturate-150! hover:scale-110
+  //             transition border-white/30 bg-white/10 text-white
+  //             hover:text-text-primary hover:bg-white/10 border"
+  //         >
+  //           <Search className="h-5 w-5" />
+  //           <span className="hidden md:block text-xs text-white">
+  //             Search
+  //           </span>
+  //           <kbd className="hidden md:flex text-[10px] text-white border border-white/15 rounded px-1! py-0.5! font-mono">
+  //             /
+  //           </kbd>
+  //         </button>
+  //       ) : (
+  //         <div />
+  //       )}
+  //     </PopoverTrigger>
+
+  //     <PopoverContent
+  //       align="end"
+  //       sideOffset={-16}
+  //       className="
+  //         w-80 md:w-100 lg:w-130 backdrop-blur-md! backdrop-saturate-150! border p-0! rounded-md flex flex-col gap-2 shadow-xl border-white/30 bg-white/10 text-white "
+  //     >
+  //       <div
+  //         role="combobox"
+  //         aria-expanded={open}
+  //         aria-controls={listboxId}
+  //         aria-haspopup="listbox"
+  //       >
+  //         <SearchInput
+  //           ref={inputRef}
+  //           value={query}
+  //           onChange={(v) => {
+  //             setQuery(v)
+  //             setActiveIndex(-1)
+  //           }}
+  //           onClear={() => setQuery("")}
+  //           loading={loading}
+  //           variant="navbar"
+  //         />
+
+  //         <div
+  //           id={listboxId}
+  //           role="listbox"
+  //           className="max-h-110 overflow-y-auto"
+  //         >
+  //           <SearchPanel {...panelProps} />
+  //         </div>
+  //       </div>
+  //     </PopoverContent>
+  //   </Popover>
+  // )
+
+
+
+
+
+  // ── navbar mode — swap trigger ↔ input ───────────────────────────────
+return (
+  <>
+    <div ref={wrapperRef} className="relative">
+      <AnimatePresence mode="wait">
+        {!open ? (
+          // ── Collapsed trigger button ──────────────────────────────
+          <motion.button
+            key="trigger"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.15 }}
+            onClick={openSearch}
+            className="flex items-center gap-2 h-8 px-2 rounded-md border border-white/30 bg-white/10 backdrop-blur-2xl text-white hover:text-text-primary hover:scale-110 transition-all duration-200"
+          >
+            <Search className="h-4 w-4" />
+            <span className="hidden md:block text-xs">Search</span>
+            <kbd className="hidden md:flex text-[10px] border border-white/15 rounded px-1 py-0.5 font-mono leading-none text-white/50">
+              /
+            </kbd>
+          </motion.button>
+        ) : (
+          // ── Expanded input ────────────────────────────────────────
+          <motion.div
+            key="input"
+            initial={{ opacity: 0, scale: 0.97 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.97 }}
+            transition={{ duration: 0.15 }}
+            className="flex items-center h-8 w-[min(520px,80vw)] rounded-md border border-white/30 bg-white/10 backdrop-blur-2xl text-white overflow-hidden"
+          >
+            <Search className="h-4 w-4 shrink-0 ml-3 text-white/50" />
+            <div className="flex-1 min-w-0">
+              <SearchInput
+                ref={inputRef}
+                value={query}
+                onChange={(v) => { setQuery(v); setActiveIndex(-1) }}
+                onClear={() => setQuery("")}
+                loading={loading}
+                variant="navbar"
+              />
+            </div>
+            <button
+              onClick={closeSearch}
+              className="shrink-0 px-3 text-white/40 hover:text-white transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
     </div>
-  )
+
+    {/* Results panel */}
+    {mounted && open && createPortal(
+      <>
+        <div className="fixed inset-0 z-[9998]" onMouseDown={closeSearch} />
+        <motion.div
+          ref={panelRef}
+          style={panelStyle}
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.15, ease: "easeOut" }}
+          className="rounded-xl border border-white/20 bg-[#0e0e10]/95 backdrop-blur-xl shadow-2xl overflow-hidden"
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <div
+            className="overflow-y-auto max-h-[min(480px,60vh)] overscroll-contain"
+            onWheel={(e) => e.stopPropagation()}
+          >
+            <SearchPanel {...panelProps} />
+          </div>
+        </motion.div>
+      </>,
+      document.body
+    )}
+  </>
+)
+
+
+
+
+"use client"
+
+import { useEffect, useMemo, useRef, useState, useCallback } from "react"
+import { Search, X } from "lucide-react"
+import { useDebounce } from "@/hooks/useDebounce"
+import { MovieResult, UserResult } from "@/types/search"
+import { getRecentSearches, saveRecentSearch, removeRecentSearch } from "@/lib/utils/search-bar"
+import { SearchInput } from "./search-input"
+import { SearchPanel } from "./search-panel"
+import { MOCK_USERS } from "@/lib/mock-data"
+import { useRouter, usePathname } from "next/navigation"
+import { createPortal } from "react-dom"
+import { motion, AnimatePresence } from "framer-motion"
+
+const API = "http://localhost:8000"
+
+type Props = {
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  inline?: boolean
+  onQueryChange?: (q: string) => void
+  isLibraryMode?: boolean
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+export default function SearchBar({
+  open: externalOpen,
+  onOpenChange,
+  inline = false,
+  onQueryChange,
+  isLibraryMode = false,
+}: Props) {
+  const [internalOpen, setInternalOpen] = useState(false)
+  const open = inline ? true : (externalOpen ?? internalOpen)
 
-function SectionHeading({
-  icon,
-  label,
-}: {
-  icon?: React.ReactNode
-  label: string
-}) {
+  const [query,          setQuery]          = useState("")
+  const [movies,         setMovies]         = useState<MovieResult[]>([])
+  const [loading,        setLoading]        = useState(false)
+  const [activeIndex,    setActiveIndex]    = useState(-1)
+  const [recentSearches, setRecentSearches] = useState<string[]>([])
+  const [mounted,        setMounted]        = useState(false)
+  const [panelStyle,     setPanelStyle]     = useState<React.CSSProperties>({})
+
+  const inputRef    = useRef<HTMLInputElement>(null)
+  const wrapperRef  = useRef<HTMLDivElement>(null)   // the expandable pill
+  const panelRef    = useRef<HTMLDivElement>(null)
+
+  const router      = useRouter()
+  const pathname    = usePathname()
+  const debouncedQuery = useDebounce(query, 300)
+
+  useEffect(() => { setMounted(true) }, [])
+  useEffect(() => { closeSearch() }, [pathname]) // eslint-disable-line
+
+  // ── helpers ──────────────────────────────────────────────────────────
+  const matchedUsers = useMemo(() =>
+    !query ? [] : MOCK_USERS.filter(u =>
+      u.username?.toLowerCase().includes(query.toLowerCase())
+    ).slice(0, 3),
+  [query])
+
+  const openSearch = useCallback(() => {
+    setInternalOpen(true)
+    onOpenChange?.(true)
+    setRecentSearches(getRecentSearches())
+    setTimeout(() => inputRef.current?.focus(), 50)
+  }, [onOpenChange])
+
+  const closeSearch = useCallback(() => {
+    setInternalOpen(false)
+    onOpenChange?.(false)
+    setActiveIndex(-1)
+    setTimeout(() => { setQuery(""); setMovies([]) }, 200)
+  }, [onOpenChange])
+
+  // ── fetch ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!debouncedQuery) { setMovies([]); return }
+    let ignore = false
+    const run = async () => {
+      try {
+        setLoading(true)
+        const res  = await fetch(`${API}/search/?q=${encodeURIComponent(debouncedQuery)}`)
+        const data = await res.json()
+        if (!ignore)
+          setMovies((data.results ?? []).filter((r: MovieResult) => r.type === "movie"))
+      } finally {
+        if (!ignore) setLoading(false)
+      }
+    }
+    run()
+    return () => { ignore = true }
+  }, [debouncedQuery])
+
+  useEffect(() => { if (inline) onQueryChange?.(query) }, [query, inline, onQueryChange])
+
+  // ── outside click ────────────────────────────────────────────────────
+  useEffect(() => {
+    if (inline || isLibraryMode) return
+    const h = (e: MouseEvent) => {
+      const t = e.target as Node
+      if (!wrapperRef.current?.contains(t) && !panelRef.current?.contains(t))
+        closeSearch()
+    }
+    document.addEventListener("mousedown", h, true)
+    return () => document.removeEventListener("mousedown", h, true)
+  }, [closeSearch, inline, isLibraryMode])
+
+  // ── body scroll lock ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (!open || inline) return
+    document.body.style.overflow = "hidden"
+    return () => { document.body.style.overflow = "" }
+  }, [open, inline])
+
+  // ── panel anchor — recalc whenever open or wrapper resizes ───────────
+  useEffect(() => {
+    if (!open || !wrapperRef.current) return
+
+    const update = () => {
+      const rect = wrapperRef.current!.getBoundingClientRect()
+      setPanelStyle({
+        position: "fixed",
+        top:      rect.bottom + 6,
+        right:    window.innerWidth - rect.right - 15,
+        width:    rect.width,           // panel matches expanded pill width
+        zIndex:   9999,
+      })
+    }
+
+    update()
+    // re-anchor after the expand animation finishes
+    const t = setTimeout(update, 320)
+    window.addEventListener("resize", update)
+    return () => { clearTimeout(t); window.removeEventListener("resize", update) }
+  }, [open])
+
+  // ── keyboard ─────────────────────────────────────────────────────────
+  const allNavigable = useMemo(() => [
+    ...movies.slice(0, 4).map(m => ({ type: "movie" as const, item: m })),
+    ...matchedUsers.map(u => ({ type: "user" as const, item: u as UserResult })),
+  ], [movies, matchedUsers])
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (e.key === "/" && !open && !inline &&
+          document.activeElement?.tagName !== "INPUT") {
+        e.preventDefault(); openSearch(); return
+      }
+      if (!open) return
+      if (e.key === "Escape") { inline ? setQuery("") : closeSearch(); return }
+      if (e.key === "ArrowDown") { e.preventDefault(); setActiveIndex(p => Math.min(p + 1, allNavigable.length - 1)) }
+      if (e.key === "ArrowUp")   { e.preventDefault(); setActiveIndex(p => Math.max(p - 1, -1)) }
+      if (e.key === "Enter" && activeIndex >= 0) {
+        const nav = allNavigable[activeIndex]
+        if (nav?.type === "movie")  { saveRecentSearch(query); router.push(`/movies/${nav.item.id}`); if (!inline) closeSearch() }
+        if (nav?.type === "user")   { router.push(`/user/${(nav.item as UserResult).id}`); if (!inline) closeSearch() }
+      }
+    }
+    window.addEventListener("keydown", h)
+    return () => window.removeEventListener("keydown", h)
+  }, [open, activeIndex, allNavigable, query, router, closeSearch, openSearch, inline])
+
+  const panelProps = {
+    query, movies, users: matchedUsers, loading, activeIndex, recentSearches,
+    onSelectMovie:   (m: MovieResult) => { saveRecentSearch(query || m.title); router.push(`/movies/${m.id}`); if (!inline) closeSearch() },
+    onSelectUser:    (u: UserResult)  => { router.push(`/user/${u.id}`); if (!inline) closeSearch() },
+    onSelectGenre:   (g: string)      => { saveRecentSearch(g); router.push(`/library?genre=${g.toLowerCase()}`); if (!inline) closeSearch() },
+    onSelectRecent:  (t: string)      => { setQuery(t); inputRef.current?.focus() },
+    onRemoveRecent:  (e: React.MouseEvent, t: string) => { e.stopPropagation(); removeRecentSearch(t); setRecentSearches(getRecentSearches()) },
+    onSelectTrending:(t: string)      => { setQuery(t); inputRef.current?.focus() },
+  }
+  
+  // ── inline mode ──────────────────────────────────────────────────────
+  if (inline) {
+    return (
+      <div className="relative w-full">
+        <SearchInput
+          ref={inputRef}
+          value={query}
+          onChange={(v) => { setQuery(v); setActiveIndex(-1) }}
+          onClear={() => setQuery("")}
+          loading={loading}
+          placeholder="Search movies, series..."
+          variant="inline"
+        />
+      </div>
+    )
+  }
+
+  // ── library mode ─────────────────────────────────────────────────────
+  if (isLibraryMode) {
+    return (
+      <div className="relative w-63 md:w-88 lg:w-100">
+        <SearchInput
+          ref={inputRef}
+          value={query}
+          onChange={(v) => {
+            setQuery(v)
+            const url = new URL(window.location.href)
+            if (v) url.searchParams.set("q", v)
+            else   url.searchParams.delete("q")
+            window.history.replaceState({}, "", url.toString())
+          }}
+          onClear={() => {
+            setQuery("")
+            const url = new URL(window.location.href)
+            url.searchParams.delete("q")
+            window.history.replaceState({}, "", url.toString())
+          }}
+          loading={false}
+          placeholder="Search movies..."
+          variant="library"
+        />
+      </div>
+    )
+  }
+
+  // ── navbar mode — expandable pill ────────────────────────────────────
   return (
-    <div className="flex items-center gap-2 mb-2!">
-      {icon && <span className="text-white/30">{icon}</span>}
-      <span className="text-[11px] font-medium text-white/30 uppercase tracking-wider">{label}</span>
-    </div>
+    <>
+      <div ref={wrapperRef} className="relative">
+        <AnimatePresence mode="wait">
+          {!open ? (
+            <motion.button
+              key="trigger"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.15 }}
+              onClick={openSearch}
+              className="flex items-center gap-2 h-8 px-2! rounded-md border border-white/20 bg-white/10 backdrop-blur-2xl text-white hover:text-text-primary hover:scale-110 transition-all duration-200"
+            >
+              <Search className="h-4 w-4" />
+              <span className="hidden md:block text-xs">Search</span>
+              <kbd className="text-[10px] text-white/50 border border-white/15 rounded px-1! py-0.5! font-mono leading-none">
+                /
+              </kbd>
+            </motion.button>
+          ):(
+            <motion.div
+              key="input"
+              initial={{ opacity: 0, scale: 0.97 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.97 }}
+              transition={{ duration: 0.15 }}
+              className="flex items-center h-8 w-[min(520px,80vw)] rounded-md border border-white/30 bg-white/10 backdrop-blur-2xl text-white overflow-hidden"
+            >
+              <div className="flex-1 min-w-0">
+                <SearchInput
+                  ref={inputRef}
+                  value={query}
+                  onChange={(v) => { setQuery(v); setActiveIndex(-1) }}
+                  onClear={() => setQuery("")}
+                  loading={loading}
+                  variant="navbar"
+                />
+              </div>
+              <button
+                onClick={closeSearch}
+                className="shrink-0 px-3 text-white/40 hover:text-white transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+
+      {/* Results panel — portal so it escapes navbar stacking context */}
+      {mounted && open && createPortal(
+        <>
+          {/* Invisible backdrop — catches outside clicks */}
+          <div
+            className="fixed inset-0 z-[9998]"
+            onMouseDown={closeSearch}
+          />
+          {/* Panel */}
+          <motion.div
+            ref={panelRef}
+            style={panelStyle}
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+            className="
+              rounded-xl border
+              shadow-2xl flex flex-col overflow-hidden p-2!
+              backdrop-blur-xl! backdrop-saturate-150! rounded-md! flex flex-col gap-2 border-white/30 bg-white/10 text-white
+            "
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div
+              className="overflow-y-auto max-h-[min(480px,60vh)] overscroll-contain"
+              onWheel={(e) => e.stopPropagation()}
+            >
+              <SearchPanel {...panelProps} />
+            </div>
+          </motion.div>
+        </>,
+        document.body
+      )}
+    </>
   )
 }
 
-function GenrePill({ genre, onClick }: { genre: string; onClick: () => void }) {
+
+
+
+------------------------------------
+
+
+"use client"
+
+import { useEffect, useMemo, useRef, useState, useCallback } from "react"
+import { Search, X } from "lucide-react"
+import { useDebounce } from "@/hooks/useDebounce"
+import { MovieResult, UserResult } from "@/types/search"
+import { getRecentSearches, saveRecentSearch, removeRecentSearch } from "@/lib/utils/search-bar"
+import { SearchInput } from "./search-input"
+import { SearchPanel } from "./search-panel"
+import { MOCK_USERS } from "@/lib/mock-data"
+import { useRouter, usePathname } from "next/navigation"
+import { createPortal } from "react-dom"
+import { motion, AnimatePresence } from "framer-motion"
+
+const API = "http://localhost:8000"
+
+type Props = {
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  inline?: boolean
+  onQueryChange?: (q: string) => void
+  isLibraryMode?: boolean
+}
+
+export default function SearchBar({
+  open: externalOpen,
+  onOpenChange,
+  inline = false,
+  onQueryChange,
+  isLibraryMode = false,
+}: Props) {
+  const [internalOpen, setInternalOpen] = useState(false)
+  const open = inline ? true : (externalOpen ?? internalOpen)
+
+  const [query,          setQuery]          = useState("")
+  const [movies,         setMovies]         = useState<MovieResult[]>([])
+  const [loading,        setLoading]        = useState(false)
+  const [activeIndex,    setActiveIndex]    = useState(-1)
+  const [recentSearches, setRecentSearches] = useState<string[]>([])
+  const [mounted,        setMounted]        = useState(false)
+  const [panelRect,      setPanelRect]      = useState<DOMRect | null>(null)
+
+  const inputRef   = useRef<HTMLInputElement>(null)
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const panelRef   = useRef<HTMLDivElement>(null)
+
+  const router         = useRouter()
+  const pathname       = usePathname()
+  const debouncedQuery = useDebounce(query, 300)
+
+  useEffect(() => { setMounted(true) }, [])
+  useEffect(() => { closeSearch() }, [pathname]) // eslint-disable-line
+
+  const matchedUsers = useMemo(() =>
+    !query ? [] : MOCK_USERS.filter(u =>
+      u.username?.toLowerCase().includes(query.toLowerCase())
+    ).slice(0, 3),
+  [query])
+
+  const openSearch = useCallback(() => {
+    setInternalOpen(true)
+    onOpenChange?.(true)
+    setRecentSearches(getRecentSearches())
+    // measure immediately before setting open so rect is ready
+    if (wrapperRef.current)
+      setPanelRect(wrapperRef.current.getBoundingClientRect())
+    setTimeout(() => inputRef.current?.focus(), 20)
+  }, [onOpenChange])
+
+  const closeSearch = useCallback(() => {
+    setInternalOpen(false)
+    onOpenChange?.(false)
+    setActiveIndex(-1)
+    setTimeout(() => { setQuery(""); setMovies([]) }, 150)
+  }, [onOpenChange])
+
+  // ── fetch ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!debouncedQuery) { setMovies([]); return }
+    let ignore = false
+    const run = async () => {
+      try {
+        setLoading(true)
+        const res  = await fetch(`${API}/search/?q=${encodeURIComponent(debouncedQuery)}`)
+        const data = await res.json()
+        if (!ignore)
+          setMovies((data.results ?? []).filter((r: MovieResult) => r.type === "movie"))
+      } finally {
+        if (!ignore) setLoading(false)
+      }
+    }
+    run()
+    return () => { ignore = true }
+  }, [debouncedQuery])
+
+  useEffect(() => { if (inline) onQueryChange?.(query) }, [query, inline, onQueryChange])
+
+  // ── outside click ─────────────────────────────────────────────────────
+  // ✅ check wrapper AND panel ref — panel is in a portal so not a child of wrapper
+  useEffect(() => {
+    if (inline || isLibraryMode) return
+    const h = (e: MouseEvent) => {
+      const t = e.target as Node
+      const insideWrapper = wrapperRef.current?.contains(t)
+      const insidePanel   = panelRef.current?.contains(t)
+      if (!insideWrapper && !insidePanel) closeSearch()
+    }
+    document.addEventListener("mousedown", h, true)
+    return () => document.removeEventListener("mousedown", h, true)
+  }, [closeSearch, inline, isLibraryMode])
+
+  // ── measure wrapper whenever open state or window size changes ────────
+  // ✅ no setTimeout — measure synchronously on open, and on resize
+  useEffect(() => {
+    if (!open) return
+    const measure = () => {
+      if (wrapperRef.current)
+        setPanelRect(wrapperRef.current.getBoundingClientRect())
+    }
+    measure()
+    window.addEventListener("resize", measure)
+    return () => window.removeEventListener("resize", measure)
+  }, [open])
+
+  // ── body scroll lock ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (!open || inline) return
+    document.body.style.overflow = "hidden"
+    return () => { document.body.style.overflow = "" }
+  }, [open, inline])
+
+  // ── keyboard ──────────────────────────────────────────────────────────
+  const allNavigable = useMemo(() => [
+    ...movies.slice(0, 4).map(m => ({ type: "movie" as const, item: m })),
+    ...matchedUsers.map(u => ({ type: "user" as const, item: u as UserResult })),
+  ], [movies, matchedUsers])
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (e.key === "/" && !open && !inline &&
+          document.activeElement?.tagName !== "INPUT") {
+        e.preventDefault(); openSearch(); return
+      }
+      if (!open) return
+      if (e.key === "Escape") { inline ? setQuery("") : closeSearch(); return }
+      if (e.key === "ArrowDown") { e.preventDefault(); setActiveIndex(p => Math.min(p + 1, allNavigable.length - 1)) }
+      if (e.key === "ArrowUp")   { e.preventDefault(); setActiveIndex(p => Math.max(p - 1, -1)) }
+      if (e.key === "Enter" && activeIndex >= 0) {
+        const nav = allNavigable[activeIndex]
+        if (nav?.type === "movie") { saveRecentSearch(query); router.push(`/movies/${nav.item.id}`); if (!inline) closeSearch() }
+        if (nav?.type === "user")  { router.push(`/user/${(nav.item as UserResult).id}`); if (!inline) closeSearch() }
+      }
+    }
+    window.addEventListener("keydown", h)
+    return () => window.removeEventListener("keydown", h)
+  }, [open, activeIndex, allNavigable, query, router, closeSearch, openSearch, inline])
+
+  const panelProps = {
+    query, movies, users: matchedUsers, loading, activeIndex, recentSearches,
+    onSelectMovie:    (m: MovieResult) => { saveRecentSearch(query || m.title); router.push(`/movies/${m.id}`); if (!inline) closeSearch() },
+    onSelectUser:     (u: UserResult)  => { router.push(`/user/${u.id}`); if (!inline) closeSearch() },
+    onSelectGenre:    (g: string)      => { saveRecentSearch(g); router.push(`/library?genre=${g.toLowerCase()}`); if (!inline) closeSearch() },
+    onSelectRecent:   (t: string)      => { setQuery(t); inputRef.current?.focus() },
+    onRemoveRecent:   (e: React.MouseEvent, t: string) => { e.stopPropagation(); removeRecentSearch(t); setRecentSearches(getRecentSearches()) },
+    onSelectTrending: (t: string)      => { setQuery(t); inputRef.current?.focus() },
+  }
+
+  // ── derived panel position from rect ─────────────────────────────────
+  const panelStyle: React.CSSProperties = panelRect ? {
+    position: "fixed",
+    top:      panelRect.bottom + 6,
+    right:    window.innerWidth - panelRect.right,
+    width:    open ? "min(520px, 80vw)" : panelRect.width,
+    zIndex:   9999,
+  } : { display: "none" }
+
+  // ── inline mode ───────────────────────────────────────────────────────
+  if (inline) {
+    return (
+      <div className="relative w-full">
+        <SearchInput ref={inputRef} value={query}
+          onChange={(v) => { setQuery(v); setActiveIndex(-1) }}
+          onClear={() => setQuery("")} loading={loading}
+          placeholder="Search movies, series..." variant="inline"
+        />
+      </div>
+    )
+  }
+
+  // ── library mode ──────────────────────────────────────────────────────
+  if (isLibraryMode) {
+    return (
+      <div className="relative w-63 md:w-88 lg:w-100">
+        <SearchInput ref={inputRef} value={query}
+          onChange={(v) => {
+            setQuery(v)
+            const url = new URL(window.location.href)
+            if (v) url.searchParams.set("q", v)
+            else   url.searchParams.delete("q")
+            window.history.replaceState({}, "", url.toString())
+          }}
+          onClear={() => {
+            setQuery("")
+            const url = new URL(window.location.href)
+            url.searchParams.delete("q")
+            window.history.replaceState({}, "", url.toString())
+          }}
+          loading={false} placeholder="Search movies..." variant="library"
+        />
+      </div>
+    )
+  }
+
+  // ── navbar mode ───────────────────────────────────────────────────────
   return (
-    <button
-      onClick={onClick}
-      className="text-xs text-white/50 border border-white/30 bg-white/5 hover:bg-white/10 hover:text-white/90 hover:border-white/30 px-2.5! py-1! rounded-full transition-all duration-150"
-    >
-      {genre}
-    </button>
+    <>
+      <div ref={wrapperRef}>
+        <AnimatePresence mode="wait">
+          {!open ? (
+            <motion.button
+              key="trigger"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.12 }}
+              onClick={openSearch}
+              className="flex items-center gap-2 h-8 px-2 rounded-md border border-white/20 bg-white/10 backdrop-blur-2xl text-white hover:text-text-primary hover:scale-110 transition-all duration-200"
+            >
+              <Search className="h-4 w-4" />
+              <span className="hidden md:block text-xs">Search</span>
+              <kbd className="text-[10px] text-white/50 border border-white/15 rounded px-1 py-0.5 font-mono leading-none">
+                /
+              </kbd>
+            </motion.button>
+          ) : (
+            <motion.div
+              key="input"
+              initial={{ opacity: 0, scale: 0.97 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.97 }}
+              transition={{ duration: 0.12 }}
+              className="flex items-center h-8 w-[min(520px,80vw)] rounded-md border border-white/30 bg-white/10 backdrop-blur-2xl text-white overflow-hidden"
+            >
+              <Search className="h-4 w-4 shrink-0 ml-2.5 text-white/40" />
+              <div className="flex-1 min-w-0">
+                <SearchInput
+                  ref={inputRef}
+                  value={query}
+                  onChange={(v) => { setQuery(v); setActiveIndex(-1) }}
+                  onClear={() => setQuery("")}
+                  loading={loading}
+                  variant="navbar"
+                />
+              </div>
+              <button
+                onClick={closeSearch}
+                className="shrink-0 px-2.5 text-white/40 hover:text-white transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {mounted && open && createPortal(
+        <>
+          {/* Backdrop */}
+          <div className="fixed inset-0 z-[9998]" onMouseDown={closeSearch} />
+
+          {/* Panel — no entry animation delay, appears instantly */}
+          <motion.div
+            ref={panelRef}
+            style={panelStyle}
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.12, ease: "easeOut" }}
+            className="rounded-xl border border-white/20 bg-[#0e0e10]/95 backdrop-blur-xl shadow-2xl overflow-hidden"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div
+              className="overflow-y-auto max-h-[min(480px,60vh)] overscroll-contain p-2"
+              onWheel={(e) => e.stopPropagation()}
+            >
+              <SearchPanel {...panelProps} />
+            </div>
+          </motion.div>
+        </>,
+        document.body
+      )}
+    </>
   )
 }
-
-

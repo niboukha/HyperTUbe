@@ -4,37 +4,37 @@ export const MOCK_USERS : UserResult[] = [
   {
     id: 1,
     username: "Tohn_doe",
-    avatar: "avatars/Name=chicken.svg",
+    avatar: "/avatars/Name=chicken.svg",
     "type": "user",
   },
   {
     id: 2,
     username: "Tinephile",
-    avatar: "avatars/Name=fluffyblue.svg",
+    avatar: "/avatars/Name=fluffyblue.svg",
     "type": "user",
   },
   {
     id: 3,
     username: "Tovie_lover",
-    avatar: "avatars/Name=red.svg",
+    avatar: "/avatars/Name=red.svg",
     "type": "user",
   },
   {
     id: 4,
     username: "Cinephile42",
-    avatar: "avatars/Name=green.svg",
+    avatar: "/avatars/Name=green.svg",
     "type": "user",
   },
   {
     id: 5,
     username: "ReelCritic",
-    avatar: "avatars/Name=yellow.svg",
+    avatar: "/avatars/Name=yellow.svg",
     "type": "user",
   },
   {
     id: 6,
     username: "FilmGeek_Lila",
-    avatar: "avatars/Name=blue.svg",
+    avatar: "/avatars/Name=blue.svg",
     "type": "user",
   },
 ]

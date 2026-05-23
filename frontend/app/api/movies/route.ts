@@ -13,6 +13,23 @@ const PRESET_ENDPOINTS: Record<string, string> = {
 // Blocked genre IDs (romance, horror, thriller)
 const BLOCKED_GENRES = new Set([10749, 18, 53, 99])
 
+type TmdbMovie = {
+  id: number
+  title?: string
+  overview?: string
+  release_date?: string
+  vote_average?: number
+  genre_ids?: number[]
+  poster_path?: string | null
+  backdrop_path?: string | null
+}
+
+type TmdbPage = {
+  results?: TmdbMovie[]
+  total_pages?: number
+  total_results?: number
+}
+
 export async function GET(req: NextRequest) {
   const s           = req.nextUrl.searchParams
   const type        = s.get("type") ?? "popular"
@@ -90,19 +107,25 @@ export async function GET(req: NextRequest) {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-async function tmdbFetch(url: URL, revalidate: number) {
-  const res = await fetch(url.toString(), {
-    next: { revalidate },
-  })
-  if (!res.ok) {
-    console.error("TMDB error", res.status, url.toString())
+async function tmdbFetch(url: URL, revalidate: number): Promise<TmdbPage> {
+  try {
+    const res = await fetch(url.toString(), {
+      next: { revalidate },
+      signal: AbortSignal.timeout(5000),
+    })
+    if (!res.ok) {
+      console.error("TMDB error", res.status, url.toString())
+      return { results: [], total_pages: 1, total_results: 0 }
+    }
+    return res.json()
+  } catch (error) {
+    console.error("TMDB fetch failed", url.toString(), error)
     return { results: [], total_pages: 1, total_results: 0 }
   }
-  return res.json()
 }
 
-function respond(data: any, blockedGenres: Set<number>) {
-  const raw: any[] = data.results ?? []
+function respond(data: TmdbPage, blockedGenres: Set<number>) {
+  const raw = data.results ?? []
 
   // Light client-side block for presets that don't support without_genres
   const filtered = raw.filter(
@@ -132,4 +155,3 @@ function respond(data: any, blockedGenres: Set<number>) {
     totalResults: data.total_results ?? 0,
   })
 }
-

@@ -11,12 +11,20 @@ type Props = {
   onSelect: (movie: MovieResult) => void
 }
 
+export function resolveImage(path: string | null | undefined): string | null {
+  if (!path) return null
+  if (path.startsWith("http")) return path                          // ✅ Django full URL
+  return `https://image.tmdb.org/t/p/w200${path}`                  // legacy bare path
+}
+
 export function TopResultsSection({ movies, query, activeIndex, onSelect }: Props) {
   if (movies.length === 0) return null
+
   return (
     <div className="mb-4!">
       <SectionHeading icon={<Film className="h-3 w-3" />} label="Top results" />
-      <div className="flex gap-2 overflow-x-auto pb-1!" style={{ scrollbarWidth: "none" }}>
+
+      <div className="flex gap-2 overflow-x-auto py-1.5!" style={{ scrollbarWidth: "none" }}>
         {movies.map((movie, i) => (
           <div
             key={movie.id}
@@ -28,7 +36,7 @@ export function TopResultsSection({ movies, query, activeIndex, onSelect }: Prop
             <div className="aspect-[2/3] bg-white/5 relative">
               {movie.poster_path ? (
                 <Image
-                  src={`https://image.tmdb.org/t/p/w200${movie.poster_path}`}
+                  src={resolveImage(movie.poster_path)!}
                   alt={movie.title}
                   fill
                   priority

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { MovieResult } from "@/types/search"
 import Image from "next/image"
-import { Plus, ChevronLeft, ChevronRight } from "lucide-react"
+import { Plus, ChevronLeft, ChevronRight, Star } from "lucide-react"
 import { useCarousel } from "../carousel/use-carousel"
 import { containerVariants } from "@/lib/annimations/continue-watching-variants"
 import { Button } from "../ui/button"
@@ -14,10 +14,10 @@ import { itemVariants } from "@/lib/annimations/hero-variants"
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip"
 import { CarouselSkeleton } from "../carousel/CarouselSkeleton"
 import HeaderTitle from '../ui/header-title';
-import { getMovieDetails } from "@/lib/utils/fetchMovies"
 import { TMDB_GENRE_LABELS } from "@/lib/tmdb-genres"
 import { AvailabilityBadge } from "../ui/AvailabilityBadge"
 import Link from "next/link"
+import { useRuntimes } from "@/hooks/use-runtimes"
 
 type MovieRowProps = {
   title: string
@@ -26,26 +26,15 @@ type MovieRowProps = {
 
 export default function PrimeRow({ title, movies }: MovieRowProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(0)
-  const [duration, setDuration]       = useState<string>("")
-
   const { scrollRef, canScrollLeft, canScrollRight, checkScroll, scroll, startAutoScroll, stopAutoScroll } = useCarousel()
+  const { runtimes, loading: runtimesLoading } = useRuntimes(
+    movies.map(m => m.id)
+  )
 
-  useEffect(() => {
-    if (activeIndex === null) return
+  // console.log("PrimeRow: ", { title, movies })
 
-    const movie = movies[activeIndex]
-    if (!movie) return
-    
-    async function load() {
-      const data = await getMovieDetails(movie.id)
-      setDuration(data.runtime)
-    }
-
-    load()
-  }, [activeIndex, movies])
-
-  
   const loading = !movies || movies.length === 0 
+  
   if (loading)
     return <CarouselSkeleton title={title} isprime={true} /> 
   
@@ -109,6 +98,9 @@ export default function PrimeRow({ title, movies }: MovieRowProps) {
         >
           {movies.map((movie, index) => {
             const isActive = index === activeIndex
+            const backdropSrc = movie.backdrop_path || null;
+            const posterSrc = movie.poster_path || null;
+            // {console.log("=======>movie: ", movie)}
             // const releaseYear = getReleaseYear(movie.release_date)
             return (
               <motion.div
@@ -129,17 +121,23 @@ export default function PrimeRow({ title, movies }: MovieRowProps) {
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       transition={{ duration: 0.3 }}
-                      className="absolute inset-0  "
+                      className="absolute inset-0"
                     >
-                      <Image
-                        src={`${movie.backdrop_path}`}
-                        alt={movie.title}
-                        fill
-                        priority
-                        sizes="500px"
-                        className="object-cover"
-                        quality={100}
-                      />
+                      {backdropSrc ? (
+                        <Image
+                          src={backdropSrc}
+                          alt={movie.title}
+                          fill
+                          priority
+                          sizes="500px"
+                          className="object-cover"
+                          quality={100}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-black/40">
+                          <span className="text-white/15 text-4xl">🎬</span>
+                        </div>
+                      )}
                     </motion.div>
                   ) : (
                     <motion.div
@@ -150,15 +148,21 @@ export default function PrimeRow({ title, movies }: MovieRowProps) {
                       transition={{ duration: 0.3 }}
                       className="absolute inset-0"
                     >
-                      <Image
-                        src={`${movie.poster_path}`}
-                        alt={movie.title}
-                        fill
-                        priority
-                        sizes="160px"
-                        quality={100}
-                        className="object-cover"
-                      />
+                      {posterSrc ? (
+                        <Image
+                          src={posterSrc}
+                          alt={movie.title}
+                          fill
+                          priority
+                          sizes="160px"
+                          quality={100}
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-black/40">
+                          <span className="text-white/15 text-4xl">🎬</span>
+                        </div>
+                      )}
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -266,8 +270,12 @@ export default function PrimeRow({ title, movies }: MovieRowProps) {
                           <Badge variant="secondary" className="bg-accent-gold text-foreground border-0 text-xs font-bold! rounded-[5px] px-1! py-0.5!">
                               TMDb
                           </Badge>
-                          <Badge variant="link" className=" text-text-muted text-xs gap-1 rounded-md">
+                          {/* <Badge variant="link" className=" text-text-muted text-xs gap-1 rounded-md">
                               {movie.rating}
+                          </Badge> */}
+                          <Badge variant="link" className="text-text-muted text-xs gap-1 rounded-md">
+                            <Star className="h-3 w-3 fill-yellow-400/70 text-yellow-400/70" />
+                            {movie.rating?.toFixed(1) ?? "0.0"}
                           </Badge>
                           <span className="text-text-muted/50 hidden md:inline">|</span>
                           <Badge variant="link" className=" text-text-muted text-xs rounded-md">
@@ -275,7 +283,11 @@ export default function PrimeRow({ title, movies }: MovieRowProps) {
                           </Badge>
                           <span className="text-text-muted/50 hidden md:inline">|</span>
                           <Badge variant="link" className=" text-text-muted text-xs rounded-md">
-                              {duration}
+                              {runtimesLoading ? (
+                                <div className="h-3 w-10 rounded bg-white/10 animate-pulse" />
+                              ) : (
+                                runtimes[movie.id]
+                              )}
                           </Badge>
                           <span className="text-text-muted/50 hidden md:inline">|</span>
                             {movie.genre_ids?.map((id: number) => (

@@ -6,7 +6,6 @@ import { motion } from "framer-motion"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { containerVariants, cardVariants } from "@/lib/annimations/continue-watching-variants"
-import { Movie } from "@/types/movie"
 import { continueWatchingMovies, mapTrendingToContinueWatching } from "@/lib/mock-data"
 
 type ContinueWatchingMovie = {
@@ -171,6 +170,22 @@ export default function ContinueWatching() {
                     // transform: hoveredIndex === index ? "scale(1.08)" : "scale(1)",
                   }}
                 />
+
+                {movie.image ? (
+                  <Image
+                    src={movie.image}
+                    alt={movie.title}
+                    fill
+                    priority
+                    sizes="(max-width: 768px) 256px, 320px"
+                    className="object-cover transition-transform duration-700 ease-out"
+                    quality={0}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <span className="text-white/15 text-4xl">🎬</span>
+                  </div>
+                )}
 
                 {/* Bottom info overlay */}
                 <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/10 to-transparent" />

@@ -7,7 +7,7 @@ type Props = {
 }
 
 export function ResultsHeader({ loading, urlQuery, genres, count, hasMore }: Props) {
-  const label = urlQuery || (genres.length > 0 ? genres.join(" · ") : "Trending")
+  const label = urlQuery || (genres.length > 0 ? genres.join(" · ") : "Top Rated Movies")
   return (
     <div className="flex items-center gap-3">
       <span className="text-accent-red font-title text-lg">|</span>

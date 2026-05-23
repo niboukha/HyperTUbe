@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react"
 import { MovieResult } from "@/types/search"
 
-const API = "http://localhost:8000"
 
 type CollectionData = {
   id: number
@@ -22,7 +21,7 @@ export function useCollection(collectionId: number | null | undefined) {
     if (!collectionId) return
 
     setLoading(true)
-    fetch(`${API}/movies/collection/${collectionId}/`)
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/movies/collection/${collectionId}/`)
       .then(r => r.ok ? r.json() : null)
       .then(d => { setData(d); setLoading(false) })
       .catch(() => setLoading(false))

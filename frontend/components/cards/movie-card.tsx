@@ -27,8 +27,8 @@ export function MovieCard({ title, posterPath, year }: MovieCardProps) {
             className="object-cover transition-all duration-200 group-hover:scale-105 group-hover:brightness-110"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-white/40 text-xs">
-            No Image
+          <div className="w-full h-full flex items-center justify-center">
+            <span className="text-white/15 text-4xl">🎬</span>
           </div>
         )}
       </div>

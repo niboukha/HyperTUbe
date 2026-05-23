@@ -10,7 +10,14 @@ import { TooltipButton } from "../ui/tool-tip-button"
 import { AvailabilityBadge } from "../ui/AvailabilityBadge";
 import Link from "next/link";
 
-export default function MovieCard({ movie, index }: { movie: MovieResult; index: number }) {
+type MovieCardProps = {
+  index: number
+  movie: MovieResult
+  runtime?: string
+  runtimeLoading?: boolean
+}
+
+export default function MovieCard({ index, movie, runtime, runtimeLoading }: MovieCardProps) {
   const {
     hover,
     handleMouseEnter,
@@ -73,11 +80,12 @@ export default function MovieCard({ movie, index }: { movie: MovieResult; index:
       {hoveredMovie && (
         <CarouselPortal
           hover={hover}
-          movieId={hoveredMovie.id}
           image={ hoveredimage }
           title={hoveredMovie.title}
           year={hoveredMovie.year}
           rating={hoveredMovie.rating}
+          runtime={runtime}
+          runtimeLoading={runtimeLoading}
           availability={hoveredMovie.availability}
           getPortalStyle={getPortalStyle}
           onMouseEnter={clearHoverTimeout}
