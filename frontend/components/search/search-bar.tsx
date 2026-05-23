@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react"
-import { Search, X } from "lucide-react"
+import { Search } from "lucide-react"
 import { useDebounce } from "@/hooks/useDebounce"
 import { MovieResult, UserResult } from "@/types/search"
 import { getRecentSearches, saveRecentSearch, removeRecentSearch } from "@/lib/utils/search-bar"
@@ -38,6 +38,7 @@ export default function SearchBar({
   const [activeIndex,    setActiveIndex]    = useState(-1)
   const [recentSearches, setRecentSearches] = useState<string[]>([])
   const [mounted,        setMounted]        = useState(false)
+  // const [panelStyle,     setPanelStyle]     = useState<React.CSSProperties>({})
   const [panelRect,      setPanelRect]      = useState<DOMRect | null>(null)
 
   const inputRef    = useRef<HTMLInputElement>(null)
@@ -46,13 +47,12 @@ export default function SearchBar({
 
   const router      = useRouter()
   const pathname    = usePathname()
-
   const debouncedQuery = useDebounce(query, 300)
 
   useEffect(() => { setMounted(true) }, [])
   useEffect(() => { closeSearch() }, [pathname]) // eslint-disable-line
 
-  // helpers
+  //  helpers 
   const matchedUsers = useMemo(() =>
     !query ? [] : MOCK_USERS.filter(u =>
       u.username?.toLowerCase().includes(query.toLowerCase())
@@ -75,29 +75,18 @@ export default function SearchBar({
     setTimeout(() => { setQuery(""); setMovies([]) }, 200)
   }, [onOpenChange])
 
-  // fetch
+  //  fetch 
   useEffect(() => {
     if (!debouncedQuery) { setMovies([]); return }
     let ignore = false
     const run = async () => {
       try {
         setLoading(true)
-        const res = await fetch( `${API}/search/?q=${encodeURIComponent(debouncedQuery)}` )
+        const res  = await fetch(`${API}/search/?q=${encodeURIComponent(debouncedQuery)}`)
         const data = await res.json()
-
-        // console.log("Search results:", data)
-
-        const results = Array.isArray(data?.results)
-          ? data.results
-          : []
-
-        if (!ignore) {
-          setMovies(
-            results.filter(
-              (r: MovieResult) => r.type === "movie"
-            )
-          )
-        }
+        console.log("Search results:", data)
+        if (!ignore)
+          setMovies((data ?? []).filter((r: MovieResult) => r.type === "movie"))
       } finally {
         if (!ignore) setLoading(false)
       }
@@ -105,10 +94,10 @@ export default function SearchBar({
     run()
     return () => { ignore = true }
   }, [debouncedQuery])
-  
+
   useEffect(() => { if (inline) onQueryChange?.(query) }, [query, inline, onQueryChange])
 
-  // outside click 
+  //  outside click 
   useEffect(() => {
     if (inline || isLibraryMode) return
     const h = (e: MouseEvent) => {
@@ -120,12 +109,21 @@ export default function SearchBar({
     return () => document.removeEventListener("mousedown", h, true)
   }, [closeSearch, inline, isLibraryMode])
 
-  // body scroll lock 
+  //  body scroll lock ─
   useEffect(() => {
     if (!open || inline) return
     document.body.style.overflow = "hidden"
     return () => { document.body.style.overflow = "" }
   }, [open, inline])
+
+  //  panel anchor — recalc whenever open or wrapper resizes ─
+  // const panelStyle: React.CSSProperties = panelRect ? {
+  //   position: "fixed",
+  //   top:      panelRect.bottom + 6,
+  //   left:     panelRect.left,
+  //   width:    open ? "min(520px, 80vw)" : panelRect.width,
+  //   zIndex:   9999,
+  // } : { display: "none" }
 
   const updatePanelRect = useCallback(() => {
     if (!wrapperRef.current) return
@@ -171,7 +169,7 @@ export default function SearchBar({
       }
     : { display: "none" }
 
-  // keyboard
+  //  keyboard ─
   const allNavigable = useMemo(() => [
     ...movies.slice(0, 4).map(m => ({ type: "movie" as const, item: m })),
     ...matchedUsers.map(u => ({ type: "user" as const, item: u as UserResult })),
@@ -207,7 +205,7 @@ export default function SearchBar({
     onSelectTrending:(t: string)      => { setQuery(t); inputRef.current?.focus() },
   }
   
-  // inline mode
+  //  inline mode 
   if (inline) {
     return (
       <div className="relative w-full">
@@ -224,10 +222,10 @@ export default function SearchBar({
     )
   }
 
-  // library mode
+  //  library mode ─
   if (isLibraryMode) {
     return (
-      <div className="relative w-63 md:w-88 lg:w-100">
+      <div className="relative w-[min(52vw,16rem)] sm:w-63 md:w-88 xl:w-100">
         <SearchInput
           ref={inputRef}
           value={query}
@@ -247,12 +245,13 @@ export default function SearchBar({
           loading={false}
           placeholder="Search movies..."
           variant="library"
+          autoFocus={false}
         />
       </div>
     )
   }
 
-  // navbar mode — expandable pill
+  //  navbar mode — expandable pill 
   return (
     <>
       <div ref={wrapperRef} className="relative">

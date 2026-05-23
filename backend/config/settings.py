@@ -53,17 +53,16 @@ INSTALLED_APPS = [
     # "apps.comments",
 ]
 
-# settings.py
 CACHES = {
     "default": {
         "BACKEND":  "django_redis.cache.RedisCache",
-        "LOCATION": "redis://127.0.0.1:6379/1",
+        "LOCATION": "redis://redis:6379/1",
         "OPTIONS":  {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
     }
 }
 
-CELERY_BROKER_URL    = "redis://127.0.0.1:6379/0"
-CELERY_RESULT_BACKEND = "redis://127.0.0.1:6379/0"
+CELERY_BROKER_URL    = "redis://redis:6379/0"
+CELERY_RESULT_BACKEND = "redis://redis:6379/0"
 CELERY_TASK_SERIALIZER = "json"
 
 TMDB_TOKEN   = env("TMDB_TOKEN")    # Bearer token
@@ -180,6 +179,17 @@ CELERY_TASK_TIME_LIMIT = None
 CELERY_TASK_SOFT_TIME_LIMIT = None
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+]
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+]
+
+CORS_ALLOW_ALL_ORIGINS = True
 
 # Celery Configuration Options
 # CELERY_BROKER_URL = 'redis://redis:6379/0'
