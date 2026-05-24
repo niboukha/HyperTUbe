@@ -22,11 +22,9 @@ class Torrent(models.Model):
         return f"the torrent link is {self.movie.torrent_url} and the id is {self.id}"
     
 class Subtitle(models.Model):
-    movie       = models.ForeignKey(Movie, on_delete=models.CASCADE, related_name='subtitles')
-    language    = models.CharField(max_length=10)  # en, fr, ar...
-    file_path   = models.CharField(max_length=500)
-    source      = models.CharField(max_length=100, null=True, blank=True)
-    created_at  = models.DateTimeField(auto_now_add=True)
+    movie = models.ForeignKey(Movie, on_delete=models.CASCADE, related_name='subtitles')
+    language = models.CharField(max_length=50)
+    subtitle_link = models.URLField()
 
     def __str__(self):
         return f"the subtitle is {self.language} and the id is {self.id}"
