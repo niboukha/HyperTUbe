@@ -15,11 +15,12 @@ export default function ResetPasswordPage() {
   return (
     <div className="min-h-screen bg-black relative overflow-hidden">
       {/* Movie Poster Background */}
-        <header className="absolute top-0 left-0 w-full p-6! z-20">
-          <Logo />
-        </header>
+      <div className="absolute top-0 left-0 w-full p-6! z-20">
+        <Logo />
+      </div>
+
       <div
-        className="absolute inset-0 opacity-40"
+        className="absolute inset-0 opacity-50"
         style={{
           backgroundImage: `url('./auth/auth-background.png')`,
           backgroundSize: 'cover',
@@ -31,10 +32,10 @@ export default function ResetPasswordPage() {
     <div className='relative z-10 min-h-screen flex flex-col'>
     <div className="flex-1 flex items-center justify-center px-4!">
 
-      <Card className="flex flex-col  w-[450px] h-[409px] rounded-sm bg-[#151515] border-0  inset-0 opacity-89 ">
+      <Card className="w-[450px] h-[409px] flex flex-col justify-center bg-[#151515] border-0 inset-0 opacity-89 ">
 
         <CardHeader className="flex justify-center items-center mt-12!">
-          <h4 className="text-white text-3xl font-title">Enter New Password</h4>
+          <h4 className="text-white text-3xl sm:text-4xl font-title">Enter New Password</h4>
         </CardHeader>
 
         <CardContent>
@@ -45,11 +46,11 @@ export default function ResetPasswordPage() {
             
                 <PasswordInput
                   placeholder="New Password"
-                  className="text-[#333333] w-[314px] h-[50px] rounded-sm text-white placeholder:text-gray-400 py-6! px-4! text-base"
+                  className="w-full rounded-md bg-[#333333] text-white placeholder:text-gray-500 border-0 py-5.5! px-4!"
                 />
                  <PasswordInput
                   placeholder="Confirm New Password"
-                  className="text-[#333333] w-[314px] h-[50px] rounded-sm text-white placeholder:text-gray-400 py-6! px-4! text-base"
+                  className="w-full rounded-md bg-[#333333] text-white placeholder:text-gray-500 border-0 py-5.5! px-4!"
                 />
             </div>
 

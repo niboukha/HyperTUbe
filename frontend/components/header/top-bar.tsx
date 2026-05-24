@@ -10,6 +10,7 @@ import ProfileMenu from "./profile-menu"
 import MobileToggle from "./mobile-toggle"
 import LanguageMenu from "./language-menu"
 import { usePathname } from "next/navigation"
+import { LogOut } from "lucide-react"
 
 export default function TopBar() {
   const [currentLang, setCurrentLang]       = useState<Language>(languages[0])
@@ -168,6 +169,21 @@ export default function TopBar() {
                 />
               </motion.div>
           </AnimatePresence>
+
+          {/* logout */}
+          <AnimatePresence>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.3, ease: "linear" }}
+                // className={desktopControlsClass}
+                className="duration-200 hover:text-text-primary hover:scale-110 transition rounded-md border py-1! px-1! backdrop-blur-2xl! border-white/30 bg-white/10 hover:bg-white/10 text-white"
+              >
+                <LogOut className={`h-5.5 w-5.5`} />
+              </motion.div>
+          </AnimatePresence>
+
 
           <MobileToggle
             mobileMenuOpen={mobileMenuOpen}

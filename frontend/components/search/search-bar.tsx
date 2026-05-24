@@ -86,7 +86,12 @@ export default function SearchBar({
         const data = await res.json()
         console.log("Search results:", data)
         if (!ignore)
-          setMovies((data ?? []).filter((r: MovieResult) => r.type === "movie"))
+          // setMovies((data ?? []).filter((r: MovieResult) => r.type === "movie"))
+          setMovies(
+            Array.isArray(data)
+              ? data.filter((r: MovieResult) => r.type === "movie")
+              : []
+          )
       } finally {
         if (!ignore) setLoading(false)
       }
