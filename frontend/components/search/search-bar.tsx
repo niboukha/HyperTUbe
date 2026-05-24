@@ -12,7 +12,7 @@ import { useRouter, usePathname } from "next/navigation"
 import { createPortal } from "react-dom"
 import { motion, AnimatePresence } from "framer-motion"
 
-const API = "http://localhost:8000"
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 type Props = {
   open?: boolean
@@ -82,16 +82,17 @@ export default function SearchBar({
     const run = async () => {
       try {
         setLoading(true)
+        console.log("Searching for:", debouncedQuery)
         const res  = await fetch(`${API}/search/?q=${encodeURIComponent(debouncedQuery)}`)
         const data = await res.json()
         console.log("Search results:", data)
         if (!ignore)
           // setMovies((data ?? []).filter((r: MovieResult) => r.type === "movie"))
           setMovies(
-            Array.isArray(data)
-              ? data.filter((r: MovieResult) => r.type === "movie")
+            Array.isArray(data?.results)
+              ? data.results.filter((r: MovieResult) => r.type === "movie")
               : []
-          )
+          );
       } finally {
         if (!ignore) setLoading(false)
       }

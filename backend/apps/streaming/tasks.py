@@ -1,7 +1,8 @@
 import os
 import signal
 from celery import shared_task
-from .models import  Torrent
+from django.core.files.base import ContentFile
+from .models import  Subtitle, Torrent
 from apps.movies.models import Movie
 import shutil
 import time
@@ -9,12 +10,112 @@ from .torrent_engine import download_torrent, ACTIVE_TORRENTS
 import libtorrent as lt
 from .hls import start_ffmpeg
 import os
+import tempfile
+from pathlib import Path
 from django.db import close_old_connections, connection
+from .external_subtitles import download_external_subtitle_fallback
+from .subtitles import (
+    convert_srt_to_vtt,
+    detect_subtitle_streams,
+    extract_subtitle_stream,
+)
 
 
 DOWNLOAD_DIR  = '/tmp/torrents'
 HLS_DIR       = '/media/hls'
 MIN_BUFFER    = 5     
+
+
+def wanted_subtitle_languages(user_language=None):
+    languages = ['en']
+    if user_language and user_language.lower() not in languages:
+        languages.append(user_language.lower())
+    return languages
+
+
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={'max_retries': 3})
+def prepare_subtitles_for_movie(self, movie_id, user_language=None, video_path=None):
+    """
+    Prepare subtitles asynchronously.
+
+    This task uses the earlier phases:
+    1. Detect embedded subtitle streams with ffprobe.
+    2. Extract matching SRT streams with FFmpeg.
+    3. Convert SRT to WebVTT.
+    4. Save ready Subtitle rows.
+    5. Use OpenSubtitles fallback for languages still missing.
+    """
+    movie = Movie.objects.get(id=movie_id)
+    languages = wanted_subtitle_languages(user_language)
+
+    video_file = video_path or _find_video_file(f'{DOWNLOAD_DIR}/{movie_id}')
+    if not video_file:
+        print(f'[Subtitles] No local video file found for movie {movie_id}')
+        return
+
+    _prepare_embedded_subtitles(movie, video_file, languages)
+
+    for language in languages:
+        has_ready_subtitle = Subtitle.objects.filter(
+            movie=movie,
+            language=language,
+            status=Subtitle.Status.READY,
+        ).exists()
+
+        if has_ready_subtitle:
+            continue
+
+        try:
+            download_external_subtitle_fallback(movie.id, language)
+        except Exception as exc:
+            print(f'[Subtitles] External fallback failed for movie={movie.id} language={language}: {exc}')
+
+
+def _prepare_embedded_subtitles(movie, video_file, languages):
+    streams = detect_subtitle_streams(video_file)
+
+    for stream in streams:
+        language = (stream.language or '').lower()
+        if language not in languages:
+            continue
+
+        has_ready_subtitle = Subtitle.objects.filter(
+            movie=movie,
+            language=language,
+            status=Subtitle.Status.READY,
+        ).exists()
+        if has_ready_subtitle:
+            continue
+
+        if stream.codec_name != 'subrip':
+            print(
+                f'[Subtitles] Skipping embedded stream {stream.index}: '
+                f'codec={stream.codec_name} is not SRT/subrip'
+            )
+            continue
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            srt_path = Path(tmp_dir) / f'{language}.{stream.index}.srt'
+            vtt_path = Path(tmp_dir) / f'{language}.{stream.index}.vtt'
+
+            extract_subtitle_stream(video_file, stream.index, str(srt_path))
+            convert_srt_to_vtt(str(srt_path), str(vtt_path))
+
+            subtitle = Subtitle(
+                movie=movie,
+                language=language,
+                label=stream.title or language.upper(),
+                source=Subtitle.Source.EMBEDDED,
+                status=Subtitle.Status.READY,
+                stream_index=stream.index,
+                subtitle_link='',
+            )
+            subtitle.file.save(
+                f'movie_{movie.id}/{language}.embedded.{stream.index}.vtt',
+                ContentFile(vtt_path.read_bytes()),
+                save=True,
+            )
+
 
 @shared_task
 def download_and_segment(movie_id):
@@ -76,8 +177,6 @@ def download_and_segment(movie_id):
         movie.status = 'error'
         movie.save()
 
-
-
 def _find_video_file(directory):
 
     VIDEO_EXTENSIONS = (
@@ -137,7 +236,6 @@ def pre_check_video(file_path):
     
     return moov_available, video_codec, audio_codec
 
-
 def get_ffmpeg_args(video_codec, audio_codec):
     """Decide copy or transcode based on codecs."""
     if video_codec == 'h264' and audio_codec == 'aac':
@@ -159,7 +257,7 @@ def cleanup_old_movies():
         last_watched__lt=one_month_ago,
         mkv_path__isnull=False
     )
-    
+
     for movie in old_movies:
         movie_dir = f'{DOWNLOAD_DIR}/{movie.id}'
         hls_dir   = f'{HLS_DIR}/{movie.id}'
@@ -180,6 +278,5 @@ def cleanup_old_movies():
         movie.save()
         
         print(f'[Cleanup] Reset: {movie.title} ✅')
-
 
 

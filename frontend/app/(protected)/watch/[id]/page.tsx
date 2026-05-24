@@ -2,6 +2,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Building2, Calendar, Clock, Star } from "lucide-react";
 import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import ReactPlayer from "react-player";
 import { MovieDetail } from "@/types/movie";
 
@@ -25,7 +26,16 @@ const movies:any[] = [
 ]
 
 const videoUrl = "https://www.w3schools.com/html/mov_bbb.mp4";
-const subtitle = "/subtitles/interstellar-meen.vtt";
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+type SubtitleTrack = {
+  id: number;
+  language: string;
+  label: string;
+  src: string;
+  kind: "subtitles";
+  source: string;
+};
 
 
 export default function Watch()
@@ -33,6 +43,28 @@ export default function Watch()
     const params   = useParams()
     const movieId  = params.id as string
     const movie = movies.find((m) => m.id === movieId);
+    const [subtitles, setSubtitles] = useState<SubtitleTrack[]>([]);
+
+    useEffect(() => {
+      async function loadSubtitles() {
+        try {
+          const response = await fetch(`${API}/api/streaming/${movieId}/subtitles/`, {
+            credentials: "include",
+          });
+
+          if (!response.ok) {
+            setSubtitles([]);
+            return;
+          }
+
+          setSubtitles(await response.json());
+        } catch {
+          setSubtitles([]);
+        }
+      }
+
+      loadSubtitles();
+    }, [movieId]);
 
     return (
         <div className="min-h-screen flex flex-col items-center  !px-4 lg:!px-16 !space-y-4 !mt-15 !mb-15">
@@ -55,8 +87,16 @@ export default function Watch()
                     className="rounded-md border-1   border-white/[0.07] border"
                     >
                     <source src={videoUrl} type="video/mp4"/>
-                    <track kind="subtitles" src={subtitle} srcLang="en"  label='English' default/>
-                    <track kind="subtitles"  src="/subtitles/interstellar-ja.vtt" srcLang="ja" label='Japanese' />
+                    {subtitles.map((subtitle, index) => (
+                      <track
+                        key={subtitle.id}
+                        kind={subtitle.kind}
+                        src={subtitle.src}
+                        srcLang={subtitle.language}
+                        label={subtitle.label}
+                        default={index === 0}
+                      />
+                    ))}
                   </ReactPlayer>
                   <div className=" !mt-3  w-full rounded-xl border border-white/[0.07] bg-white/[0.03] !p-2 md:!p-6 ">
                     <div className="flex flex-col md:flex-row md:items-start gap-4 md:gap-8">

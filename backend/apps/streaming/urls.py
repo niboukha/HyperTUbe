@@ -1,8 +1,9 @@
 from django.urls import path, include
-from .views import MovieStreamView
+from .views import MovieStreamView, MovieSubtitlesView
 
 urlpatterns = [
     path('<int:movie_id>/stream/', MovieStreamView.as_view(), name='movie-stream'),
+    path('<int:movie_id>/subtitles/', MovieSubtitlesView.as_view(), name='movie-subtitles'),
     #  path('', views.MovieListView.as_view(), name='movie-list'),
     # path('<int:id>/', views.MovieDetailView.as_view(), name='movie-detail'),
     # path('<int:id>/watch/', views.WatchMovieView.as_view(), name='movie-watch'),

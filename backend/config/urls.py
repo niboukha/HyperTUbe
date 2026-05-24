@@ -19,30 +19,27 @@ from django.urls import path, include
 
 from django.conf.urls.static import static
 from django.conf import settings
-from rest_framework_simplejwt.views import TokenRefreshView  # ✅ add this
+from rest_framework_simplejwt.views import TokenRefreshView
 
 from rest_framework_simplejwt.views import TokenObtainPairView
-from apps.users.views import login_view  # ✅ import FROM users app, not relative
+from apps.users.views import login_view
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('apps.movies.urls')),
+    path('api/streaming/', include('apps.streaming.urls')),
+
     path("api/auth/", include("apps.users.urls")),
-    
+
     path("accounts/", include("allauth.urls")), 
     path("accounts/intra42/",include("apps.users.providers.intra42.urls")),
     
-    path('oauth/token', login_view, name='login'),  # ← here
-    path('oauth/token/refresh', TokenRefreshView.as_view(), name='refresh'),  # optiona
+    path('oauth/token', login_view, name='login'),
+    path('oauth/token/refresh', TokenRefreshView.as_view(), name='refresh'),
 
-    path('comments/',include("apps.comments.urls")),  # optiona
+    path('comments/',include("apps.comments.urls")),
 ]
-
-
-
-
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-

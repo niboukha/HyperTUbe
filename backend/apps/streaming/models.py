@@ -1,7 +1,6 @@
 from django.db import models
 from apps.movies.models import Movie
 
-
 class Torrent(models.Model):
     movie = models.OneToOneField(Movie, on_delete=models.CASCADE, related_name='torrent')
     hls_path = models.CharField(max_length=500, null=True, blank=True)
@@ -22,9 +21,24 @@ class Torrent(models.Model):
         return f"the torrent link is {self.movie.torrent_url} and the id is {self.id}"
     
 class Subtitle(models.Model):
-    movie = models.ForeignKey(Movie, on_delete=models.CASCADE, related_name='subtitles')
-    language = models.CharField(max_length=50)
-    subtitle_link = models.URLField()
+    class Source(models.TextChoices):
+        EMBEDDED = 'embedded', 'Embedded'
+        EXTERNAL = 'external', 'External'
+
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending'
+        READY   = 'ready', 'Ready'
+        FAILED  = 'failed', 'Failed'
+
+    movie           = models.ForeignKey(Movie, on_delete=models.CASCADE, related_name='subtitles')
+    language        = models.CharField(max_length=16)
+    label           = models.CharField(max_length=64, blank=True)
+    source          = models.CharField(max_length=20, choices=Source.choices, default=Source.EMBEDDED)
+    status          = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    file            = models.FileField(upload_to='subtitles/', blank=True, null=True)
+    subtitle_link   = models.URLField(blank=True)
+    stream_index    = models.IntegerField(blank=True, null=True)
+    created_at      = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"the subtitle is {self.language} and the id is {self.id}"
