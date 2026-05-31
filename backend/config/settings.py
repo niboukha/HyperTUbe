@@ -61,11 +61,10 @@ INSTALLED_APPS = [
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
     'allauth.socialaccount.providers.github',
-    # 'uapps.users.providers.intra42',
+    'apps.users.providers.intra42',
 
 
 
-    # "apps.comments",
 ]
 
 CACHES = {
@@ -101,6 +100,8 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         # Remove this ↓ (session based)
         # 'rest_framework.authentication.SessionAuthentication',
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+
 
         # Add this ↓ (JWT based)
         # 'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -248,7 +249,7 @@ CORS_ALLOW_ALL_ORIGINS = True
 REST_USE_JWT = True
 SITE_ID = 1
 SOCIALACCOUNT_LOGIN_ON_GET = True
-LOGIN_REDIRECT_URL = "http://localhost:8001/api/auth/social/callback/"
+LOGIN_REDIRECT_URL = "http://localhost:3000/home"
 
 AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
@@ -270,7 +271,7 @@ EMAIL_HOST_PASSWORD = "zrxq lbna avlz kixn"
 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
-SOCIALACCOUNT_ADAPTER="users.adapters.SocialAccountAdapter"
+SOCIALACCOUNT_ADAPTER="apps.users.adapters.SocialAccountAdapter"
 
 CORS_ALLOW_CREDENTIALS = True
 

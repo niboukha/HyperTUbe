@@ -1,4 +1,3 @@
-# users/providers/intra42/adapter.py
 
 import requests
 from allauth.socialaccount.providers.oauth2.views import OAuth2Adapter
@@ -12,7 +11,7 @@ class Intra42OAuth2Adapter(OAuth2Adapter):
     profile_url      = "https://api.intra.42.fr/v2/me"
     def get_callback_url(self, request, app):
         url = os.getenv("INTRA_CALLBACK")
-        return "http://localhost:8001/accounts/intra42/login/callback/"
+        return "http://localhost:8000/accounts/intra42/login/callback/"
 
         
     def complete_login(self, request, app, token, **kwargs):

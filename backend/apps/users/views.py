@@ -90,7 +90,7 @@ def login_view(request):
 # this view just for testing
 
 @api_view(['GET'])
-# @permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated])
 def me(request):
     return Response({
         "id": str(request.user.id),

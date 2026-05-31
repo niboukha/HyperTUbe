@@ -146,6 +146,9 @@ export default function SignInPage() {
             <div className="flex flex-row justify-center gap-4! w-full">
               {/* Google */}
               <Button
+                onClick={() => {
+                  window.location.href = "http://localhost:8000/accounts/google/login"
+                }}
                 variant="outline"
                 className="bg-white hover:bg-gray-100 border-0 w-14! h-12! rounded-lg flex items-center justify-center transition-colors"
                 aria-label="Sign in with Google"
@@ -159,6 +162,9 @@ export default function SignInPage() {
 
               {/* GitHub */}
               <Button
+                onClick={() => {
+                  window.location.href = "http://localhost:8000/accounts/github/login"
+                }}
                 variant="outline"
                 className="bg-white hover:bg-gray-100 border-0 w-14! h-12! rounded-lg flex items-center justify-center transition-colors"
                 aria-label="Sign in with GitHub"
@@ -172,6 +178,9 @@ export default function SignInPage() {
 
               {/* 42 */}
               <Button
+                onClick={() => {
+                  window.location.href = "http://localhost:8000/accounts/intra42/login"
+                }}
                 variant="outline"
                 className="bg-white hover:bg-gray-100 border-0 w-14! h-12! rounded-lg flex items-center justify-center transition-colors"
                 aria-label="Sign in with 42"
