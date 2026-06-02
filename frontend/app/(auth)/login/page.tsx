@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { PasswordInput } from '@/components/auth/PasswordInput'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import Logo from '@/components/ui/logo'
-import router from 'next/dist/shared/lib/router/router'
+import { useRouter } from 'next/navigation'
 import { useState } from "react"
 
 // export const metadata = {
@@ -19,28 +19,21 @@ export default function SignInPage() {
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
+  
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
 
     try {
-      const res = await fetch(
-        `http://localhost:8000/api/auth/login`,
-        {
-          method: "POST",
-          credentials: "include",
-
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            username,
-            password,
-          }),
-        }
-      )
+      const res = await fetch("http://localhost:8000/api/auth/login", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      })
 
       const data = await res.json()
 
@@ -48,10 +41,7 @@ export default function SignInPage() {
         throw new Error(data?.detail || "Login failed")
       }
 
-      console.log("LOGIN SUCCESS:", data)
-
-    
-
+      router.push("/home")
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -64,7 +54,7 @@ export default function SignInPage() {
       <div
         className="absolute inset-0 opacity-40"
         style={{
-          backgroundImage: `url('./auth/auth-background.png')`,
+          backgroundImage: `url('/auth/auth-background.png')`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
         }}
@@ -109,6 +99,11 @@ export default function SignInPage() {
               />
             </div>
 
+            {/* Error message */}
+            {error && (
+              <p className="text-red-500 text-sm text-center mt-2!">{error}</p>
+            )}
+
             {/* Sign In Button */}
             <div className="pt-4!">
                 <Button
@@ -122,7 +117,7 @@ export default function SignInPage() {
             {/* Forgot Password Link */}
             <div className="flex justify-end text-center">
               <a
-                href="/auth/forgot-password"
+                href="/forget-password"
                 className="text-gray-400 hover:text-white text-sm font-medium transition-colors"
               >
                 Forgot Password?
@@ -152,7 +147,7 @@ export default function SignInPage() {
                 className="bg-white hover:bg-gray-100 border-0 w-14! h-12! rounded-lg flex items-center justify-center transition-colors"
                 aria-label="Sign in with Google"
               >
-                <img src="./auth/google_logo.png" alt="" className="w-5 h-5" />
+                <img src="/auth/google_logo.png" alt="" className="w-5 h-5" />
               </Button>
             </a>
 
@@ -163,7 +158,7 @@ export default function SignInPage() {
                 className="bg-white hover:bg-gray-100 border-0 w-14! h-12! rounded-lg flex items-center justify-center transition-colors"
                 aria-label="Sign in with GitHub"
               >
-                <img src="./auth/github_logo.png" alt="" className="w-5 h-5" />
+                <img src="/auth/github_logo.png" alt="" className="w-5 h-5" />
               </Button>
             </a>
 
@@ -174,7 +169,7 @@ export default function SignInPage() {
                 className="bg-white hover:bg-gray-100 border-0 w-14! h-12! rounded-lg flex items-center justify-center transition-colors"
                 aria-label="Sign in with 42"
               >
-                <img src="./auth/42_Logo.png" alt="" className="w-5 h-5" />
+                <img src="/auth/42_Logo.png" alt="" className="w-5 h-5" />
               </Button>
             </a>
           </div>

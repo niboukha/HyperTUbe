@@ -6,6 +6,7 @@ import { PasswordInput } from '@/components/auth/PasswordInput'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import Logo from '@/components/ui/logo'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 // export const metadata = {
 //   title: 'HyperTube - Sign Up',
@@ -20,31 +21,31 @@ export default function SignUpPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+    setError(null)
 
     try {
       const res = await fetch("http://localhost:8000/api/auth/register", {
         method: "POST",
         credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          first_name: firstName,
-          last_name: lastName,
-          username,
-          email,
-          password,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ first_name: firstName, last_name: lastName, username, email, password }),
       })
 
       const data = await res.json()
-      console.log("REGISTER RESPONSE:", data)
 
-    } catch (err) {
-      console.error(err)
+      if (!res.ok) {
+        throw new Error(data?.detail || Object.values(data)?.[0]?.toString() || "Registration failed")
+      }
+
+      router.push("/home")
+    } catch (err: any) {
+      setError(err.message)
     } finally {
       setLoading(false)
     }
@@ -58,7 +59,7 @@ export default function SignUpPage() {
       <div
         className="absolute inset-0 opacity-40"
         style={{
-          backgroundImage: `url('./auth/auth-background.png')`,
+          backgroundImage: `url('/auth/auth-background.png')`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
         }}
@@ -118,6 +119,11 @@ export default function SignUpPage() {
               />
             </div>
 
+            {/* Error message */}
+            {error && (
+              <p className="text-red-500 text-sm text-center mt-2!">{error}</p>
+            )}
+
             {/* Sign Up Button */}
             <div className='flex justify-center items-center mt-8!'>
               <Button
@@ -152,28 +158,34 @@ export default function SignUpPage() {
           <div className="flex flex-row justify-center gap-8  w-full mt-5!">
 
             {/* Google */}
-            <Button
-              variant="outline"
-              className="bg-white hover:bg-gray-100 border-0 py-6! w-[80px] h-[42px] rounded-sm"
-            >
-             <img src="./auth/google_logo.png" alt="Google" className="w-6 h-6" />
-            </Button>
+            <a href="http://localhost:8000/accounts/google/login/">
+              <Button
+                variant="outline"
+                className="bg-white hover:bg-gray-100 border-0 py-6! w-[80px] h-[42px] rounded-sm"
+              >
+                <img src="/auth/google_logo.png" alt="Google" className="w-6 h-6" />
+              </Button>
+            </a>
 
             {/* GitHub */}
-            <Button
-              variant="outline"
-              className="bg-white hover:bg-gray-100 border-0 py-6! w-[80px] h-[42px] rounded-sm"
-            >
-             <img src="./auth/github_logo.png" alt="GitHub" className="w-6 h-6" />
-            </Button>
+            <a href="http://localhost:8000/accounts/github/login/">
+              <Button
+                variant="outline"
+                className="bg-white hover:bg-gray-100 border-0 py-6! w-[80px] h-[42px] rounded-sm"
+              >
+                <img src="/auth/github_logo.png" alt="GitHub" className="w-6 h-6" />
+              </Button>
+            </a>
 
-            {/* Discord */}
-            <Button
-              variant="outline"
-              className="bg-white hover:bg-gray-100 border-0 py-6! w-[80px] h-[42px] rounded-sm"
-            >
-              <img src="./auth/42_Logo.png" alt="42" className="w-6 h-6" />
-            </Button>
+            {/* 42 */}
+            <a href="http://localhost:8000/accounts/intra42/login/">
+              <Button
+                variant="outline"
+                className="bg-white hover:bg-gray-100 border-0 py-6! w-[80px] h-[42px] rounded-sm"
+              >
+                <img src="/auth/42_Logo.png" alt="42" className="w-6 h-6" />
+              </Button>
+            </a>
           </div>
 
           {/* Sign Up Link */}

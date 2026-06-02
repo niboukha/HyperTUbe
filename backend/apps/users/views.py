@@ -113,7 +113,7 @@ def password_reset_request(request):
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = default_token_generator.make_token(user)
 
-        link = f"http://localhost:5173/confirm-password?uid={uid}&token={token}"
+        link = f"http://localhost:3000/reset-password?uid={uid}&token={token}"
         send_mail(
                 "Reset Password",
                 f"Click here to reset your password: {link}",
