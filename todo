@@ -5,8 +5,6 @@
 - is_watched in search cards
 
 - scrolling in genres
-<<<<<<< HEAD
-- keep search in search input -> good
 
 
 
@@ -14,15 +12,9 @@
 
 
 
+kaoutar =>{
 
 
--------------> !!!!!!! If search has been done, the results will be displayed as thumbnails, sorted by
-names.
-=======
-<<<<<<< HEAD
-- keep search in search input -> good
-=======
-- keep search in search input -> good
-=> traduction
->>>>>>> feat/user-managment
->>>>>>> origin/main
+    oauth saved info check them
+    
+}

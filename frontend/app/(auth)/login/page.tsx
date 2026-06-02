@@ -62,7 +62,7 @@ export default function SignInPage() {
     <div className="min-h-screen bg-black relative overflow-hidden">
       {/* Movie Poster Background */}
       <div
-        className="absolute inset-0 opacity-50"
+        className="absolute inset-0 opacity-40"
         style={{
           backgroundImage: `url('./auth/auth-background.png')`,
           backgroundSize: 'cover',
@@ -70,146 +70,132 @@ export default function SignInPage() {
         }}
       />
 
-      <div className="absolute top-0 left-0 w-full p-6! z-20">
-        <Logo />
-      </div>
-      
       {/* Content */}
     <div className='relative z-10 min-h-screen flex flex-col'>
-      <div className="flex-1 flex items-center justify-center px-4!">
+    <div className="flex-1 flex items-center justify-center px-4!">
 
-        <Card className="flex flex-col justify-center  w-[495px] sm:h-[687px]  h-[620px] rounded-sm bg-[#151515] border-0  inset-0 opacity-89 ">
+      <Card className="flex flex-col  w-[495px] sm:h-[687px]  h-[620px] rounded-sm bg-[#151515] border-0  inset-0 opacity-89 ">
 
-          <CardHeader className="pt-6! px-10! sm:px-12!">
-            <h1 className="text-white text-3xl sm:text-4xl font-title">Sign In</h1>
-          </CardHeader>
+        <CardHeader className="pb-6! pt-10! px-6! sm:px-8!">
+          <div className="flex justify-start mb-10!">
+            <Logo />
+          </div>
+          <h1 className="text-white text-3xl sm:text-4xl font-title text-center">
+            Sign In
+          </h1>
+        </CardHeader>
 
-          <CardContent className="px-6! sm:px-12!">
-            <form className="space-y-2!" onSubmit={handleLogin}>
+        <CardContent className="px-6! sm:px-8!">
+          <form className="space-y-2!" onSubmit={handleLogin}>
 
-              {/* Email Input */}
-              <div>
-                <InputField
-                  value={username}
-                  onChange={(e: any) => setUsername(e.target.value)}
-                  placeholder="Email Address"
-                  type="text"
-                  className="w-full rounded-md bg-[#333333] text-white placeholder:text-gray-500 border-0 py-5.5! px-4!"
-                />
-              </div>
-
-              {/* Password Input */}
-              <div>
-                <PasswordInput
-                  value={password}
-                  onChange={(e: any) => setPassword(e.target.value)}
-                  placeholder="Password"
-                  className="w-full rounded-md bg-[#333333] text-white placeholder:text-gray-500 border-0 py-5.5! px-4!"
-                />
-              </div>
-
-              {/* Sign In Button */}
-              <div className="pt-4!">
-                  <Button
-                    type="submit"
-                    className="w-full bg-[#BD0404] hover:bg-[#a30303] text-white font-semibold h-12 rounded-lg text-base transition-colors duration-200"
-                  >
-                    Sign In
-                  </Button>
-              </div>
-
-              {/* Forgot Password Link */}
-              <div className="flex justify-end text-center">
-                <a
-                  href="forget-password"
-                  className="text-gray-400 hover:text-white text-sm font-medium transition-colors"
-                >
-                  Forgot Password?
-                </a>
-              </div>
-
-            </form>
-          </CardContent>
-
-          <CardFooter className="flex flex-col px-6! sm:px-12! pb-15!">
-
-            {/* Divider */}
-            <div className="w-full border-t border-gray-800 my-6!">
-              <div className="text-center -mt-3!">
-                <span className="bg-[#151515] text-gray-400 text-sm px-3!">
-                  OR
-                </span>
-              </div>
+            {/* Email Input */}
+            <div>
+              <InputField
+                value={username}
+                onChange={(e: any) => setUsername(e.target.value)}
+                placeholder="Email Address"
+                type="text"
+                className="w-full rounded-md bg-[#333333] text-white placeholder:text-gray-500 border-0 py-5! px-4!"
+              />
             </div>
 
-            {/* OAuth Buttons */}
-            <div className="flex flex-row justify-center gap-4! w-full">
-              {/* Google */}
+            {/* Password Input */}
+            <div>
+              <PasswordInput
+                value={password}
+                onChange={(e: any) => setPassword(e.target.value)}
+                placeholder="Password"
+                className="w-full rounded-md bg-[#333333] text-white placeholder:text-gray-500 border-0 py-5! px-4!"
+              />
+            </div>
+
+            {/* Sign In Button */}
+            <div className="pt-4!">
+                <Button
+                  type="submit"
+                  className="w-full bg-[#BD0404] hover:bg-[#a30303] text-white font-semibold h-12 rounded-lg text-base transition-colors duration-200"
+                >
+                  Sign In
+                </Button>
+            </div>
+
+            {/* Forgot Password Link */}
+            <div className="flex justify-end text-center">
+              <a
+                href="/auth/forgot-password"
+                className="text-gray-400 hover:text-white text-sm font-medium transition-colors"
+              >
+                Forgot Password?
+              </a>
+            </div>
+
+          </form>
+        </CardContent>
+
+        <CardFooter className="flex flex-col px-6! sm:px-8! pb-8!">
+
+          {/* Divider */}
+          <div className="w-full border-t border-gray-800 my-6!">
+            <div className="text-center -mt-3!">
+              <span className="bg-[#151515] text-gray-400 text-sm px-3!">
+                OR
+              </span>
+            </div>
+          </div>
+
+          {/* OAuth Buttons */}
+          <div className="flex flex-row justify-center gap-4! w-full">
+            {/* Google */}
+            <a href="http://localhost:8000/accounts/google/login/">
               <Button
-                onClick={() => {
-                  window.location.href = "http://localhost:8000/accounts/google/login"
-                }}
                 variant="outline"
                 className="bg-white hover:bg-gray-100 border-0 w-14! h-12! rounded-lg flex items-center justify-center transition-colors"
                 aria-label="Sign in with Google"
               >
-                <img
-                  src="./auth/google_logo.png"
-                  alt=""
-                  className="w-5 h-5"
-                />
+                <img src="./auth/google_logo.png" alt="" className="w-5 h-5" />
               </Button>
+            </a>
 
-              {/* GitHub */}
+            {/* GitHub */}
+            <a href="http://localhost:8000/accounts/github/login/">
               <Button
-                onClick={() => {
-                  window.location.href = "http://localhost:8000/accounts/github/login"
-                }}
                 variant="outline"
                 className="bg-white hover:bg-gray-100 border-0 w-14! h-12! rounded-lg flex items-center justify-center transition-colors"
                 aria-label="Sign in with GitHub"
               >
-                <img
-                  src="./auth/github_logo.png"
-                  alt=""
-                  className="w-5 h-5"
-                />
+                <img src="./auth/github_logo.png" alt="" className="w-5 h-5" />
               </Button>
+            </a>
 
-              {/* 42 */}
+            {/* 42 */}
+            <a href="http://localhost:8000/accounts/intra42/login/">
               <Button
-                onClick={() => {
-                  window.location.href = "http://localhost:8000/accounts/intra42/login"
-                }}
                 variant="outline"
                 className="bg-white hover:bg-gray-100 border-0 w-14! h-12! rounded-lg flex items-center justify-center transition-colors"
                 aria-label="Sign in with 42"
               >
-                <img
-                  src="./auth/42_Logo.png"
-                  alt=""
-                  className="w-5 h-5"
-                />
+                <img src="./auth/42_Logo.png" alt="" className="w-5 h-5" />
               </Button>
-            </div>
+            </a>
+          </div>
 
-            {/* Sign Up Link */}
-            <div className="text-center mt-6!">
-              <p className="text-gray-400 text-sm">
-                Don&apos;t have an account?{' '}
-                <a
-                  href="register"
-                  className="text-white font-semibold hover:underline transition-colors"
-                >
-                  Sign up
-                </a>
-              </p>
-            </div>
+          {/* Sign Up Link */}
+          <div className="text-center mt-6!">
+            <p className="text-gray-400 text-sm">
+              Don&apos;t have an account?{' '}
+              <a
+                href="register"
+                className="text-white font-semibold hover:underline transition-colors"
+              >
+                Sign up
+              </a>
+            </p>
+          </div>
 
-          </CardFooter>
-        </Card>
-      </div>
+        </CardFooter>
+      </Card>
     </div>
+  </div>
   </div>
 
   )

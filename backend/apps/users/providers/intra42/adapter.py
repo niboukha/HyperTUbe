@@ -23,4 +23,5 @@ class Intra42OAuth2Adapter(OAuth2Adapter):
         extra_data = resp.json()
         login = self.get_provider().sociallogin_from_response(request, extra_data)
 
+
         return login

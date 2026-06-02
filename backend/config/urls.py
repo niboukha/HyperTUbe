@@ -19,24 +19,29 @@ from django.urls import path, include
 
 from django.conf.urls.static import static
 from django.conf import settings
-from rest_framework_simplejwt.views import TokenRefreshView  # ✅ add this
+from rest_framework_simplejwt.views import TokenRefreshView
 
-from rest_framework_simplejwt.views import TokenObtainPairView
-from apps.users.views import login_view  # ✅ import FROM users app, not relative
+from apps.users.views import JWTOAuth2CallbackView, login_view
+from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
+from allauth.socialaccount.providers.github.views import GitHubOAuth2Adapter
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('apps.movies.urls')),
     path("api/auth/", include("apps.users.urls")),
-    
-    path("accounts/", include("allauth.urls")), 
-    path("accounts/intra42/",include("apps.users.providers.intra42.urls")),
-    
-    path('oauth/token', login_view, name='login'),  # ← here
-    path('oauth/token/refresh', TokenRefreshView.as_view(), name='refresh'),  # optiona
 
-    path('comments/',include("apps.comments.urls")),  # optiona
+    # Custom JWT callbacks — must be registered BEFORE allauth.urls
+    path("accounts/google/login/callback/", JWTOAuth2CallbackView.adapter_view(GoogleOAuth2Adapter)),
+    path("accounts/github/login/callback/", JWTOAuth2CallbackView.adapter_view(GitHubOAuth2Adapter)),
+
+    path("accounts/", include("allauth.urls")),
+    path("accounts/intra42/", include("apps.users.providers.intra42.urls")),
+
+    path('oauth/token', login_view, name='login'),
+    path('oauth/token/refresh', TokenRefreshView.as_view(), name='refresh'),
+
+    path('comments/', include("apps.comments.urls")),
 ]
 
 
