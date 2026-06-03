@@ -1,9 +1,7 @@
-import type { NextConfig } from "next"
+import type { NextConfig } from "@/node_modules/next";
 
 const nextConfig: NextConfig = {
   images: {
-    unoptimized: true,
-    
     remotePatterns: [
       {
         protocol: "https",
@@ -13,16 +11,12 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "archive.org",
       },
-      {
-        protocol: "https",
-        hostname: "www.publicdomaintorrents.info",
-      },
     ],
     qualities: [75, 90, 100],
   },
-}
+};
 
-export default nextConfig
+export default nextConfig;
 
 
 // next.config.js

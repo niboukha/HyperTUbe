@@ -11,12 +11,30 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
+import { useRouter } from 'next/navigation'
 
 type Props = {
   onOpen?: () => void
 }
 
 export default function ProfileMenu({ onOpen }: Props) {
+    const router = useRouter()
+
+   const handleLogout = async () => {
+    try {
+      await fetch('http://localhost:8000/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include', // IMPORTANT for cookies
+      })
+
+
+      router.push('/login')
+      router.refresh()
+    } catch (err) {
+      console.error('Logout failed', err)
+    }
+  }
+
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild onClick={onOpen}>
@@ -67,7 +85,9 @@ export default function ProfileMenu({ onOpen }: Props) {
         <DropdownMenuSeparator className="bg-text-primary/30" />
 
         {/* LOGOUT (Netflix accent = red text only, not red bg) */}
-        <DropdownMenuItem className="group rounded-md text-text-primary! hover:bg-text-primary/5! hover:text-accent-red! hover:font-bold! transition-all duration-150 px-1! py-1!">
+        <DropdownMenuItem 
+          onClick={handleLogout}
+        className="group rounded-md text-text-primary! hover:bg-text-primary/5! hover:text-accent-red! hover:font-bold! transition-all duration-150 px-1! py-1!">
           <LogOut className="mr-2 h-4 w-4" />
           Logout
         </DropdownMenuItem>

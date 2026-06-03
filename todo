@@ -5,23 +5,16 @@
 - is_watched in search cards
 
 - scrolling in genres
-- keep search in search input -> good
 
 
 
 
--------------> !!!!!!! If search has been done, the results will be displayed as thumbnails, sorted by
-names.
-- keep search in search input -> good
 
 
 
+kaoutar =>{
 
--> users searching
--> subtitles
--> cards hovering in mobile
 
--> 'FeedbackForm' cannot be used as a JSX component.
-  Its type '(onSubmit: any, movie_id: any) => Element' is not a valid JSX element type.
-    Type '(onSubmit: any, movie_id: any) => Element' is not assignable to type '(props: any) => ReactNode | Promise<ReactNode>'.
-      Target signature provides too few arguments. Expected 2 or more, but got 1.
+    oauth saved info check them
+    
+}
