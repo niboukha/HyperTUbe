@@ -16,6 +16,7 @@ def start_ffmpeg(video_file, hls_dir, movie_id, torrent, codec_args):
         '-fflags', '+genpts',
         '-fflags', '+ignidx',
         '-fflags', '+discardcorrupt', 
+        '-err_detect', 'ignore_err',
         '-i', video_file,
         *codec_args,  # ⭐ Use pre-checked codecs
         '-f', 'hls',

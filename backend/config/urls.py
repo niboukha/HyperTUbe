@@ -42,6 +42,7 @@ urlpatterns = [
     path('oauth/token/refresh', TokenRefreshView.as_view(), name='refresh'),
 
     path('comments/', include("apps.comments.urls")),
+    path('api/streaming/', include("apps.streaming.urls")),
 ]
 
 

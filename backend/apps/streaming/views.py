@@ -5,7 +5,10 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 from .models import  Movie, Torrent
+from rest_framework.decorators import permission_classes
+from rest_framework.permissions import AllowAny
 
+@permission_classes([AllowAny])
 class MovieStreamView(APIView):
     """
     HLS Streaming endpoint
@@ -35,7 +38,7 @@ class MovieStreamView(APIView):
                 torrent = Torrent.objects.create(movie=movie, status='idle')
 
             if torrent.status == "ready":
-                Movie.objects.update(last_watched=timezone.now())
+                # Movie.objects.update(last_watched=timezone.now())
                 return Response({'status': 'ready', 'movie_path': os.path.exists(torrent.hls_path) and torrent.hls_path or None})
 
             if torrent.status not in ["downloading", "processing", 'error']:
