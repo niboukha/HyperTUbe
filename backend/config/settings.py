@@ -13,6 +13,7 @@ import environ
 import os
 from pathlib import Path
 from datetime import timedelta
+from celery.schedules import crontab
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -79,6 +80,12 @@ CACHES = {
 CELERY_BROKER_URL    = "redis://redis:6379/0"
 CELERY_RESULT_BACKEND = "redis://redis:6379/0"
 CELERY_TASK_SERIALIZER = "json"
+CELERY_BEAT_SCHEDULE = {
+    "cleanup-inactive-streaming-media-daily": {
+        "task": "apps.streaming.tasks.cleanup_old_movies",
+        "schedule": crontab(hour=3, minute=0),
+    },
+}
 
 TMDB_TOKEN   = env("TMDB_TOKEN")    # Bearer token
 
@@ -223,6 +230,9 @@ STATIC_URL = 'static/'
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = "/media"
+TORRENT_DOWNLOAD_ROOT = os.getenv("TORRENT_DOWNLOAD_ROOT", os.path.join(MEDIA_ROOT, "torrents"))
+HLS_ROOT = os.getenv("HLS_ROOT", os.path.join(MEDIA_ROOT, "hls"))
+STREAMING_CLEANUP_AFTER_DAYS = int(os.getenv("STREAMING_CLEANUP_AFTER_DAYS", "30"))
 
 DEBUG=True
 

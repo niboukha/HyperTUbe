@@ -1,13 +1,16 @@
 from django.db import models
+from django.utils import timezone
 from apps.movies.models import Movie
 
 class Torrent(models.Model):
-    movie = models.OneToOneField(Movie, on_delete=models.CASCADE, related_name='torrent')
-    hls_path = models.CharField(max_length=500, null=True, blank=True)
+    movie               = models.OneToOneField(Movie, on_delete=models.CASCADE, related_name='torrent')
+    hls_path            = models.CharField(max_length=500, null=True, blank=True)
+    video_path          = models.CharField(max_length=500, null=True, blank=True)
+    last_accessed_at    = models.DateTimeField(default=timezone.now)
 
-    status = models.CharField(
-    max_length=20,
-        choices=[
+    status      = models.CharField(
+    max_length  = 20,
+        choices = [
             ('idle',    'Idle'),       # Not downloaded yet
             ('downloading','Downloading'),   # Download in progress
             ('processing', 'Processing'),    # MKV → MP4 conversion in progress

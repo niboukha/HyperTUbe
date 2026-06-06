@@ -20,6 +20,7 @@ import HeaderTitle from "@/components/ui/header-title";
 import { AvailabilityBadge } from "@/components/ui/AvailabilityBadge";
 import { MovieDetail } from "@/types/movie";
 import { useParams } from "next/navigation"
+import Link from "next/link";
 import PrimeRow from "@/components/sections/prime-row";
 import { useCollection } from "@/hooks/use-collection";
 import { useMovieDetail } from "@/hooks/use-movie-details";
@@ -106,6 +107,7 @@ export default function VedioDetails()
     }
   }
   useEffect(() => {
+    return
     fetch('http://localhost:8000/api/auth/me', {
       credentials: 'include',
     })
@@ -139,6 +141,7 @@ export default function VedioDetails()
   }, [trailerOpen, movie])
   
   useEffect(()=>{
+    return
       const fetchComments = async () => {
       const response = await fetch(`http://localhost:8000/comments/${movieId}/`, {
         credentials: "include",
@@ -150,6 +153,13 @@ export default function VedioDetails()
 
     fetchComments()
   },[])
+
+  useEffect(() => {
+    if (!movie || !["archive", "publicdomain"].includes(movie.source)) return;
+
+    fetch(`http://localhost:8000/api/streaming/resolve/${movie.id}/`)
+      .catch(() => undefined);
+  }, [movie])
 
     
   if (pending) return <DetailSkeleton />
@@ -287,11 +297,13 @@ export default function VedioDetails()
             transition={{ type: "spring", stiffness: 400, damping: 15 }}
             >    
               <Button
-                
+                  asChild
                   className="h-12 w-35 bg-text-primary hover:bg-text-primary text-foreground font-semibold gap-2 rounded-md shadow-lg hover:shadow-xl  text-md"
               >
+                <Link href={`/watch/${movie.id}`}>
                   <Play className="w-5 h-5 fill-current" />
                   Watch Now
+                </Link>
               </Button>
               </motion.div>
 
@@ -512,4 +524,3 @@ function NotFound({ message = "Movie not found." }: { message?: string }) {
     </div>
   )
 }
-

@@ -9,8 +9,12 @@ import { Star } from 'lucide-react'
 // import type { Review } from '@/types'
 import { useParams } from 'next/navigation'
 
+type FeedbackFormProps = {
+  onSubmit?: (comment: string, rating: number) => void;
+  movie_id?: string;
+};
 
-export default function FeedbackForm(onSubmit :any,movie_id:any) {
+export default function FeedbackForm({ onSubmit, movie_id }: FeedbackFormProps) {
 
   const params   = useParams()
   const movieId  = params.id as string 

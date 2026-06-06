@@ -55,6 +55,7 @@ class OpenSubtitlesClient:
                 "OpenSubtitles download requires OPENSUBTITLES_USERNAME and OPENSUBTITLES_PASSWORD"
             )
 
+        print("[Subtitles] OpenSubtitles login started")
         response = requests.post(
             f"{self.base_url}/login",
             headers=self._headers(authenticated=False),
@@ -65,6 +66,7 @@ class OpenSubtitlesClient:
         token = response.json().get("token")
         if not token:
             raise SubtitleProviderError("OpenSubtitles login did not return a token")
+        print("[Subtitles] OpenSubtitles login succeeded")
         return token
 
     def search_movie_subtitles(self, movie: Movie, language: str) -> list[OpenSubtitlesResult]:
@@ -75,6 +77,7 @@ class OpenSubtitlesClient:
         if movie.release_date:
             params["year"] = movie.release_date.year
 
+        print(f"[Subtitles] OpenSubtitles search started | movie_id={movie.id} title={movie.title} language={language}")
         response = requests.get(
             f"{self.base_url}/subtitles",
             headers=self._headers(authenticated=False),
@@ -104,9 +107,11 @@ class OpenSubtitlesClient:
                 )
             )
 
+        print(f"[Subtitles] OpenSubtitles search finished | movie_id={movie.id} language={language} result_count={len(results)}")
         return results
 
     def download_subtitle_file(self, result: OpenSubtitlesResult) -> tuple[str, bytes]:
+        print(f"[Subtitles] OpenSubtitles download request started | provider_id={result.provider_id} file_id={result.file_id}")
         response = requests.post(
             f"{self.base_url}/download",
             headers=self._headers(authenticated=True),
@@ -121,6 +126,7 @@ class OpenSubtitlesClient:
 
         file_response = requests.get(download_url, timeout=30)
         file_response.raise_for_status()
+        print(f"[Subtitles] OpenSubtitles file downloaded | file_name={result.file_name} size={len(file_response.content)}")
         return result.file_name, file_response.content
 
 
@@ -130,6 +136,7 @@ def download_external_subtitle_fallback(movie_id: int, language: str) -> Subtitl
     """
     movie = Movie.objects.get(id=movie_id)
     normalized_language = language.lower()
+    print(f"[Subtitles] External fallback started | movie_id={movie_id} language={normalized_language}")
 
     existing = Subtitle.objects.filter(
         movie=movie,
@@ -137,14 +144,17 @@ def download_external_subtitle_fallback(movie_id: int, language: str) -> Subtitl
         status=Subtitle.Status.READY,
     ).first()
     if existing:
+        print(f"[Subtitles] External fallback skipped; ready subtitle already exists | movie_id={movie_id} language={normalized_language} subtitle_id={existing.id}")
         return existing
 
     client = OpenSubtitlesClient()
     results = client.search_movie_subtitles(movie=movie, language=normalized_language)
     if not results:
+        print(f"[Subtitles] External fallback found no results | movie_id={movie_id} language={normalized_language}")
         return None
 
     selected = results[0]
+    print(f"[Subtitles] External fallback selected result | movie_id={movie_id} language={normalized_language} provider_id={selected.provider_id} file_id={selected.file_id}")
     file_name, content = client.download_subtitle_file(selected)
     subtitle_text = _decode_subtitle_payload(file_name=file_name, content=content)
 
@@ -172,6 +182,7 @@ def download_external_subtitle_fallback(movie_id: int, language: str) -> Subtitl
             save=True,
         )
 
+    print(f"[Subtitles] External fallback saved WebVTT | movie_id={movie_id} language={normalized_language} subtitle_id={subtitle.id} file={subtitle.file.name}")
     return subtitle
 
 
@@ -179,9 +190,11 @@ def _decode_subtitle_payload(file_name: str, content: bytes) -> str:
     lower_name = file_name.lower()
 
     if lower_name.endswith(".gz"):
+        print(f"[Subtitles] Decoding gzip subtitle payload | file_name={file_name}")
         content = gzip.decompress(content)
 
     if lower_name.endswith(".zip"):
+        print(f"[Subtitles] Decoding zip subtitle payload | file_name={file_name}")
         with zipfile.ZipFile(BytesIO(content)) as archive:
             subtitle_names = [
                 name for name in archive.namelist()

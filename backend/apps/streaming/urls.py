@@ -1,7 +1,8 @@
 from django.urls import path, include
-from .views import MovieStreamView, MovieSubtitlesView
+from .views import MovieStreamView, MovieStreamingResolveView, MovieSubtitlesView
 
 urlpatterns = [
+    path('resolve/<str:movie_ref>/', MovieStreamingResolveView.as_view(), name='movie-streaming-resolve'),
     path('<int:movie_id>/stream/', MovieStreamView.as_view(), name='movie-stream'),
     path('<int:movie_id>/subtitles/', MovieSubtitlesView.as_view(), name='movie-subtitles'),
     #  path('', views.MovieListView.as_view(), name='movie-list'),
