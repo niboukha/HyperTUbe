@@ -26,10 +26,10 @@ export default function FeedbackForm({ onSubmit }: FeedbackFormProps) {
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // if (!comment.trim() || rating === 0) {
-    //   alert('Please fill in all fields and select a rating')
-    //   return
-    // }
+    if (!comment.trim() || rating === 0) {
+      alert('Please fill in all fields and select a rating')
+      return
+    }
     
       onSubmit(comment,rating)
       setComment('')

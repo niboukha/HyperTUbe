@@ -101,15 +101,11 @@ MIDDLEWARE = [
 ]
 
 REST_FRAMEWORK = {
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 5,
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        # Remove this ↓ (session based)
-        # 'rest_framework.authentication.SessionAuthentication',
         "rest_framework_simplejwt.authentication.JWTAuthentication",
-
-
-        # Add this ↓ (JWT based)
-        # 'rest_framework_simplejwt.authentication.JWTAuthentication',
-        'apps.users.jwtAuthentication.CookieJWTAuthentication',  # ✅ handles both
+        'apps.users.jwtAuthentication.CookieJWTAuthentication',
 
     ],
     'DEFAULT_PERMISSION_CLASSES': [

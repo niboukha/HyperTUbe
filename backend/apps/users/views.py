@@ -3,16 +3,16 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
-
 from django.contrib.auth.models import User
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes
 from django.core.mail import send_mail
 from django.conf import settings
-
 from .serializer import RegisterSerializer, LoginSerializer, PasswordSerializer
 from allauth.socialaccount.providers.oauth2.views import OAuth2CallbackView
+from django.db.models import Q
+from rest_framework.views import APIView
 
 
 class JWTOAuth2CallbackView(OAuth2CallbackView):
@@ -195,7 +195,7 @@ def settings_change_password(request):
 
  
 
-
+# logout
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def logout_view(request):
@@ -212,4 +212,33 @@ def logout_view(request):
 
 
 
+
+from rest_framework.pagination import PageNumberPagination
+
+# users search
+
+class UserSearchView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        query = request.GET.get("q", "")
+
+        users = User.objects.filter(
+            username__icontains=query
+        ).order_by("id")
+
+        paginator = PageNumberPagination()
+        paginator.page_size = 5
+
+        result_page = paginator.paginate_queryset(users, request)
+
+        data = [
+            {
+                "id": u.id,
+                "username": u.username,
+            }
+            for u in result_page
+        ]
+
+        return paginator.get_paginated_response(data)
 
