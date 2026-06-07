@@ -26,8 +26,6 @@ import { useCollection } from "@/hooks/use-collection";
 import { useMovieDetail } from "@/hooks/use-movie-details";
 import Overview from "@/components/ui/Overview";
 
-
-
 export function stripHtml(html: string) {
   return html
     ?.replace(/<br\s*\/?>/gi, "\n")
@@ -47,15 +45,8 @@ async function fetchTrailer(movie: MovieDetail): Promise<string | null> {
   }
 }
 
-
-
 export default function VedioDetails()
 {
-  
-
-
-  
- 
   const [trailerOpen, setTrailerOpen] = useState<boolean>(false);
   const [trailer, setTrailer] = useState<string | null>(null);
   
@@ -156,7 +147,7 @@ export default function VedioDetails()
 
   useEffect(() => {
     if (!movie || !["archive", "publicdomain"].includes(movie.source)) return;
-
+    console.log("--------> Resolving streaming for movie", movie.id)
     fetch(`http://localhost:8000/api/streaming/resolve/${movie.id}/`)
       .catch(() => undefined);
   }, [movie])

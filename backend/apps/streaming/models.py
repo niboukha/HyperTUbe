@@ -11,7 +11,7 @@ class Torrent(models.Model):
     status      = models.CharField(
     max_length  = 20,
         choices = [
-            ('idle',    'Idle'),       # Not downloaded yet
+            ('idle',    'Idle'),             # Not downloaded yet
             ('downloading','Downloading'),   # Download in progress
             ('processing', 'Processing'),    # MKV → MP4 conversion in progress
             ('ready',      'Ready'),         # Fully downloaded + converted, ready to serve

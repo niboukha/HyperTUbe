@@ -1,11 +1,10 @@
+import json
 import os
 import signal
 from celery import shared_task
 from django.core.files.base import ContentFile
 from .models import  Subtitle, Torrent
 from apps.movies.models import Movie
-import shutil
-import time
 from .torrent_engine import download_torrent, ACTIVE_TORRENTS
 import libtorrent as lt
 from .hls import start_ffmpeg
@@ -14,7 +13,7 @@ import tempfile
 from pathlib import Path
 from django.conf import settings
 from django.core.cache import cache
-from django.db import close_old_connections, connection
+import subprocess
 
 from .external_subtitles import download_external_subtitle_fallback
 from .subtitles import (
@@ -43,6 +42,36 @@ def subtitle_log(message, **context):
         print(f'[Subtitles] {message} | {details}')
     else:
         print(f'[Subtitles] {message}')
+
+
+def subtitle_asset_exists(subtitle):
+    if subtitle.file:
+        return subtitle.file.storage.exists(subtitle.file.name)
+    return bool(subtitle.subtitle_link)
+
+
+def expire_stale_ready_subtitles(movie_id):
+    stale_count = 0
+    ready_subtitles = Subtitle.objects.filter(
+        movie_id=movie_id,
+        status=Subtitle.Status.READY,
+    )
+
+    for subtitle in ready_subtitles:
+        if subtitle_asset_exists(subtitle):
+            continue
+
+        stale_count += 1
+        subtitle.status = Subtitle.Status.ERROR
+        subtitle.save(update_fields=['status'])
+        subtitle_log(
+            'Marked stale ready subtitle as error',
+            movie_id=movie_id,
+            subtitle_id=subtitle.id,
+            file=subtitle.file.name if subtitle.file else None,
+        )
+
+    return stale_count
 
 
 def enqueue_subtitle_preparation_once(movie_id, user_language=None, video_path=None):
@@ -94,6 +123,8 @@ def prepare_subtitles_for_movie(self, movie_id, user_language=None, video_path=N
         subtitle_log('Movie does not exist; skipping subtitle preparation', movie_id=movie_id)
         return
 
+    expire_stale_ready_subtitles(movie_id)
+
     languages   = wanted_subtitle_languages(user_language)
     subtitle_log('Wanted languages resolved', movie_id=movie_id, languages=','.join(languages))
 
@@ -111,7 +142,8 @@ def prepare_subtitles_for_movie(self, movie_id, user_language=None, video_path=N
             movie=movie,
             language=language,
             status=Subtitle.Status.READY,
-        ).exists()
+        )
+        has_ready_subtitle = any(subtitle_asset_exists(subtitle) for subtitle in has_ready_subtitle)
 
         if has_ready_subtitle:
             subtitle_log('Ready subtitle already exists; skipping fallback', movie_id=movie.id, language=language)
@@ -171,7 +203,8 @@ def _prepare_embedded_subtitles(movie, video_file, languages):
             movie=movie,
             language=language,
             status=Subtitle.Status.READY,
-        ).exists()
+        )
+        has_ready_subtitle = any(subtitle_asset_exists(subtitle) for subtitle in has_ready_subtitle)
         if has_ready_subtitle:
             subtitle_log('Ready embedded subtitle already exists; skipping stream', movie_id=movie.id, stream_index=stream.index, language=language)
             continue
@@ -205,104 +238,105 @@ def _prepare_embedded_subtitles(movie, video_file, languages):
             )
             subtitle_log('Embedded subtitle ready', movie_id=movie.id, stream_index=stream.index, language=language, subtitle_id=subtitle.id, file=subtitle.file.name)
 
-
-@shared_task
-def download_and_segment(movie_id):
-    """
-    1. Start torrent download
-    2. Wait for MIN_BUFFER % downloaded
-    3. Start FFmpeg conversion in background thread
-    4. Keep downloading while FFmpeg converts
-    5. When fully downloaded → save file
-    """
-    # connection.close()  #
-
+@shared_task(bind=True)
+def download_and_segment(self, movie_id):
     try:
-        movie = Movie.objects.get(id=movie_id)
-
+        movie     = Movie.objects.get(id=movie_id)
+        torrent   = Torrent.objects.get(movie=movie)
         movie_dir = f'{DOWNLOAD_DIR}/{movie_id}'
         hls_dir   = f'{HLS_DIR}/{movie_id}'
 
         os.makedirs(movie_dir, exist_ok=True)
         os.makedirs(hls_dir,   exist_ok=True)
 
-        
-        torrent = Torrent.objects.get(movie=movie)
-        handle = download_torrent(movie_dir, torrent)
-        print(f"[{movie.title}] AFTER download_torrent")
-        print(f"[{movie.title}] Handle: {handle}")
-        print(f"[{movie.title}] Handle type: {type(handle)}")
-        print(f"[{movie.title}] Handle is None? {handle is None}")
-      
-        ffmpeg_started = False 
-        while True:
-            # close_old_connections()
-            s = ACTIVE_TORRENTS[movie_id]['handle'].status()
-            progress = s.progress * 100
-            
-            if not ffmpeg_started and progress >= 5:
-                video_file = _find_video_file(movie_dir)
-                if video_file:
-                    torrent.video_path = video_file
-                    torrent.save(update_fields=['video_path'])
-                else:
-                    print(f'⏳ Video file not visible yet... {progress:.1f}%')
-                    time.sleep(2)
-                    continue
-                
-                moov_ok, v_codec, a_codec = pre_check_video(video_file)
-                
-                if moov_ok:
-                    print(f'✅ Moov available | Codecs: {v_codec}/{a_codec}')
-                    
-                    codec_args = get_ffmpeg_args(v_codec, a_codec)
-                    
-                    start_ffmpeg(video_file, hls_dir, movie_id, torrent, codec_args)
-                    ffmpeg_started = True
-                   
-                else:
-                    print(f'⏳ Moov not ready yet... {progress:.1f}%')
-            
-            if s.is_seeding or progress >= 100.0:
-                break
-            
-            time.sleep(2)
+        # Guard: only start download once, use DB as source of truth
+        if movie_id not in ACTIVE_TORRENTS:
+            if torrent.status == 'ready' and torrent.hls_path and os.path.exists(torrent.hls_path):
+                print(f'[{movie_id}] Already ready and HLS exists: {torrent.hls_path}')
+                enqueue_subtitle_preparation_once(movie_id, video_path=torrent.video_path)
+                return
 
-        if torrent.video_path:
+            print(f'[{movie_id}] Starting or re-attaching torrent download | previous_status={torrent.status}')
+            torrent.status = 'downloading'
+            torrent.hls_path = None
+            if torrent.video_path and not os.path.exists(torrent.video_path):
+                torrent.video_path = None
+            torrent.save(update_fields=['status', 'hls_path', 'video_path'])
+            download_torrent(movie_dir, torrent)
+
+        if movie_id not in ACTIVE_TORRENTS:
+            print(f'[{movie_id}] download_torrent did not populate ACTIVE_TORRENTS!')
+            return  # stop re-queuing, something is wrong
+
+        s        = ACTIVE_TORRENTS[movie_id]['handle'].status()
+        progress = s.progress * 100
+        print(f'[{movie_id}] Progress: {progress:.1f}% | peers: {s.num_peers}')
+
+        torrent.refresh_from_db()
+        ffmpeg_started = torrent.status in ('processing', 'ready')
+
+        if not ffmpeg_started:
+            video_file = _find_video_file(movie_dir)
+            if video_file:
+                
+                torrent.video_path = video_file
+                torrent.save(update_fields=['video_path'])
+
+                # Original version started FFmpeg around 5% downloaded:
+                # if progress >= 5:
+                #
+                # Why it is changed:
+                # sparse torrent files can contain holes. FFmpeg may see the
+                # MP4 header early, create a few HLS segments, then crash when it
+                # reaches missing bytes. We wait for the selected file to be
+                # effectively complete before creating the final HLS playlist.
+                if progress >= 99.5 or s.is_seeding:
+                    moov_ok, v_codec, a_codec = pre_check_video(video_file)
+                    if moov_ok:
+                        print(f'[{movie_id}] ✅ Starting FFmpeg | Codecs: {v_codec}/{a_codec}')
+                        codec_args = get_ffmpeg_args(v_codec, a_codec)
+                        start_ffmpeg(video_file, hls_dir, movie_id, torrent, codec_args)
+                    else:
+                        print(f'[{movie_id}] ⏳ Download complete, but video metadata is not readable yet')
+                else:
+                    print(f'[{movie_id}] ⏳ Waiting for full download before HLS... {progress:.1f}%')
+            else:
+                print(f'[{movie_id}] ⏳ Video file not found yet...')
+
+        torrent.refresh_from_db()
+        if torrent.status == 'ready':
+            print(f'[{movie_id}] ✅ Download and HLS processing complete')
             enqueue_subtitle_preparation_once(movie_id, video_path=torrent.video_path)
+            return
 
+        self.apply_async(args=[movie_id], countdown=3)
+
+    except Movie.DoesNotExist:
+        print(f'[ERROR] Movie {movie_id} not found')
+    except Torrent.DoesNotExist:
+        print(f'[ERROR] Torrent for movie {movie_id} not found')
     except Exception as e:
+        import traceback
         print(f'[ERROR] movie {movie_id}: {e}')
-        movie.status = 'error'
-        movie.save()
+        traceback.print_exc()
 
 
 def _find_video_file(directory):
-
     VIDEO_EXTENSIONS = (
         '.mkv', '.mp4', '.avi', '.webm',
         '.divx', '.mov', '.flv', '.wmv',
         '.m4v', '.mpg', '.mpeg'
     )
-    for root, dirs, files in os.walk(directory):
+    for root, _, files in os.walk(directory):
         for f in files:
             if f.lower().endswith(VIDEO_EXTENSIONS):
                 full_path = os.path.join(root, f)
-                print(f'=============== ✅ Found: {full_path}')
-                # time.sleep(3)  # Ensure file is fully written
+                print(f'[find_video] ✅ Found: {full_path}')
                 return full_path
     return None
 
 
 def pre_check_video(file_path):
-    """
-    Check if file is ready and get codec info.
-    Returns: (moov_available, video_codec, audio_codec)
-    """
-    import subprocess
-    import json
-    
-    # Check 1: Is moov available?
     moov_available = False
     try:
         result = subprocess.run(
@@ -311,77 +345,70 @@ def pre_check_video(file_path):
             timeout=2
         )
         moov_available = result.returncode == 0
-    except:
+    except Exception:
         pass
-    
-    # Check 2: Get codecs
+
     video_codec = None
     audio_codec = None
-    
     try:
-        cmd = [
-            'ffprobe', '-v', 'error', '-show_entries',
-            'stream=codec_name', '-of', 'json', file_path
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=2)
+        result = subprocess.run(
+            ['ffprobe', '-v', 'error', '-show_entries', 'stream=codec_name,codec_type',
+             '-of', 'json', file_path],
+            capture_output=True, text=True, timeout=2
+        )
         data = json.loads(result.stdout)
-        
         for stream in data.get('streams', []):
-            codec = stream.get('codec_name')
             if stream.get('codec_type') == 'video':
-                video_codec = codec
+                video_codec = stream.get('codec_name')
             elif stream.get('codec_type') == 'audio':
-                audio_codec = codec
-    except:
+                audio_codec = stream.get('codec_name')
+    except Exception:
         pass
-    
+
     return moov_available, video_codec, audio_codec
 
-
 def get_ffmpeg_args(video_codec, audio_codec):
-    """Decide copy or transcode based on codecs."""
     if video_codec == 'h264' and audio_codec == 'aac':
-        return ['-c:v', 'copy', '-c:a', 'copy']  # ✅ Fast
-    elif video_codec in ['h264', 'h265']:
-        return ['-c:v', 'libx264', '-c:a', 'copy']  # ⚠️ Medium
+        return ['-c:v', 'copy', '-c:a', 'copy']
+    elif video_codec in ('h264', 'h265'):
+        return ['-c:v', 'libx264', '-c:a', 'copy']
     else:
-        return ['-c:v', 'libx264', '-c:a', 'aac']  # ❌ Slow but safe
+        return ['-c:v', 'libx264', '-c:a', 'aac']
     
+# @shared_task
+# def cleanup_old_movies():
+#     """Delete inactive torrent media, HLS output, and cached subtitle files."""
+#     from django.utils import timezone
+#     from datetime import timedelta
     
-@shared_task
-def cleanup_old_movies():
-    """Delete inactive torrent media, HLS output, and cached subtitle files."""
-    from django.utils import timezone
-    from datetime import timedelta
-    
-    cutoff = timezone.now() - timedelta(days=settings.STREAMING_CLEANUP_AFTER_DAYS)
-    old_torrents = Torrent.objects.filter(last_accessed_at__lt=cutoff)
+#     cutoff = timezone.now() - timedelta(days=settings.STREAMING_CLEANUP_AFTER_DAYS)
+#     old_torrents = Torrent.objects.filter(last_accessed_at__lt=cutoff)
 
-    print(
-        '[Cleanup] Starting inactive media cleanup | '
-        f'after_days={settings.STREAMING_CLEANUP_AFTER_DAYS} '
-        f'cutoff={cutoff.isoformat()} count={old_torrents.count()}'
-    )
+#     print(
+#         '[Cleanup] Starting inactive media cleanup | '
+#         f'after_days={settings.STREAMING_CLEANUP_AFTER_DAYS} '
+#         f'cutoff={cutoff.isoformat()} count={old_torrents.count()}'
+#     )
 
-    for torrent in old_torrents.select_related('movie').iterator():
-        movie = torrent.movie
-        movie_dir = f'{DOWNLOAD_DIR}/{movie.id}'
-        hls_dir = f'{HLS_DIR}/{movie.id}'
+#     for torrent in old_torrents.select_related('movie').iterator():
+#         movie = torrent.movie
+#         movie_dir = f'{DOWNLOAD_DIR}/{movie.id}'
+#         hls_dir = f'{HLS_DIR}/{movie.id}'
 
-        subtitle_count = 0
-        for subtitle in movie.subtitles.all():
-            if subtitle.file:
-                subtitle.file.delete(save=False)
-            subtitle_count += 1
-        movie.subtitles.all().delete()
-        print(f'[Cleanup] Deleted subtitle cache | movie_id={movie.id} count={subtitle_count}')
+#         subtitle_count = 0
+#         for subtitle in movie.subtitles.all():
+#             if subtitle.file:
+#                 subtitle.file.delete(save=False)
+#             subtitle_count += 1
+#         movie.subtitles.all().delete()
+#         print(f'[Cleanup] Deleted subtitle cache | movie_id={movie.id} count={subtitle_count}')
 
-        for folder in [movie_dir, hls_dir]:
-            if os.path.exists(folder):
-                shutil.rmtree(folder)
-                print(f'[Cleanup] Deleted media folder | movie_id={movie.id} folder={folder}')
+#         for folder in [movie_dir, hls_dir]:
+#             if os.path.exists(folder):
+#                 shutil.rmtree(folder)
+#                 print(f'[Cleanup] Deleted media folder | movie_id={movie.id} folder={folder}')
 
-        torrent.delete()
-        print(f'[Cleanup] Deleted torrent row | movie_id={movie.id} title={movie.title}')
+#         torrent.delete()
+#         print(f'[Cleanup] Deleted torrent row | movie_id={movie.id} title={movie.title}')
 
-    print('[Cleanup] Inactive media cleanup finished')
+#     print('[Cleanup] Inactive media cleanup finished')

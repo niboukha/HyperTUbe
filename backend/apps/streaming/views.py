@@ -2,14 +2,28 @@ import os
 import logging
 from datetime import date
 
+from django.http import FileResponse, Http404
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
+from rest_framework.decorators import permission_classes
+
 from django.utils import timezone
 from apps.movies.models import Movie
 from .models import  Subtitle, Torrent
 
 logger = logging.getLogger(__name__)
+
+
+def media_file_response(path, content_type):
+    if not path or not os.path.exists(path):
+        raise Http404('Media file not found')
+
+    response = FileResponse(open(path, 'rb'), content_type=content_type)
+    response['Access-Control-Allow-Origin'] = '*'
+    response['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+    response['Access-Control-Allow-Headers'] = 'Content-Type'
+    return response
 
 def resolve_streaming_movie(movie_ref):
     movie_ref = str(movie_ref)
@@ -136,13 +150,11 @@ def _runtime_to_minutes(value):
     digits = ''.join(ch for ch in str(value) if ch.isdigit())
     return int(digits) if digits else None
 
-
+@permission_classes([AllowAny])
 class MovieStreamingResolveView(APIView):
     """
     Resolve a frontend movie id into the local Django Movie id used by streaming.
     """
-
-    permission_classes = [AllowAny]
 
     def get(self, request, movie_ref):
         movie = resolve_streaming_movie(movie_ref)
@@ -162,7 +174,7 @@ class MovieStreamingResolveView(APIView):
             'subtitles_url': request.build_absolute_uri(f'/api/streaming/{movie.id}/subtitles/'),
         })
 
-
+@permission_classes([AllowAny])
 class MovieStreamView(APIView):
     """
     HLS Streaming endpoint
@@ -176,7 +188,6 @@ class MovieStreamView(APIView):
     3. Not downloaded             → Start download (Celery) + serve partial HLS
     4. Path in DB but file missing → Reset + re-trigger download
     """
-    permission_classes = [AllowAny]
 
     def get(self, request, movie_id):
         """
@@ -201,10 +212,30 @@ class MovieStreamView(APIView):
             torrent.save(update_fields=['last_accessed_at'])
 
             if torrent.status == "ready":
-                from .tasks import enqueue_subtitle_preparation_once
-                print(f'[Subtitles] Stream ready; enqueueing subtitle prep if needed | movie_id={movie_id} video_path={torrent.video_path}')
-                enqueue_subtitle_preparation_once(movie_id, video_path=torrent.video_path)
-                return Response({'status': 'ready', 'movie_path': os.path.exists(torrent.hls_path) and torrent.hls_path or None})
+                hls_exists = bool(torrent.hls_path and os.path.exists(torrent.hls_path))
+                video_exists = bool(torrent.video_path and os.path.exists(torrent.video_path))
+
+                if not hls_exists:
+                    print(
+                        '[Streaming] Stale ready torrent detected; media files are missing. '
+                        f'movie_id={movie_id} hls_path={torrent.hls_path} video_path={torrent.video_path}'
+                    )
+                    torrent.status = 'idle'
+                    torrent.hls_path = None
+                    if not video_exists:
+                        torrent.video_path = None
+                    torrent.save(update_fields=['status', 'hls_path', 'video_path'])
+                else:
+                    from .tasks import enqueue_subtitle_preparation_once
+                    print(f'[Subtitles] Stream ready; enqueueing subtitle prep if needed | movie_id={movie_id} video_path={torrent.video_path}')
+                    enqueue_subtitle_preparation_once(movie_id, video_path=torrent.video_path if video_exists else None)
+
+                    return Response({
+                        'status': 'ready',
+                        'movie_path': request.build_absolute_uri(
+                            f'/api/streaming/{movie.id}/hls/playlist.m3u8'
+                        ),
+                    })
 
             if torrent.status not in ["downloading", "processing", 'error']:
                 print(f'[Subtitles] Stream requested; movie not ready yet | movie_id={movie_id} torrent_status={torrent.status}')
@@ -219,16 +250,24 @@ class MovieStreamView(APIView):
             print(f"==============>Error in MovieStreamView: {e}")
             return Response({'status': 'error', 'message': 'An error occurred'}, status=500)
             
-
+@permission_classes([AllowAny])
 class MovieSubtitlesView(APIView):
     """
     Return ready subtitle tracks for a movie.
     """
-    permission_classes = [AllowAny]
-
     def get(self, request, movie_id):
         if not Movie.objects.filter(id=movie_id).exists():
             return Response({'detail': 'Movie not found'}, status=404)
+
+        from django.core.cache import cache
+        from .tasks import (
+            enqueue_subtitle_preparation_once,
+            expire_stale_ready_subtitles,
+        )
+
+        stale_count = expire_stale_ready_subtitles(movie_id)
+        if stale_count:
+            cache.delete(f'subtitles:prepare:{movie_id}:default')
 
         subtitles = Subtitle.objects.filter(
             movie_id=movie_id,
@@ -239,7 +278,15 @@ class MovieSubtitlesView(APIView):
         for subtitle in subtitles:
             src = None
             if subtitle.file:
-                src = request.build_absolute_uri(subtitle.file.url)
+                if not subtitle.file.storage.exists(subtitle.file.name):
+                    print(
+                        '[Subtitles] Skipping stale subtitle file; DB row exists but media file is missing | '
+                        f'movie_id={movie_id} subtitle_id={subtitle.id} file={subtitle.file.name}'
+                    )
+                    continue
+                src = request.build_absolute_uri(
+                    f'/api/streaming/{movie_id}/subtitles/{subtitle.id}/file/'
+                )
             elif subtitle.subtitle_link:
                 src = subtitle.subtitle_link
 
@@ -255,5 +302,54 @@ class MovieSubtitlesView(APIView):
                 'source': subtitle.source,
             })
 
+        if not tracks:
+            torrent = Torrent.objects.filter(movie_id=movie_id).first()
+            video_exists = bool(torrent and torrent.video_path and os.path.exists(torrent.video_path))
+            if video_exists:
+                print(
+                    '[Subtitles] No usable subtitle tracks; queueing preparation from subtitles API | '
+                    f'movie_id={movie_id} video_path={torrent.video_path}'
+                )
+                enqueue_subtitle_preparation_once(movie_id, video_path=torrent.video_path)
+            else:
+                print(
+                    '[Subtitles] No usable subtitle tracks and no local video yet | '
+                    f'movie_id={movie_id}'
+                )
+
         print(f'[Subtitles] Subtitle API response | movie_id={movie_id} track_count={len(tracks)}')
         return Response(tracks)
+
+
+@permission_classes([AllowAny])
+class MovieHLSFileView(APIView):
+    """
+    Serve HLS playlists and segments through Django with stable browser headers.
+    """
+    def get(self, request, movie_id, filename):
+        torrent = Torrent.objects.filter(movie_id=movie_id).first()
+        if not torrent or not torrent.hls_path:
+            raise Http404('HLS stream not found')
+
+        safe_name = os.path.basename(filename)
+        hls_dir = os.path.dirname(torrent.hls_path)
+        file_path = os.path.join(hls_dir, safe_name)
+        content_type = 'application/vnd.apple.mpegurl' if safe_name.endswith('.m3u8') else 'video/mp2t'
+        return media_file_response(file_path, content_type)
+
+
+@permission_classes([AllowAny])
+class MovieSubtitleFileView(APIView):
+    """
+    Serve WebVTT subtitle files through Django with stable browser headers.
+    """
+    def get(self, request, movie_id, subtitle_id):
+        subtitle = Subtitle.objects.filter(
+            id=subtitle_id,
+            movie_id=movie_id,
+            status=Subtitle.Status.READY,
+        ).first()
+        if not subtitle or not subtitle.file:
+            raise Http404('Subtitle not found')
+
+        return media_file_response(subtitle.file.path, 'text/vtt; charset=utf-8')
