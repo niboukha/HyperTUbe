@@ -29,21 +29,15 @@ def pre_social_login_handler(request, sociallogin, **kwargs):
     data = sociallogin.account.extra_data
     user = sociallogin.user
 
-    print("====data thta came fro, socia auth",user),
-    print("====extra data thta came fro, socia auth",data),
-
-
     base_username = (
         data.get("login")                        # GitHub / 42 login
         or data.get("name", "").replace(" ", "") # Google, etc.
         or f"user_{user.email.split('@')[0] if user.email else 'unknown'}"
     )
 
-    # Assign a unique username
     user.username = generate_unique_username(base_username)
-
-    # from google => picture family_name firstname ===given_name
-
+    user.profile_picture = data.get("picture") or data.get("image", {}).get("link") or data.get("avatar_url")
+    
     user.email = user.email or data.get("email") or ""
     user.save()
     return user

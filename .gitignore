@@ -7,6 +7,6 @@ __pycache__/
 
 .env
 data/
-notes
 
 .venv
+todo
