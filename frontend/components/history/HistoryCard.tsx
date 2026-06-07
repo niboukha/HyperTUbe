@@ -25,23 +25,23 @@ export default function HistoryCard({
   release_date, vote_average, progress, runtimeLeft
 }: HistoryCardProps) {
   return (
-    <div className= "  !py-2 w-full  max-h-[500px]   md:h-[200px]  flex flex-col sm:flex-row  items-center md:items-start   bg-[#333333] rounded-sm border border-white/10 overflow-hidden cursor-pointer hover:border-white/30 transition-colors v">
+    <div className= "  py-2! w-full  max-h-[500px]   md:h-[200px]  flex flex-col sm:flex-row  items-center md:items-start   bg-[#333333] rounded-sm border border-white/10 overflow-hidden cursor-pointer hover:border-white/30 transition-colors v">
       
       <div className="  w-full  relative sm:w-[200px] md:w-[280px] h-50 md:h-[180px]   flex-shrink-0 !p-2">
           <img
           src={`https://image.tmdb.org/t/p/w500${backdrop_path}`}
           alt={title}
-          className="w-full h-full object-cover opacity-85 !rounded-md "
+          className="w-full h-full object-cover opacity-85 rounded-md! "
           />
 
-        <div className="absolute !-bottom-1 left-5! right-5!">
+        <div className="absolute -bottom-1! left-5! right-5!">
           <Progress value={progress} className="h-1! bg-text-primary/20" />
           <div className="absolute top-0! left-0! h-1! bg-accent-red rounded-full" style={{ width: `${progress}%` }} />
         </div>
       </div>
 
       {/* Info */}
-      <div className="flex-1 h-full flex flex-col !p-4 min-w-0 gap-2  w-fit ">
+      <div className="flex-1 h-full flex flex-col p-4! min-w-0 gap-2  w-fit ">
         <div>
           <div className="flex items-start justify-between gap-2 mb-3!">
             <p className="text-md text-white truncate tracking-wide font-[anton] ">{title}</p>
