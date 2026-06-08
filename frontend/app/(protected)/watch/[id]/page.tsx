@@ -47,18 +47,26 @@ function toAbsoluteBackendUrl(path: string) {
   return `${API}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
+function preferredSubtitleLanguage() {
+  // Temporary test mode: force English subtitles only.
+  // Re-enable this after English-only validation:
+  if (typeof navigator === "undefined") return "en";
+  return (navigator.languages?.[0] || navigator.language || "en").split("-")[0];
+  // return "en";
+}
+
 export default function Watch() {
-  const params  = useParams();
-  const movieId = params.id as string;
+  const params   = useParams();
+  const movieId  = params.id as string;
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef   = useRef<Hls | null>(null);
 
-  const [subtitles,         setSubtitles]         = useState<SubtitleTrack[]>([]);
-  const [streamingMovieId,  setStreamingMovieId]  = useState<number | null>(null);
-  const [hlsUrl,            setHlsUrl]            = useState<string | null>(null);
-  const [streamStatus,      setStreamStatus]      = useState<StreamStatus["status"]>("idle");
-  const [streamError,       setStreamError]       = useState<string | null>(null);
-  const [movieTitle,        setMovieTitle]        = useState("Loading movie...");
+  const [subtitles,        setSubtitles]        = useState<SubtitleTrack[]>([]);
+  const [streamingMovieId, setStreamingMovieId] = useState<number | null>(null);
+  const [hlsUrl,           setHlsUrl]           = useState<string | null>(null);
+  const [streamStatus,     setStreamStatus]     = useState<StreamStatus["status"]>("idle");
+  const [streamError,      setStreamError]      = useState<string | null>(null);
+  const [movieTitle,       setMovieTitle]       = useState("Loading movie...");
 
   // ── Step 1: resolve movie ID ──────────────────────────────────────────────
   useEffect(() => {
@@ -74,14 +82,14 @@ export default function Watch() {
         const data: StreamingResolve = await res.json();
         setStreamingMovieId(data.movie_id);
         setMovieTitle(data.title);
-      } catch (e) {
+      } catch {
         setStreamError("Could not connect to the streaming server.");
       }
     }
     resolveMovie();
   }, [movieId]);
 
-  // ── Step 2: poll for stream readiness ────────────────────────────────────
+  // ── Step 2: poll stream status until ready ────────────────────────────────
   useEffect(() => {
     if (!streamingMovieId) return;
     let cancelled = false;
@@ -89,7 +97,8 @@ export default function Watch() {
 
     async function poll() {
       try {
-        const res  = await fetch(`${API}/api/streaming/${streamingMovieId}/stream/`, {
+        const language = encodeURIComponent(preferredSubtitleLanguage());
+        const res  = await fetch(`${API}/api/streaming/${streamingMovieId}/stream/?language=${language}`, {
           credentials: "include",
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -101,10 +110,10 @@ export default function Watch() {
 
         if (data.status === "ready" && data.movie_path) {
           setHlsUrl(toAbsoluteBackendUrl(data.movie_path));
-          return;   // stop polling
+          return; // stop polling — subtitles are loaded in the next effect
         }
         pollTimer = setTimeout(poll, 3000);
-      } catch (e) {
+      } catch {
         if (cancelled) return;
         setStreamStatus("error");
         setStreamError("Could not start the stream. Please try again.");
@@ -122,67 +131,65 @@ export default function Watch() {
     };
   }, [streamingMovieId]);
 
-  // ── Step 3: fetch subtitles ───────────────────────────────────────────────
+  // ── Step 3: load subtitles once stream URL is known ───────────────────────
+  // The backend triggers subtitle preparation as soon as the stream is ready,
+  // so subtitles may not exist yet on the first request. Keep retrying for a
+  // short bounded window so slower embedded extraction/external lookup can land.
   useEffect(() => {
-    if (!streamingMovieId) return;
+    if (!streamingMovieId || !hlsUrl) return;
     let cancelled = false;
-    let pollTimer: ReturnType<typeof setTimeout>;
+    let retryTimer: ReturnType<typeof setTimeout>;
+    const startedAt = Date.now();
+    const retryForMs = 90_000;
+    const retryEveryMs = 5_000;
 
-    async function loadSubtitles(): Promise<boolean> {
+    async function fetchSubtitles(): Promise<boolean> {
       try {
-        const res = await fetch(`${API}/api/streaming/${streamingMovieId}/subtitles/`, {
+        const language = encodeURIComponent(preferredSubtitleLanguage());
+        const res = await fetch(`${API}/api/streaming/${streamingMovieId}/subtitles/?language=${language}`, {
           credentials: "include",
         });
-        if (!res.ok) {
-          setSubtitles([]);
-          return false;
-        }
+        if (!res.ok) return false;
         const tracks: SubtitleTrack[] = await res.json();
-        if (!cancelled) {
-          setSubtitles(
-            tracks.map(track => ({
-              ...track,
-              src: normalizeBackendUrl(track.src),
-            }))
-          );
-        }
+        if (cancelled) return tracks.length > 0;
+
+        setSubtitles(
+          tracks.map(track => ({
+            ...track,
+            src: normalizeBackendUrl(track.src),
+          }))
+        );
         return tracks.length > 0;
-      } catch (e) {
-        if (!cancelled) setSubtitles([]);
+      } catch {
         return false;
       }
     }
 
-    async function pollSubtitles() {
-      const foundTracks = await loadSubtitles();
-      if (!cancelled && !foundTracks) {
-        pollTimer = setTimeout(pollSubtitles, 5000);
+    async function loadSubtitles() {
+      const found = await fetchSubtitles();
+      if (!found && !cancelled && Date.now() - startedAt < retryForMs) {
+        retryTimer = setTimeout(loadSubtitles, retryEveryMs);
       }
     }
 
-    pollSubtitles();
+    loadSubtitles();
 
     return () => {
       cancelled = true;
-      clearTimeout(pollTimer);
+      clearTimeout(retryTimer);
     };
-  }, [streamingMovieId]);
+  }, [streamingMovieId, hlsUrl]);
 
-  // ── Step 4: attach HLS + inject subtitle tracks via TextTrack API ─────────
+  // ── Step 4: attach HLS to <video> ────────────────────────────────────────
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !hlsUrl) return;
 
-    // Destroy previous HLS instance
     hlsRef.current?.destroy();
     hlsRef.current = null;
 
     if (Hls.isSupported()) {
-      const hls = new Hls({
-        debug: false,
-        maxBufferHole: 0.5,
-        nudgeMaxRetry: 5,
-      });
+      const hls = new Hls({ debug: false, maxBufferHole: 0.5, nudgeMaxRetry: 5 });
       hlsRef.current = hls;
       hls.loadSource(hlsUrl);
       hls.attachMedia(video);
@@ -209,33 +216,68 @@ export default function Watch() {
     };
   }, [hlsUrl]);
 
+  // ── Step 5: activate first subtitle track once the VTT file is parsed ──────
+  // The old approach used setTimeout(250) which raced with the browser's async
+  // VTT fetch+parse. If the file wasn't parsed yet, setting mode="showing"
+  // had no effect and the track appeared silent until the user toggled it off
+  // and back on. We now use the TextTrackList `addtrack` event which fires once
+  // the browser has registered the track, then wait for its `load` event before
+  // setting the mode — guaranteeing cues are available when we activate it.
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !hlsUrl || subtitles.length === 0) return;
+    if (!video || subtitles.length === 0) return;
 
-    const timer = window.setTimeout(() => {
-      for (let index = 0; index < video.textTracks.length; index += 1) {
-        video.textTracks[index].mode = index === 0 ? "showing" : "disabled";
+    function activateFirstTrack() {
+      // Disable all tracks, then enable the first one
+      for (let i = 0; i < video!.textTracks.length; i++) {
+        video!.textTracks[i].mode = i === 0 ? "showing" : "disabled";
       }
-    }, 250);
+    }
 
-    return () => window.clearTimeout(timer);
-  }, [subtitles, hlsUrl]);
+    function onAddTrack(e: TrackEvent) {
+      const track = e.track as TextTrack;
+      if (!track) return;
+
+      if (track.mode !== "disabled") return; // already handled
+
+      // Wait for the VTT file to finish loading before activating
+      const onLoad = () => activateFirstTrack();
+      // TextTrack doesn't expose load events directly — listen via the
+      // underlying HTMLTrackElement on the video
+      const trackEl = Array.from(video!.querySelectorAll("track")).find(
+        el => el.label === track.label && el.srclang === track.language
+      );
+      if (trackEl) {
+        trackEl.addEventListener("load", onLoad, { once: true });
+        // If already loaded (readyState 2), fire immediately
+        if ((trackEl as HTMLTrackElement).readyState === 2) onLoad();
+      } else {
+        // No matching <track> element found — activate directly
+        activateFirstTrack();
+      }
+    }
+
+    video.textTracks.addEventListener("addtrack", onAddTrack);
+
+    // Handle subtitles that were already added before this effect ran
+    if (video.textTracks.length > 0) activateFirstTrack();
+
+    return () => {
+      video.textTracks.removeEventListener("addtrack", onAddTrack);
+    };
+  }, [subtitles]);
 
   return (
     <div className="min-h-screen flex flex-col items-center !px-4 lg:!px-16 !space-y-4 !mt-15 !mb-15">
       <div className="!mt-10 w-full h-full flex flex-col items-center justify-center">
         <div className="h-[70vh] max-h-[70vh]">
           <div className="relative h-full w-full rounded-md border border-white/[0.07] bg-black">
-            {/*
-              ✅ Key fix: render <track> elements so they exist in the DOM.
-              The TextTrack API injection below is the reliable method,
-              but having <track> tags also helps some browsers.
-            */}
             <video
               ref={videoRef}
               controls
               playsInline
+              autoPlay
+              muted
               crossOrigin="anonymous"
               width="100%"
               height="100%"
@@ -286,7 +328,7 @@ export default function Watch() {
                   </div>
                 </div>
 
-                {/* Debug: show subtitle state */}
+                {/* Debug: show subtitle state (dev only) */}
                 {process.env.NODE_ENV === "development" && (
                   <div className="text-xs text-white/30 font-mono">
                     subtitles: {subtitles.length} track(s)

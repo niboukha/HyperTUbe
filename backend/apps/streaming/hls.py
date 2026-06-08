@@ -1,4 +1,3 @@
-
 import subprocess
 import time
 import os
@@ -32,21 +31,48 @@ def start_ffmpeg(video_file, hls_dir, movie_id, torrent, codec_args):
             os.remove(os.path.join(hls_dir, filename))
 
     playlist_path = f'{hls_dir}/playlist.m3u8'
+
+    # Original command:
+    # cmd = [
+    #     'ffmpeg',
+    #     '-fflags', '+genpts',
+    #     '-fflags', '+ignidx',
+    #     '-fflags', '+discardcorrupt',
+    #     '-err_detect', 'ignore_err',
+    #     '-i', video_file,
+    #     *codec_args,
+    #     '-f', 'hls',
+    #     '-hls_time', '4',
+    #     '-hls_list_size', '0',
+    #     '-hls_flags', 'independent_segments',
+    #     playlist_path
+    # ]
+    #
+    # Why it is changed:
+    # MKV containers often store a non-zero edit-list start PTS (commonly 1–3 s).
+    # Without PTS normalisation the HLS segments inherit that offset, so the
+    # player's media clock starts at e.g. 1.0 s while hls.js reports
+    # currentTime starting from 0. Subtitles extracted with `-c:s srt` are
+    # always reset to t=0, so every cue appears 1–3 s early relative to the
+    # picture. `-avoid_negative_ts make_zero` forces FFmpeg to subtract the
+    # first input PTS from all output timestamps, aligning both streams to 0.
+    # `-fflags +igndts` replaces the old +ignidx (renamed in FFmpeg 5+) and
+    # tells FFmpeg to reconstruct DTS from PTS when DTS is missing or invalid,
+    # preventing PTS<DTS warnings that cause some segments to be dropped.
     cmd = [
         'ffmpeg',
-        '-fflags', '+genpts',
-        '-fflags', '+ignidx',
-        '-fflags', '+discardcorrupt', 
+        '-fflags', '+genpts+igndts',
         '-err_detect', 'ignore_err',
         '-i', video_file,
-        *codec_args,  # ⭐ Use pre-checked codecs
+        *codec_args,
+        '-avoid_negative_ts', 'make_zero',
         '-f', 'hls',
         '-hls_time', '4',
         '-hls_list_size', '0',
-        '-hls_flags', 'independent_segments',
+        '-hls_flags', 'independent_segments+discont_start',
         playlist_path
     ]
-    
+
     try:
         print(f'✅ FFmpeg started ({codec_args[1]})')
 

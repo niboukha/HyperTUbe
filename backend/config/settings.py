@@ -39,7 +39,6 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
 ]
 
-
 # Application definition
 
 INSTALLED_APPS = [
@@ -62,11 +61,6 @@ INSTALLED_APPS = [
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
     'allauth.socialaccount.providers.github',
-    # 'uapps.users.providers.intra42',
-
-
-
-    # "apps.comments",
 ]
 
 CACHES = {

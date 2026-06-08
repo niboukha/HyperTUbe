@@ -11,7 +11,7 @@ from django.core.files.base import ContentFile
 
 from apps.movies.models import Movie
 from apps.streaming.models import Subtitle
-from apps.streaming.subtitles import convert_srt_to_vtt
+from apps.streaming.subtitles import convert_srt_to_vtt, normalize_subtitle_language
 
 class SubtitleProviderError(Exception):
     pass
@@ -135,17 +135,21 @@ def download_external_subtitle_fallback(movie_id: int, language: str) -> Subtitl
     Download one external subtitle only when no ready subtitle exists yet.
     """
     movie = Movie.objects.get(id=movie_id)
-    normalized_language = language.lower()
+    normalized_language = normalize_subtitle_language(language)
     print(f"[Subtitles] External fallback started | movie_id={movie_id} language={normalized_language}")
 
-    existing = Subtitle.objects.filter(
-        movie=movie,
-        language=normalized_language,
-        status=Subtitle.Status.READY,
-    ).first()
-    if existing:
-        print(f"[Subtitles] External fallback skipped; ready subtitle already exists | movie_id={movie_id} language={normalized_language} subtitle_id={existing.id}")
-        return existing
+    for existing in Subtitle.objects.filter(movie=movie, status=Subtitle.Status.READY):
+        if normalize_subtitle_language(existing.language) != normalized_language:
+            continue
+
+        has_file = bool(existing.file and existing.file.storage.exists(existing.file.name))
+        if has_file or existing.subtitle_link:
+            print(f"[Subtitles] External fallback skipped; ready subtitle already exists | movie_id={movie_id} language={normalized_language} subtitle_id={existing.id}")
+            return existing
+
+        existing.status = Subtitle.Status.FAILED
+        existing.save(update_fields=["status"])
+        print(f"[Subtitles] External fallback ignored stale ready subtitle; file missing | movie_id={movie_id} language={normalized_language} subtitle_id={existing.id}")
 
     client = OpenSubtitlesClient()
     results = client.search_movie_subtitles(movie=movie, language=normalized_language)
