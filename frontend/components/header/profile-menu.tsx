@@ -12,21 +12,25 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { useRouter } from 'next/navigation'
+import type { CurrentUser } from "@/hooks/use-current-user"
 
 type Props = {
   onOpen?: () => void
+  user: CurrentUser | null
 }
 
-export default function ProfileMenu({ onOpen }: Props) {
-    const router = useRouter()
+export default function ProfileMenu({ onOpen, user }: Props) {
+  const router = useRouter()
+  const initials = user?.username?.slice(0, 2).toUpperCase() ?? "?"
 
-   const handleLogout = async () => {
+  console.log("Rendering ProfileMenu with user:", user)
+
+  const handleLogout = async () => {
     try {
       await fetch('http://localhost:8000/api/auth/logout', {
         method: 'POST',
         credentials: 'include', // IMPORTANT for cookies
       })
-
 
       router.push('/login')
       router.refresh()
@@ -43,13 +47,15 @@ export default function ProfileMenu({ onOpen }: Props) {
           className="relative h-7 w-7 md:h-8 md:w-8 rounded-md hover:scale-110 transform-gpu transition-transform duration-200"
         >
           <Avatar className="h-7 w-7 md:h-8 md:w-8 rounded-md border-0! shadow-none! ring-0! hover:ring-0! hover:border-0!">
-            <AvatarImage
-              src="/avatars/Name=chicken.svg"
-              className="rounded-md"
-            />
-            <AvatarFallback className="bg-linear-to-br from-accent-gold to-accent-gold text-xs font-bold">
-              JD
-            </AvatarFallback>
+            {/* {user?.profile_picture && ( */}
+              <AvatarImage
+                src={user?.avatar || "/avatars/Name=angryman.svg"}
+                className="rounded-md"
+              />
+            {/* )} */}
+            {/* <AvatarFallback className="bg-linear-to-br from-accent-gold to-accent-gold text-xs font-bold">
+              {initials}
+            </AvatarFallback> */}
           </Avatar>
         </Button>
       </DropdownMenuTrigger>

@@ -91,6 +91,7 @@ TMDB_TOKEN   = env("TMDB_TOKEN")    # Bearer token
 ARCHIVE_ROWS = 20                        # Items per page from archive.org
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -98,9 +99,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    "corsheaders.middleware.CorsMiddleware",
     'allauth.account.middleware.AccountMiddleware',
-
+    
 ]
 
 REST_FRAMEWORK = {
@@ -248,8 +248,11 @@ ALLOWED_HOSTS = [
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
 ]
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+]
 
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = False
 
 
 

@@ -185,7 +185,7 @@ def _runtime_to_minutes(value):
     return int(digits) if digits else None
 
 
-@permission_classes([AllowAny])
+# @permission_classes([AllowAny])
 class MovieStreamingResolveView(APIView):
     """
     Resolve a frontend movie id into the local Django Movie id used by streaming.
@@ -210,7 +210,7 @@ class MovieStreamingResolveView(APIView):
         })
 
 
-@permission_classes([AllowAny])
+# @permission_classes([AllowAny])
 class MovieStreamView(APIView):
     """
     HLS Streaming endpoint
@@ -293,7 +293,7 @@ class MovieStreamView(APIView):
             return Response({'status': 'error', 'message': 'An error occurred'}, status=500)
 
 
-@permission_classes([AllowAny])
+# @permission_classes([AllowAny])
 class MovieSubtitlesView(APIView):
     """
     Return ready subtitle tracks for a movie.
@@ -381,7 +381,7 @@ class MovieSubtitlesView(APIView):
         return Response(tracks)
 
 
-@permission_classes([AllowAny])
+# @permission_classes([AllowAny])
 class MovieHLSFileView(APIView):
     """
     Serve HLS playlists and segments through Django with stable browser headers.
@@ -399,7 +399,7 @@ class MovieHLSFileView(APIView):
         return media_file_response(file_path, content_type)
 
 
-@permission_classes([AllowAny])
+# @permission_classes([AllowAny])
 class MovieSubtitleFileView(APIView):
     """
     Serve WebVTT subtitle files through Django with stable browser headers.

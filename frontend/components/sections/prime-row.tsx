@@ -4,7 +4,8 @@ import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { MovieResult } from "@/types/search"
 import Image from "next/image"
-import { Plus, ChevronLeft, ChevronRight, Star } from "lucide-react"
+import { Plus, Check, ChevronLeft, ChevronRight, Star } from "lucide-react"
+import { useWatchlistToggle } from "@/hooks/use-watchlist-toggle"
 import { useCarousel } from "../carousel/use-carousel"
 import { containerVariants } from "@/lib/annimations/continue-watching-variants"
 import { Button } from "../ui/button"
@@ -22,6 +23,32 @@ import { useRuntimes } from "@/hooks/use-runtimes"
 type MovieRowProps = {
   title: string
   movies: MovieResult[]
+}
+
+function WatchlistButton({ movie }: { movie: MovieResult }) {
+  const { inWatchlist, toggle, loading } = useWatchlistToggle(movie)
+  return (
+    <Tooltip key="Add to List">
+      <TooltipTrigger asChild>
+        <Button
+          size="icon"
+          variant="outline"
+          onClick={toggle}
+          disabled={loading}
+          className={`border-white/30 text-white h-9.5 w-9.5 rounded-md shadow-md hover:text-white hover:shadow-lg transition-all duration-200 hover:scale-110 ${
+            inWatchlist ? "bg-white/25 hover:bg-white/30" : "bg-white/10 hover:bg-white/20"
+          }`}
+        >
+          {inWatchlist ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>
+        <p className="whitespace-nowrap text-sm font-medium text-background bg-white px-2! py-2! rounded-lg border border-white/10 pointer-events-none z-50 shadow-lg">
+          {inWatchlist ? `Remove ${movie.title} from your list` : `Add ${movie.title} to your list`}
+        </p>
+      </TooltipContent>
+    </Tooltip>
+  )
 }
 
 export default function PrimeRow({ title, movies }: MovieRowProps) {
@@ -240,29 +267,7 @@ export default function PrimeRow({ title, movies }: MovieRowProps) {
                           </TooltipContent>
                         </Tooltip>
 
-                        <Tooltip
-                          key="Add to List"
-                        >
-                          <TooltipTrigger asChild>
-                            <Button
-                                size="icon"
-                                variant="outline"
-                                className="border-white/30 bg-white/10 hover:bg-white/20 text-white h-9.5 w-9.5 rounded-md shadow-md hover:text-white hover:shadow-lg transition-all duration-200 hover:scale-110"
-                            >
-                                <Plus className="w-5 h-5" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                              <p
-                                className="whitespace-nowrap
-                                text-sm font-medium text-background bg-white
-                                px-2! py-2! rounded-lg border border-white/10
-                                pointer-events-none z-50 shadow-lg"
-                              >
-                                Add {movie.title} to your list
-                              </p>
-                          </TooltipContent>
-                        </Tooltip>
+                        <WatchlistButton movie={movie} />
                       </div>
 
                       {/* Meta */}

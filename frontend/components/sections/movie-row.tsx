@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import Image from "next/image"
-import { Play, Plus } from "lucide-react"
+import { Play, Plus, Check } from "lucide-react"
+import { useWatchlistToggle } from "@/hooks/use-watchlist-toggle"
 
 import Carousel from "@/components/carousel/carousel"
 import CarouselPortal from "@/components/carousel/carousel-portal"
@@ -20,6 +21,39 @@ type MovieRowProps = {
   title: string
   endpoint: string
   priority?: boolean // only true for the first visible row
+}
+
+function RowInfoPanel({ movie }: { movie: MovieResult }) {
+  const { inWatchlist, toggle, loading } = useWatchlistToggle(movie)
+  return (
+    <div className="flex flex-col gap-1">
+      <p className="text-text-primary/50 text-xs line-clamp-2">{movie.overview}</p>
+      <div className="flex items-center gap-2 mt-1">
+        <TooltipButton
+          label="Watch now"
+          className="w-8 h-8 rounded-full bg-text-primary flex items-center justify-center hover:bg-text-primary/80 transition"
+        >
+          <Link href={`/movies/${movie.id}`}>
+            <Play className="h-4 w-4 text-background fill-background ml-0.5" />
+          </Link>
+        </TooltipButton>
+        <TooltipButton
+          label={inWatchlist ? "Remove from watchlist" : "Add to watchlist"}
+          className={`w-8 h-8 rounded-full border flex items-center justify-center transition ${
+            inWatchlist
+              ? "border-text-primary bg-text-primary/20 hover:bg-text-primary/30"
+              : "border-text-primary/30 hover:border-text-primary"
+          } ${loading ? "opacity-50 pointer-events-none" : ""}`}
+          onClick={toggle}
+        >
+          {inWatchlist
+            ? <Check className="h-4 w-4 text-text-primary" />
+            : <Plus className="h-4 w-4 text-text-primary" />
+          }
+        </TooltipButton>
+      </div>
+    </div>
+  )
 }
 
 export default function MovieRow({ title, endpoint, priority }: MovieRowProps) {
@@ -142,30 +176,7 @@ export default function MovieRow({ title, endpoint, priority }: MovieRowProps) {
           getPortalStyle={getPortalStyle}
           onMouseEnter={clearHoverTimeout}
           onMouseLeave={handleMouseLeave}
-          infoPanel={
-            <div className="flex flex-col gap-1">
-              <p className="text-text-primary/50 text-xs line-clamp-2">
-                {hoveredMovie.overview}
-              </p>
-              <div className="flex items-center gap-2 mt-1">
-                <TooltipButton
-                  label="Watch now"
-                  className="w-8 h-8 rounded-full bg-text-primary flex items-center justify-center hover:bg-text-primary/80 transition"
-                >
-                  <Link href={`/movies/${hoveredMovie.id}`}>
-                    <Play className="h-4 w-4 text-background fill-background ml-0.5" />
-                  </Link>
-                </TooltipButton>
-                <TooltipButton
-                  label="Add to watchlist"
-                  className="w-8 h-8 rounded-full border border-text-primary/30 flex items-center justify-center hover:border-text-primary transition"
-                >
-                  {/* should be added to database and linked to user's profile for watchlist management */}
-                  <Plus className="h-4 w-4 text-text-primary" />
-                </TooltipButton>
-              </div>
-            </div>
-          }
+          infoPanel={<RowInfoPanel movie={hoveredMovie} />}
         />
       )}
     </>

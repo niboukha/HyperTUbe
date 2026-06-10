@@ -296,3 +296,92 @@ def movie_search(request):
     /api/search/?q=batman  (alias kept for url conf)
     """
     return _movies_list_response(request)
+
+
+# ── Watchlist ──────────────────────────────────────────────────────────────────
+
+@api_view(["GET"])
+def watchlist_list(request):
+    """GET /watchlist/ — returns the authenticated user's saved movies."""
+    from .models import UserMovieState
+    states = (
+        UserMovieState.objects
+        .filter(user=request.user, is_saved=True)
+        .select_related("movie")
+        .order_by("-id")
+    )
+    items = [
+        {
+            "movie_id":    s.movie.tmdb_id,
+            "title":       s.movie.title,
+            "poster_path": s.movie.poster_url,
+            "overview":    s.movie.overview,
+            "backdrop_path": s.movie.backdrop_url,
+            # "genres":     s.movie.genres,
+
+            "year":        str(s.movie.release_date.year) if s.movie.release_date else None,
+            "rating":      s.movie.rating,
+            "added_at":    (s.created_at or s.updated_at).isoformat(),
+        }
+        for s in states
+    ]
+    return Response({"items": items})
+
+
+@api_view(["POST"])
+def watchlist_toggle(request):
+    """
+    POST /watchlist/toggle/
+    Body: { movie_id, title, poster_path, year?, rating? }
+    Returns: { in_watchlist: bool }
+    """
+    from .models import UserMovieState, Movie as MovieModel
+    movie_id   = request.data.get("movie_id")
+    title      = request.data.get("title", "")
+    poster_path = request.data.get("poster_path")
+    year       = request.data.get("year")
+    rating     = request.data.get("rating")
+    overview   = request.data.get("overview", "")
+    backdrop_path = request.data.get("backdrop_path")
+    
+    # genres     = request.data.get("genres", [])
+
+    if not movie_id:
+        return Response({"error": "movie_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Get or create a lightweight Movie record keyed by tmdb_id
+    release_date = None
+    if year:
+        try:
+            from datetime import date
+            release_date = date(int(year), 1, 1)
+        except (ValueError, TypeError):
+            pass
+
+    movie, _ = MovieModel.objects.get_or_create(
+        tmdb_id=str(movie_id),
+        defaults={
+            "title":       title,
+            "poster_url":  poster_path,
+            "release_date": release_date,
+            "rating":      rating or 0,
+            "overview":    overview,
+            "backdrop_url": backdrop_path,
+            # "genres":      genres,
+        },
+    )
+
+    state, created = UserMovieState.objects.get_or_create(
+        user=request.user,
+        movie=movie,
+    )
+
+    if not created and state.is_saved:
+        # Already saved → remove
+        state.is_saved = False
+        state.save(update_fields=["is_saved"])
+        return Response({"in_watchlist": False})
+
+    state.is_saved = True
+    state.save(update_fields=["is_saved"])
+    return Response({"in_watchlist": True})

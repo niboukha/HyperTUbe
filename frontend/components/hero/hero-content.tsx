@@ -1,9 +1,12 @@
+"use client"
+
 import { AnimatePresence, motion } from "framer-motion"
 import { containerVariants, itemVariants } from "@/lib/annimations/hero-variants"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Play, Plus, Flame, Star } from "lucide-react"
+import { Play, Plus, Check, Flame, Star } from "lucide-react"
 import { MovieResult } from "@/types/search"
+import { useWatchlistToggle } from "@/hooks/use-watchlist-toggle"
 import { truncateOverview } from "@/lib/utils/movie"
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip"
 import { TMDB_GENRE_LABELS } from "@/lib/tmdb-genres"
@@ -25,6 +28,7 @@ export function getGenreNames(ids?: number[]) {
 
 export function HeroContent({ movie, activeSlide, runtime, runtimeLoading }: HeroContentProps) {
   const truncatedOverview = truncateOverview(movie.overview ?? "", 180)
+  const { inWatchlist, toggle, loading } = useWatchlistToggle(movie)
 
   return (
     <AnimatePresence mode="sync">
@@ -112,16 +116,22 @@ export function HeroContent({ movie, activeSlide, runtime, runtimeLoading }: Her
           <Tooltip>
             <TooltipTrigger asChild>
               <motion.div
-                whileHover={{ rotate: 90 }}
+                whileHover={{ rotate: inWatchlist ? 0 : 90 }}
                 transition={{ duration: 0.2 }}
-                className="h-10 w-10 bg-[#FFFFFF]/14 backdrop-blur-lg rounded-md flex justify-center items-center cursor-pointer"
+                onClick={toggle}
+                className={`h-10 w-10 backdrop-blur-lg rounded-md flex justify-center items-center cursor-pointer transition-colors ${
+                  inWatchlist ? "bg-white/30" : "bg-[#FFFFFF]/14"
+                } ${loading ? "opacity-60 pointer-events-none" : ""}`}
               >
-                <Plus className="h-8 w-8 text-white" />
+                {inWatchlist
+                  ? <Check className="h-6 w-6 text-white" />
+                  : <Plus className="h-8 w-8 text-white" />
+                }
               </motion.div>
             </TooltipTrigger>
             <TooltipContent>
               <p className="whitespace-nowrap text-sm font-medium text-background bg-white px-2! py-2! rounded-lg border border-white/10 pointer-events-none z-50 shadow-lg">
-                Add {movie.title} to your list
+                {inWatchlist ? `Remove ${movie.title} from your list` : `Add ${movie.title} to your list`}
               </p>
             </TooltipContent>
           </Tooltip>

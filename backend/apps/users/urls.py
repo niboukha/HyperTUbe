@@ -9,5 +9,4 @@ urlpatterns = [
     path("password-confirm", password_reset_confirm, name="password_reset_confirm"),
     path("settings/change-password", settings_change_password, name="settings_change_password"),
     path("me", me, name="me"),
-    
 ]

@@ -33,7 +33,7 @@ export default function ContinueWatching( { title = "Continue Watching" }: { tit
   const [movies, setMovies] = useState<ContinueWatchingMovie[]>([])
   const [loading, setLoading] = useState(true)
   const { hover, clearHoverTimeout, handleMouseEnter, handleMouseLeave, getPortalStyle } = useHoverPortal()
-
+  
   useEffect(() => {
     const fetch_ = async () => {
       try {
@@ -169,6 +169,7 @@ export default function ContinueWatching( { title = "Continue Watching" }: { tit
                   label="Add to List"
                 >
                   <Plus className="h-4 w-4 text-text-primary" />
+                  onClick={toggle}
                 </TooltipButton>
                 
                 <TooltipButton

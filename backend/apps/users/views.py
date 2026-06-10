@@ -94,12 +94,21 @@ def login_view(request):
 # this view just for testing
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+# @permission_classes([AllowAny])
 def me(request):
+    from .models import UserProfile
+    print("Me view accessed by user:", request.user,"|", request.user.id)
+    try:
+        profile = UserProfile.objects.get(pk=request.user.pk)
+        profile_picture = profile.profile_picture
+    except UserProfile.DoesNotExist:
+        profile_picture = None
+    print("User profile picture:", profile_picture, profile.username)
     return Response({
         "id": str(request.user.id),
-        "username": request.user.username,
-        "email": request.user.email,
+        "username": profile.username,
+        # "email": request.user.email,
+        "avatar": profile_picture,
     })
 
 
@@ -211,12 +220,8 @@ def logout_view(request):
     return response
 
 
-
-
 from rest_framework.pagination import PageNumberPagination
-
-# users search
-
+@permission_classes([AllowAny])
 class UserSearchView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -236,6 +241,11 @@ class UserSearchView(APIView):
             {
                 "id": u.id,
                 "username": u.username,
+                "avatar": (
+                    u.userprofile.profile_picture
+                    if hasattr(u, "userprofile")
+                    else None
+                ),
             }
             for u in result_page
         ]

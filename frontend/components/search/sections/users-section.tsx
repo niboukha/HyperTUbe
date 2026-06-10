@@ -11,6 +11,7 @@ type Props = {
 }
 
 export function UsersSection({ users, query, onSelect }: Props) {
+  console.log("Rendering UsersSection with users:", users, "and query:", query)
   if (users.length === 0) return null
   return (
     <div className="mb-4!">
@@ -24,7 +25,7 @@ export function UsersSection({ users, query, onSelect }: Props) {
           >
             <div className="w-8 h-8 shrink-0 rounded-md overflow-hidden relative bg-white/10">
               <Image
-                src={user.avatar || "/default-avatar.png"}
+                src={user.avatar || "/avatars/Name=angryman.svg"} 
                 alt={user.username || "User"}
                 fill
                 sizes="32px"

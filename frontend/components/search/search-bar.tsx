@@ -7,7 +7,6 @@ import { MovieResult, UserResult } from "@/types/search"
 import { getRecentSearches, saveRecentSearch, removeRecentSearch } from "@/lib/utils/search-bar"
 import { SearchInput } from "./search-input"
 import { SearchPanel } from "./search-panel"
-import { MOCK_USERS } from "@/lib/mock-data"
 import { useRouter, usePathname } from "next/navigation"
 import { createPortal } from "react-dom"
 import { motion, AnimatePresence } from "framer-motion"
@@ -34,6 +33,7 @@ export default function SearchBar({
 
   const [query,          setQuery]          = useState("")
   const [movies,         setMovies]         = useState<MovieResult[]>([])
+  const [matchedUsers,   setMatchedUsers]   = useState<UserResult[]>([])
   const [loading,        setLoading]        = useState(false)
   const [activeIndex,    setActiveIndex]    = useState(-1)
   const [recentSearches, setRecentSearches] = useState<string[]>([])
@@ -52,12 +52,37 @@ export default function SearchBar({
   useEffect(() => { setMounted(true) }, [])
   useEffect(() => { closeSearch() }, [pathname]) // eslint-disable-line
 
-  //  helpers 
-  const matchedUsers = useMemo(() =>
-    !query ? [] : MOCK_USERS.filter(u =>
-      u.username?.toLowerCase().includes(query.toLowerCase())
-    ).slice(0, 3),
-  [query])
+  //  user search
+  useEffect(() => {
+    if (!debouncedQuery) { setMatchedUsers([]); return }
+    let ignore = false
+    const run = async () => {
+      try {
+        const res  = await fetch(`${API}/users/?q=${encodeURIComponent(debouncedQuery)}`,
+         { 
+          method: "GET",
+          credentials: "include"
+        }
+        )
+        const data = await res.json()
+
+        console.log("User search results:", data)
+        if (!ignore)
+          setMatchedUsers(
+            (data?.results ?? []).slice(0, 3).map((u: { id: number; username: string; avatar: string | null }) => ({
+              type: "user" as const,
+              id: u.id,
+              username: u.username,
+              avatar: u.avatar || null,
+            }))
+          )
+      } catch {
+        if (!ignore) setMatchedUsers([])
+      }
+    }
+    run()
+    return () => { ignore = true }
+  }, [debouncedQuery])
 
   const openSearch = useCallback(() => {
     setInternalOpen(true)
@@ -72,7 +97,7 @@ export default function SearchBar({
     setInternalOpen(false)
     onOpenChange?.(false)
     setActiveIndex(-1)
-    setTimeout(() => { setQuery(""); setMovies([]) }, 200)
+    setTimeout(() => { setQuery(""); setMovies([]); setMatchedUsers([]) }, 200)
   }, [onOpenChange])
 
   //  fetch 

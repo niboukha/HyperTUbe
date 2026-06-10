@@ -2,7 +2,9 @@
 
 import { InfiniteScroll } from "@/components/ui/infinite-scroll";
 import { Movie, MovieCard, normaliseTMDB } from "@/components/watchlist/watchlist-card";
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
+
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const GENRE_MAP: Record<number, string> = {
   28: "Action", 12: "Adventure", 16: "Animation", 35: "Comedy",
@@ -10,63 +12,6 @@ const GENRE_MAP: Record<number, string> = {
   14: "Fantasy", 36: "History", 27: "Horror",
   9648: "Mystery", 878: "Sci-Fi", 10752: "War", 37: "Western",
 };
-
-async function fetchMovies(page: number): Promise<Movie[]> {
-  const url =
-    `https://api.themoviedb.org/3/discover/movie` +
-    `?api_key=${process.env.NEXT_PUBLIC_TMDB_KEY}` +
-    `&language=en-US` +
-    `&page=${page}` +
-    `&sort_by=popularity.desc` +
-    `&include_adult=false` +
-    `&include_video=false` +
-    `&vote_count.gte=200` +
-    `&vote_average.gte=6` +
-    `&without_genres=27,10752,99,18,53` +
-    `&with_original_language=en`;
-
-  const data = await fetch(url, {
-    next: { revalidate: 3600 },
-  }).then((r) => r.json());
-
-  // console.log("Fetched movies page", page, data.results);
-
-  return (data.results ?? [])
-    .filter(
-      (movie: any) =>
-        movie.poster_path &&
-        movie.backdrop_path &&
-        movie.overview &&
-        movie.title &&
-
-        // basic bad-word filtering
-        !containsBadWords(movie.title) &&
-        !containsBadWords(movie.overview)
-    )
-    .map((r: any) => normaliseTMDB(r, GENRE_MAP));
-}
-
-const blockedWords = [
-  "sex",
-  "porn",
-  "nude",
-  "nudity",
-  "rape",
-  "xxx",
-  "erotic",
-  "fetish",
-  "kill",
-  "bloody",
-  "slaughter",
-  "gore",
-  "violence",
-];
-
-function containsBadWords(text: string = "") {
-  const lower = text.toLowerCase();
-
-  return blockedWords.some((word) => lower.includes(word));
-}
 
 function groupLabel(iso: string): string {
   const diff = Math.floor(
@@ -80,84 +25,62 @@ function groupLabel(iso: string): string {
 }
 
 export default function WatchlistPage() {
-  const [movies,  setMovies]  = useState<Movie[]>([]);
-  const [page,    setPage]    = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  
-  const [hasMore,    setHasMore]    = useState(false);
+  const [movies,  setMovies]  = useState<(Movie & { _savedAt: string })[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const [saved, setSaved] = useState<Set<string>>(() => {
-    if (typeof window === "undefined") return new Set();
-
-    try {
-      return new Set(JSON.parse(localStorage.getItem("watchlist") ?? "[]"));
-    } catch {
-      return new Set();
-    }
-  });
-
-  const toggleSave = useCallback((id: string) => {
-    setSaved((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      localStorage.setItem("watchlist", JSON.stringify([...next]));
-      return next;
-    });
+  useEffect(() => {
+    fetch(`${API}/watchlist/`, { credentials: "include" })
+      .then(r => r.ok ? r.json() : { items: [] })
+      .then(data => {
+        const items = (data.items ?? []).map((entry: any) =>
+          ({
+            ...normaliseTMDB(
+              {
+                id:           entry.movie_id.replace(/^tmdb-/, ""),
+                title:        entry.title,
+                poster_path:  entry.poster_path,
+                release_date: entry.year ? `${entry.year}-01-01` : undefined,
+                vote_average: entry.rating ?? 0,
+                overview:     entry.overview ?? "",
+                backdrop_path: entry.backdrop_path ?? "",
+                availability: entry.movie_id.startsWith("tmdb-") ? "premium" : "free",
+              },
+              GENRE_MAP,
+            ),
+            isSaved:  true,
+            _savedAt: entry.added_at ?? new Date().toISOString(),
+          })
+        );
+        console.log("Fetched watchlist items:", items);
+        setMovies(items);
+      })
+      .catch(() => setMovies([]))
+      .finally(() => setLoading(false));
   }, []);
 
-  // Enrich movies with live saved state
-  const hydrated = useMemo(
-    () => movies.map((m) => ({ ...m, isSaved: saved.has(m.id) })),
-    [movies, saved],
-  );
-
-  const loadMore = useCallback(async () => {
-    if (loading || loadingMore || hasMore) return;
-
-    // first page loader
-    if (page === 1) {
-      setLoading(true);
-    } else {
-      setLoadingMore(true);
-    }
-
-    try {
-      const results = await fetchMovies(page);
-
-      if (results.length === 0) {
-        setHasMore(false);
-        return;
-      }
-
-      const stamped = results.map((m, i) => ({
-        ...m,
-        _savedAt: new Date(
-          Date.now() - (i % 4) * 86_400_000 * Math.random() * 3,
-        ).toISOString(),
-      }));
-
-      setMovies((prev) => [...prev, ...(stamped as any)]);
-      setPage((p) => p + 1);
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }, [page, loading, loadingMore, hasMore]);
-
-  // useEffect(() => { loadMore(); }, []);
+  const toggleSave = useCallback((id: string) => {
+    // Optimistic remove from UI
+    setMovies(prev => prev.filter(m => m.id !== id));
+    // Sync with backend
+    fetch(`${API}/watchlist/toggle/`, {
+      method:      "POST",
+      credentials: "include",
+      headers:     { "Content-Type": "application/json" },
+      body:        JSON.stringify({ movie_id: id }),
+    }).catch(() => {});
+  }, []);
 
   // Group by date label
   const grouped = useMemo(() => {
     const g: Record<string, (Movie & { _savedAt: string })[]> = {};
     const order: string[] = [];
-    for (const m of hydrated as any[]) {
+    for (const m of movies) {
       const label = groupLabel(m._savedAt ?? new Date().toISOString());
       if (!g[label]) { g[label] = []; order.push(label); }
       g[label].push(m);
     }
     return { g, order };
-  }, [hydrated]);
+  }, [movies]);
 
   return (
     <div className="min-h-screen flex flex-col gap-4 pb-16! overflow-x-hidden pt-18! px-5! md:px-13! lg:px-16!">
@@ -167,8 +90,26 @@ export default function WatchlistPage() {
         <span className="text-white/25 text-sm">{movies.length} titles</span>
       </div>
 
+      {/* Loading skeleton */}
+      {loading && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <div key={i} className="aspect-[2/3] rounded-md bg-white/5 animate-pulse" />
+          ))}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!loading && movies.length === 0 && (
+        <div className="flex flex-col items-center justify-center flex-1 gap-3 py-32">
+          <span className="text-white/40 text-4xl">🎬</span>
+          <p className="text-white/40 text-sm">Your watchlist is empty.</p>
+          <p className="text-white/25 text-xs">Hit the + button on any movie to save it here.</p>
+        </div>
+      )}
+
       {/* Groups */}
-      {grouped.order.map((label) => (
+      {!loading && grouped.order.map((label) => (
         <section key={label} className="flex flex-col gap-3">
           {/* Section label */}
           <div className="flex items-center gap-3">
@@ -192,14 +133,6 @@ export default function WatchlistPage() {
         </section>
       ))}
 
-      {/* Infinite scroll sentinel */} 
-      <InfiniteScroll
-        onLoadMore={loadMore}
-        hasMore={hasMore}
-        loading={loading}
-        loadingMore={loadingMore}
-      />
-      
     </div>
   );
 }

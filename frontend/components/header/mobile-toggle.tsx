@@ -15,6 +15,7 @@ import Link from "next/link"
 import { navLinks } from "@/constants/nav-links"
 import { Language, languages } from "@/constants/languages"
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
+import type { CurrentUser } from "@/hooks/use-current-user"
 
 type Props = {
   mobileMenuOpen: boolean
@@ -22,7 +23,8 @@ type Props = {
   currentLang: Language
   setCurrentLang: (lang: Language) => void
   triggerClassName?: string
-} 
+  user?: CurrentUser | null
+}
 
 export default function MobileToggle({
   mobileMenuOpen,
@@ -30,7 +32,9 @@ export default function MobileToggle({
   currentLang,
   setCurrentLang,
   triggerClassName = "md:hidden",
+  user,
 }: Props) {
+  const initials = user?.username?.slice(0, 2).toUpperCase() ?? "?"
   return (
     <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
       
@@ -82,15 +86,17 @@ export default function MobileToggle({
           {/* PROFILE */}
           <div className="py-2! flex items-center gap-3">
             <Avatar className="h-10 w-10 rounded-md">
-              <AvatarImage src="avatars/Name=chicken.svg" className=" rounded-md" />
+              {user?.profile_picture && (
+                <AvatarImage src={user.profile_picture} className="rounded-md" />
+              )}
               <AvatarFallback className="bg-linear-to-br from-accent-gold to-accent-gold text-xs font-bold">
-                        JD
+                {initials}
               </AvatarFallback>
             </Avatar>
 
             <div>
-              <p className="text-white font-medium">John Doe</p>
-              <p className="text-gray-400 text-sm">@username</p>
+              <p className="text-white font-medium">{user?.username ?? "..."}</p>
+              <p className="text-gray-400 text-sm">@{user?.username ?? "..."}</p>
             </div>
           </div>
 

@@ -11,6 +11,7 @@ import MobileToggle from "./mobile-toggle"
 import LanguageMenu from "./language-menu"
 import { usePathname } from "next/navigation"
 import { LogOut } from "lucide-react"
+import { useCurrentUser } from "@/hooks/use-current-user"
 
 export default function TopBar() {
   const [currentLang, setCurrentLang]       = useState<Language>(languages[0])
@@ -19,6 +20,7 @@ export default function TopBar() {
   const [hidden, setHidden]                 = useState(false)
   const lastScrollY                         = useRef(0)
   const pathname                            = usePathname()
+  const currentUser                         = useCurrentUser()
 
   const isLibrary     = pathname.startsWith("/library")
   const isAnyMenuOpen = searchOpen || mobileMenuOpen
@@ -178,6 +180,7 @@ export default function TopBar() {
               >
                 <ProfileMenu
                   onOpen={() => setSearchOpen(false)}
+                  user={currentUser}
                 />
               </motion.div>
           </AnimatePresence>
@@ -207,6 +210,7 @@ export default function TopBar() {
             currentLang={currentLang}
             setCurrentLang={setCurrentLang}
             triggerClassName={isLibrary ? "xl:hidden" : "md:hidden"}
+            user={currentUser}
           />
 
         </div>

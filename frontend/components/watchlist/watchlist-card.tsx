@@ -54,7 +54,7 @@ export function normaliseTMDB(raw: any, genreMap: Record<number, string>): Movie
                     .slice(0, 3),
     overview:     raw.overview ?? "",
     isSaved:      false,
-    availability: Math.random() > 0.5 ? "free" : "premium", // replace with real field
+    availability: (raw.availability as "free" | "premium") ?? "premium",
   };
 }
 

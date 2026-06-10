@@ -74,13 +74,10 @@ class UserMovieState(models.Model):
         blank=True
     )
 
-    progress = models.FloatField(default=0)  # percentage of the movie watched
-
+    progress        = models.FloatField(default=0)
     last_watched_at = models.DateTimeField(null=True, blank=True)
-
-    # created_at = models.DateTimeField(auto_now_add=True)
-
-    # updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
 
     class Meta:
         unique_together = ("user", "movie")
