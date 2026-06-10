@@ -1,6 +1,5 @@
 'use client'
 
-import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -60,6 +59,8 @@ export default function Watch() {
   const movieId  = params.id as string;
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef   = useRef<Hls | null>(null);
+  const appliedSubtitleOffsetRef = useRef(0);
+  const desiredSubtitleOffsetRef = useRef(0);
 
   const [subtitles,        setSubtitles]        = useState<SubtitleTrack[]>([]);
   const [streamingMovieId, setStreamingMovieId] = useState<number | null>(null);
@@ -67,6 +68,7 @@ export default function Watch() {
   const [streamStatus,     setStreamStatus]     = useState<StreamStatus["status"]>("idle");
   const [streamError,      setStreamError]      = useState<string | null>(null);
   const [movieTitle,       setMovieTitle]       = useState("Loading movie...");
+  const [subtitleOffsetSeconds, setSubtitleOffsetSeconds] = useState(0);
 
   // ── Step 1: resolve movie ID ──────────────────────────────────────────────
   useEffect(() => {
@@ -216,6 +218,33 @@ export default function Watch() {
     };
   }, [hlsUrl]);
 
+  function applySubtitleOffset(deltaSeconds: number) {
+    const video = videoRef.current;
+    if (!video || deltaSeconds === 0) return false;
+
+    let shifted = false;
+    for (let i = 0; i < video.textTracks.length; i++) {
+      const track = video.textTracks[i];
+      if (track.mode !== "showing" || !track.cues) continue;
+
+      for (let j = 0; j < track.cues.length; j++) {
+        const cue = track.cues[j];
+        cue.startTime = Math.max(0, cue.startTime + deltaSeconds);
+        cue.endTime = Math.max(cue.startTime, cue.endTime + deltaSeconds);
+        shifted = true;
+      }
+    }
+    return shifted;
+  }
+
+  useEffect(() => {
+    desiredSubtitleOffsetRef.current = subtitleOffsetSeconds;
+    const delta = subtitleOffsetSeconds - appliedSubtitleOffsetRef.current;
+    if (applySubtitleOffset(delta)) {
+      appliedSubtitleOffsetRef.current = subtitleOffsetSeconds;
+    }
+  }, [subtitleOffsetSeconds]);
+
   // ── Step 5: activate first subtitle track once the VTT file is parsed ──────
   // The old approach used setTimeout(250) which raced with the browser's async
   // VTT fetch+parse. If the file wasn't parsed yet, setting mode="showing"
@@ -226,12 +255,19 @@ export default function Watch() {
   useEffect(() => {
     const video = videoRef.current;
     if (!video || subtitles.length === 0) return;
+    appliedSubtitleOffsetRef.current = 0;
 
     function activateFirstTrack() {
       // Disable all tracks, then enable the first one
       for (let i = 0; i < video!.textTracks.length; i++) {
         video!.textTracks[i].mode = i === 0 ? "showing" : "disabled";
       }
+      window.requestAnimationFrame(() => {
+        const delta = desiredSubtitleOffsetRef.current - appliedSubtitleOffsetRef.current;
+        if (applySubtitleOffset(delta)) {
+          appliedSubtitleOffsetRef.current = desiredSubtitleOffsetRef.current;
+        }
+      });
     }
 
     function onAddTrack(e: TrackEvent) {
@@ -294,6 +330,28 @@ export default function Watch() {
                 />
               ))}
             </video>
+
+            {subtitles.length > 0 && (
+              <div className="absolute bottom-4 right-4 flex items-center gap-2 rounded-md bg-black/70 !p-2 text-xs text-white">
+                <button
+                  type="button"
+                  onClick={() => setSubtitleOffsetSeconds(value => value - 1)}
+                  className="rounded border border-white/20 !px-3 !py-1 hover:bg-white/10"
+                >
+                  -1s
+                </button>
+                <span className="min-w-10 text-center text-white/70">
+                  {subtitleOffsetSeconds > 0 ? "+" : ""}{subtitleOffsetSeconds}s
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSubtitleOffsetSeconds(value => value + 1)}
+                  className="rounded border border-white/20 !px-3 !py-1 hover:bg-white/10"
+                >
+                  +1s
+                </button>
+              </div>
+            )}
 
             {!hlsUrl && (
               <div className="absolute inset-0 flex items-center justify-center rounded-md bg-black/80 text-center">

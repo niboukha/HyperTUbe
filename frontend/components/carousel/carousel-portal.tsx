@@ -17,7 +17,7 @@ type Props = {
   rating?:         number | null
   availability?:   "free" | "premium"
   progress?:       number
-  runtime?:        string        // ← prop, not fetched here
+  runtime?:        string
   runtimeLoading?: boolean
   getPortalStyle:  (rect: DOMRect, origin: "left" | "center" | "right") => React.CSSProperties
   onMouseEnter:    () => void
@@ -113,18 +113,18 @@ export default function CarouselPortal({
 
             {/* Meta row — rating + year like Prime Video */}
             <div className="flex items-center gap-2">
-              {rating && (
+              {/* {rating && ( */}
                 <div className="flex items-center gap-1">
                   <Star className="w-3 h-3 text-[#eab308] fill-[#eab308]" />
-                  <span className="text-[#eab308] text-xs font-semibold">{rating}</span>
+                  <span className="text-[#eab308] text-xs font-semibold">{rating || "N/A"}</span>
                 </div>
-              )}
-              {rating && year && (
+              {/* )} */}
+              {/* {rating && year && ( */}
                 <span className="text-text-primary/30 text-xs">•</span>
-              )}
-              {year && (
-                <span className="text-text-primary/50 text-xs">{year}</span>
-              )}
+              {/* )} */}
+              {/* {year && ( */}
+                <span className="text-text-primary/50 text-xs">{year || "N/A"}</span>
+              {/* )} */}
               {/* {runtime && ( add it later if we have it in the API, formatting it like Prime Video with a clock icon and "1h 45m" style runtime*/} 
                 <div className="flex items-center gap-1 text-text-primary/40">
                   <span className="text-text-primary/20 text-xs">•</span>

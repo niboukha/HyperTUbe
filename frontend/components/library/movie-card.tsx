@@ -77,7 +77,7 @@ export default function MovieCard({ index, movie, runtime, runtimeLoading }: Mov
         </div> 
       </motion.div>
 
-      {hoveredMovie && (
+      { hoveredMovie && (
         <CarouselPortal
           hover={hover}
           image={ hoveredimage }
@@ -116,8 +116,6 @@ export default function MovieCard({ index, movie, runtime, runtimeLoading }: Mov
           }
         />
       )}
-
-
     </>
   )
 }

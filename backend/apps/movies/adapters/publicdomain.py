@@ -1,12 +1,15 @@
 import json
 import math
 import re
+from difflib import SequenceMatcher
 from html import unescape
 from urllib.parse import urljoin
 
 import requests
 
+from ..client import safe_get
 from ..services.utils import build_response, format_runtime, text_value
+from . import tmdb
 
 BASE_URL = "https://www.publicdomaintorrents.info"
 CATALOG_URL = f"{BASE_URL}/nshowcat.html"
@@ -76,6 +79,10 @@ DOWNLOAD_RE = re.compile(
     r'<a\s+[^>]*href=(?P<quote>["\']?)(?P<href>[^"\'\s>]+)(?P=quote)[^>]*>\s*Click for (?P<label>.*?)</a>',
     re.IGNORECASE | re.DOTALL,
 )
+IMDB_ID_RE = re.compile(r"\btt\d{7,9}\b", re.IGNORECASE)
+YEAR_RE = re.compile(r"\b(19\d{2}|20\d{2})\b")
+
+
 def _clean_html(value: str) -> str:
     value = re.sub(r"<[^>]+>", " ", value or "")
     value = unescape(value)
@@ -114,6 +121,152 @@ def _title_matches(title: str, search: str | None) -> bool:
         return True
     needle = search.strip().lower()
     return needle in title.lower()
+
+
+def _split_title_year(title: str) -> tuple[str, int | None]:
+    cleaned = text_value(title)
+    year_match = YEAR_RE.search(cleaned)
+    year = int(year_match.group(1)) if year_match else None
+    if year:
+        cleaned = re.sub(r"\(?\b" + str(year) + r"\b\)?", " ", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip(" -:()[]")
+    return cleaned or text_value(title), year
+
+
+def _extract_imdb_id(html: str) -> str | None:
+    match = IMDB_ID_RE.search(html or "")
+    return match.group(0).lower() if match else None
+
+
+def _resolve_tmdb_id_by_imdb(imdb_id: str | None) -> int | None:
+    if not imdb_id:
+        return None
+
+    body = safe_get(
+        f"{tmdb.TMDB_BASE}/find/{imdb_id}",
+        headers=tmdb.HEADERS,
+        params={"external_source": "imdb_id"},
+        timeout=tmdb.TMDB_TIMEOUT,
+        retries=tmdb.TMDB_RETRIES,
+        fallback={},
+    )
+    movies = (body or {}).get("movie_results") or []
+    return movies[0].get("id") if movies else None
+
+
+def _movie_score(candidate: dict, title: str, year: int | None) -> float:
+    candidate_title = text_value(candidate.get("title") or candidate.get("original_title")).lower()
+    title_score = SequenceMatcher(None, text_value(title).lower(), candidate_title).ratio()
+    candidate_year = ((candidate.get("release_date") or "")[:4] or None)
+    if year and candidate_year:
+        try:
+            distance = abs(int(candidate_year) - year)
+        except ValueError:
+            distance = 10
+        if distance == 0:
+            title_score += 0.25
+        elif distance == 1:
+            title_score += 0.1
+        elif distance > 3:
+            title_score -= 0.25
+    title_score += min(float(candidate.get("popularity") or 0), 50) / 500
+    return title_score
+
+
+def _resolve_tmdb_id_by_title(title: str, year: int | None = None) -> int | None:
+    if not text_value(title):
+        return None
+
+    params = {"query": title, "include_adult": False, "page": 1}
+    if year:
+        params["year"] = year
+
+    body = safe_get(
+        f"{tmdb.TMDB_BASE}/search/movie",
+        headers=tmdb.HEADERS,
+        params=params,
+        timeout=tmdb.TMDB_TIMEOUT,
+        retries=tmdb.TMDB_RETRIES,
+        fallback={},
+    )
+    results = [
+        movie for movie in (body or {}).get("results") or []
+        if not movie.get("adult")
+    ]
+    if not results:
+        return None
+    return max(results, key=lambda movie: _movie_score(movie, title, year)).get("id")
+
+
+def _resolve_tmdb_id(title: str, html: str = "") -> int | None:
+    imdb_id = _extract_imdb_id(html)
+    tmdb_id = _resolve_tmdb_id_by_imdb(imdb_id)
+    if tmdb_id:
+        return tmdb_id
+
+    search_title, year = _split_title_year(title)
+    return _resolve_tmdb_id_by_title(search_title, year)
+
+
+def _enrich_with_tmdb(movie: dict, html: str = "", include_credits: bool = False) -> dict:
+    try:
+        tmdb_id = _resolve_tmdb_id(movie.get("title"), html)
+        if not tmdb_id:
+            return movie
+
+        detail = tmdb.fetch_detail(tmdb_id)
+        if not detail:
+            return movie
+
+        enriched = {
+            **movie,
+            "tmdb_id": detail.get("tmdb_id") or tmdb_id,
+            "imdb_id": detail.get("imdb_id") or _extract_imdb_id(html),
+            "title": detail.get("title") or movie.get("title"),
+            "original_title": detail.get("original_title") or movie.get("original_title"),
+            "tagline": detail.get("tagline") or movie.get("tagline", ""),
+            "overview": detail.get("overview") or movie.get("overview"),
+            "year": detail.get("year") or movie.get("year"),
+            "release_date": detail.get("release_date") or movie.get("release_date"),
+            "runtime": detail.get("runtime") or movie.get("runtime"),
+            "poster_path": detail.get("poster_path") or movie.get("poster_path"),
+            "backdrop_path": detail.get("backdrop_path") or movie.get("backdrop_path"),
+            "rating": detail.get("rating") if detail.get("rating") is not None else movie.get("rating"),
+            "vote_count": detail.get("vote_count") or movie.get("vote_count"),
+            "popularity": detail.get("popularity") or movie.get("popularity"),
+            "genres": detail.get("genres") or movie.get("genres", []),
+            "genre_ids": detail.get("genre_ids") or movie.get("genre_ids", []),
+            "collection": detail.get("collection") or movie.get("collection"),
+            "languages": detail.get("languages") or movie.get("languages", []),
+        }
+
+        if include_credits:
+            credits = tmdb.fetch_credits(tmdb_id)
+            if credits.get("cast"):
+                enriched["cast"] = credits["cast"]
+        return enriched
+    except Exception:
+        return movie
+
+
+def enrich_movie(movie: dict) -> dict:
+    if movie.get("source") != "publicdomain":
+        return movie
+
+    publicdomain_id = movie.get("publicdomain_id") or str(movie.get("id", "")).removeprefix("publicdomain-")
+    if not publicdomain_id:
+        return _enrich_with_tmdb(movie)
+
+    from ..cache.movie_cache import get_detail, set_detail
+
+    cache_key = f"publicdomain-card-{publicdomain_id}"
+    cached = get_detail(cache_key)
+    if cached:
+        return {**movie, **cached}
+
+    enriched = _enrich_with_tmdb(movie)
+    set_detail(cache_key, enriched)
+    return enriched
 
 
 def _normalize_list(movie_id: str, title: str, genre_ids: list[int] | None = None) -> dict:
@@ -165,6 +318,7 @@ def fetch_movies(
     page: int = 1,
     rows: int = 20,
     timeout: float = 8.0,
+    enrich: bool = False,
 ) -> dict:
     del year, year_from, year_to
 
@@ -178,7 +332,7 @@ def fetch_movies(
         return data
 
     found = []
-    seen = set()
+    seen  = set()
     for match in MOVIE_LINK_RE.finditer(response.text):
         movie_id = match.group("id")
         title = _clean_html(match.group("title"))
@@ -198,7 +352,10 @@ def fetch_movies(
         "total_pages": max(1, math.ceil(len(found) / rows)),
         "total_results": len(found),
     }
-    return build_response(body, found[start:end])
+    results = found[start:end]
+    if enrich:
+        results = [_enrich_with_tmdb(movie) for movie in results]
+    return build_response(body, results)
     
 def fetch_detail(publicdomain_id: str) -> dict | None:
     try:
@@ -236,11 +393,11 @@ def fetch_detail(publicdomain_id: str) -> dict | None:
             "label":    _clean_html(match.group("label")),
             "url":      urljoin(BASE_URL, unescape(match.group("href"))),
         })
-    torrent_files = [item for item in downloads if ".torrent" in item["url"].lower()]
 
-    overview = _overview_from_detail(html)
-
-    movie = {
+    # check this for torrents:
+    torrent_files   = [item for item in downloads if ".torrent" in item["url"].lower()]
+    overview        = _overview_from_detail(html)
+    movie           = {
         "id":             f"publicdomain-{publicdomain_id}",
         "type":           "movie",
         "publicdomain_id": publicdomain_id,
@@ -270,6 +427,8 @@ def fetch_detail(publicdomain_id: str) -> dict | None:
         "torrent_files":  torrent_files,
     }
 
+    movie = _enrich_with_tmdb(movie, html, include_credits=True)
+
     print("PUBLICDOMAIN_TORRENT_FILES:")
     print(json.dumps(torrent_files, indent=2, ensure_ascii=False))
     print("PUBLICDOMAIN_MOVIE_OBJECT:")
@@ -278,8 +437,8 @@ def fetch_detail(publicdomain_id: str) -> dict | None:
     return movie
 
 def _genre_objects(genre_ids: list[int]) -> list[dict]:
-    seen = set()
-    genres = []
+    seen    = set()
+    genres  = []
     for name, genre_id in GENRE_IDS.items():
         if genre_id not in genre_ids or genre_id in seen:
             continue
@@ -288,10 +447,11 @@ def _genre_objects(genre_ids: list[int]) -> list[dict]:
     return genres
 
 def _overview_from_detail(html: str) -> str:
-    body            = html
+    body        = html
     title_match = TITLE_RE.search(body)
     if title_match:
         body = body[title_match.end():]
+
     body = re.split(r"Internet Movie DataBase Info|Click Here for IMDB|User Comments:", body, maxsplit=1)[0]
     body = re.sub(r"Categories:.*?User rating:.*?(?:</?p>|<br\s*/?>)?", " ", body, flags=re.IGNORECASE | re.DOTALL)
     body = re.sub(r"<img[^>]*>", " ", body, flags=re.IGNORECASE)

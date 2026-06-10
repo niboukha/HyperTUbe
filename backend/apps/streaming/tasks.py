@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import tempfile
 from pathlib import Path
 
@@ -31,6 +32,7 @@ HLS_DIR = settings.HLS_ROOT
 # How long (seconds) the dedup lock prevents re-queuing the same subtitle job.
 # 1 hour is enough — if the task fails Celery retries it internally.
 SUBTITLE_PREP_LOCK_TTL = 60 * 60
+SUBTITLE_DURATION_TOLERANCE = 0.10
 
 
 # ---------------------------------------------------------------------------
@@ -58,17 +60,121 @@ def _find_video_file(directory):
     return None
 
 
-def wanted_subtitle_languages(user_language=None):
-    """Temporary test mode: prepare English subtitles only."""
-    languages = ['en']
+def _ffprobe_duration(file_path):
+    try:
+        result = subprocess.run(
+            [
+                'ffprobe',
+                '-v', 'error',
+                '-show_entries', 'format=duration',
+                '-of', 'default=noprint_wrappers=1:nokey=1',
+                file_path,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode != 0:
+            return None
+        return float(result.stdout.strip())
+    except Exception:
+        return None
 
-    # Re-enable this after English-only validation:
-    normalized_user_language = normalize_subtitle_language(user_language)
-    if normalized_user_language and normalized_user_language not in languages:
-        languages.append(normalized_user_language)
+
+def _parse_subtitle_timestamp(value):
+    value = value.strip().replace(',', '.')
+    parts = value.split(':')
+    try:
+        if len(parts) == 3:
+            hours, minutes, seconds = parts
+        elif len(parts) == 2:
+            hours = 0
+            minutes, seconds = parts
+        else:
+            return None
+        return int(hours) * 3600 + int(minutes) * 60 + float(seconds)
+    except ValueError:
+        return None
+
+
+def _subtitle_duration(file_path):
+    duration = _ffprobe_duration(file_path)
+    if duration:
+        return duration
+
+    try:
+        content = Path(file_path).read_text(encoding='utf-8-sig', errors='ignore')
+    except OSError:
+        return None
+
+    last_end = None
+    for match in re.finditer(
+        r'(?P<start>\d{1,2}:\d{2}(?::\d{2})?[\.,]\d{3})\s*-->\s*'
+        r'(?P<end>\d{1,2}:\d{2}(?::\d{2})?[\.,]\d{3})',
+        content,
+    ):
+        end = _parse_subtitle_timestamp(match.group('end'))
+        if end is not None:
+            last_end = end
+    return last_end
+
+
+def _subtitle_duration_is_valid(video_duration, subtitle_path, *, movie_id, language, source):
+    if not video_duration:
+        subtitle_log('Video duration unavailable; skipping subtitle duration validation', movie_id=movie_id, language=language, source=source)
+        return True
+
+    sub_duration = _subtitle_duration(subtitle_path)
+    if not sub_duration:
+        subtitle_log('Subtitle duration unavailable; rejecting subtitle', movie_id=movie_id, language=language, source=source, file=subtitle_path)
+        return False
+
+    mismatch = abs(video_duration - sub_duration) / video_duration
+    if mismatch > SUBTITLE_DURATION_TOLERANCE:
+        subtitle_log(
+            'Subtitle rejected; duration mismatch',
+            movie_id=movie_id,
+            language=language,
+            source=source,
+            video_duration=round(video_duration, 2),
+            subtitle_duration=round(sub_duration, 2),
+            mismatch=round(mismatch, 3),
+        )
+        return False
+    return True
+
+
+def wanted_subtitle_languages(user_language=None, video_language=None):
+    languages = ['en']  # English always
+
+    normalized_user = normalize_subtitle_language(user_language)
+
+    # Only add user language if video isn't already in that language
+    if normalized_user and normalized_user != normalize_subtitle_language(video_language) and normalized_user not in languages:
+        languages.append(normalized_user)
 
     return languages
 
+
+def _detect_audio_language(video_file):
+    try:
+        result = subprocess.run(
+            ['ffprobe', '-v', 'error', '-show_entries',
+             'stream=index,codec_type:stream_tags=language',
+             '-of', 'json', video_file],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode != 0:
+            return None
+        data = json.loads(result.stdout)
+        for stream in data.get('streams', []):
+            if stream.get('codec_type') == 'audio':
+                lang = stream.get('tags', {}).get('language')
+                if lang:
+                    return normalize_subtitle_language(lang)
+    except Exception:
+        return None
+    return None
 
 # ---------------------------------------------------------------------------
 # Public dedup helper — called from views when stream becomes ready
@@ -122,9 +228,6 @@ def prepare_subtitles_for_movie(self, movie_id, user_language=None, video_path=N
         subtitle_log('Movie not found; aborting', movie_id=movie_id)
         return
 
-    languages = wanted_subtitle_languages(user_language)
-    subtitle_log('Wanted languages', movie_id=movie_id, languages=','.join(languages))
-
     # Resolve the local video file path
     video_file = _resolve_video_path(movie_id, video_path)
     if not video_file:
@@ -132,9 +235,16 @@ def prepare_subtitles_for_movie(self, movie_id, user_language=None, video_path=N
         return
 
     subtitle_log('Using video file', movie_id=movie_id, video_path=video_file)
+    video_audio_lang = _detect_audio_language(video_file)
+    subtitle_log('Detected audio language', movie_id=movie_id, language=video_audio_lang or 'unknown')
+
+    languages = wanted_subtitle_languages(user_language, video_language=video_audio_lang)
+    subtitle_log('Wanted languages', movie_id=movie_id, languages=','.join(languages))
+
+    video_duration = _ffprobe_duration(video_file)
 
     # Phase 1: embedded subtitles
-    _extract_embedded_subtitles(movie, video_file, languages)
+    _extract_embedded_subtitles(movie, video_file, languages, video_duration)
 
     # Phase 2: external fallback for any language still missing
     for language in languages:
@@ -146,7 +256,17 @@ def prepare_subtitles_for_movie(self, movie_id, user_language=None, video_path=N
 
         try:
             subtitle_log('Trying OpenSubtitles fallback', movie_id=movie_id, language=language)
-            subtitle = download_external_subtitle_fallback(movie_id, language)
+            subtitle = download_external_subtitle_fallback(
+                movie_id,
+                language,
+                validator=lambda path, result: _subtitle_duration_is_valid(
+                    video_duration,
+                    path,
+                    movie_id=movie_id,
+                    language=language,
+                    source=f'external:{getattr(result, "provider_id", "")}',
+                ),
+            )
             if subtitle:
                 logger.info(
                     '[Subtitles] Subtitle ready | source=external movie_id=%s language=%s '
@@ -187,7 +307,7 @@ def _has_ready_subtitle(movie, language):
     return False
 
 
-def _extract_embedded_subtitles(movie, video_file, languages):
+def _extract_embedded_subtitles(movie, video_file, languages, video_duration=None):
     """Extract embedded SRT subtitle streams and save them as WebVTT."""
     subtitle_log('Detecting embedded subtitle streams', movie_id=movie.id)
 
@@ -224,6 +344,15 @@ def _extract_embedded_subtitles(movie, video_file, languages):
                 convert_srt_to_vtt(str(srt_path), str(vtt_path))
             except Exception as exc:
                 subtitle_log('Extraction or conversion failed', movie_id=movie.id, stream_index=stream.index, error=exc)
+                continue
+
+            if not _subtitle_duration_is_valid(
+                video_duration,
+                str(vtt_path),
+                movie_id=movie.id,
+                language=language,
+                source=f'embedded:{stream.index}',
+            ):
                 continue
 
             subtitle = Subtitle(

@@ -1,7 +1,7 @@
 import hashlib
 import logging
 import math
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout, as_completed
 
 from django.core.cache import cache
 
@@ -75,9 +75,10 @@ def library_search(
     total_pages = max(1, math.ceil(total / PAGE_SIZE))
     start       = (page - 1) * PAGE_SIZE
     end         = start + PAGE_SIZE
+    page_results = _enrich_publicdomain_page(all_results[start:end])
 
     result = {
-        "results":          all_results[start:end],
+        "results":          page_results,
         "page":             page,
         "totalPages":       total_pages,
         "has_more":         end < total,
@@ -90,6 +91,29 @@ def library_search(
     }
 
     return result
+
+
+def _enrich_publicdomain_page(movies: list) -> list:
+    publicdomain_indexes = [
+        index for index, movie in enumerate(movies)
+        if movie.get("source") == "publicdomain"
+    ]
+    if not publicdomain_indexes:
+        return movies
+
+    enriched = list(movies)
+    with ThreadPoolExecutor(max_workers=min(6, len(publicdomain_indexes))) as pool:
+        futures = {
+            pool.submit(publicdomain.enrich_movie, movies[index]): index
+            for index in publicdomain_indexes
+        }
+        for future in as_completed(futures):
+            index = futures[future]
+            try:
+                enriched[index] = future.result()
+            except Exception as exc:
+                logger.warning("library Public Domain card enrichment skipped: %s", exc)
+    return enriched
 
 
 def _fetch_library_snapshot(
