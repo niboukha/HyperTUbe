@@ -28,9 +28,6 @@ class CommentsView(APIView):
     def get(self, request,id):
         
         comments = Comment.objects.filter(movieId=id).order_by("-created_at")
-        # if request.user.id==comments.user.id:
-        isLiked =False
-        comments_likes = CommentLike.objects.filter(user=request.user.userprofile)
         liked_comment_ids = set(
             CommentLike.objects
             .filter(user=request.user.userprofile)
@@ -75,6 +72,7 @@ class CommentsView(APIView):
                 "content": comment.content,
                 "stars": comment.stars,
                 "likes": 0,
+                "userId": user.id,
                 "isLiked": False,
                 "created_at": comment.created_at,
             }, status=201

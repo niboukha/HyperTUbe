@@ -25,7 +25,19 @@ export default function TopBar() {
   
   const [isTop, setIsTop] = useState(true)
   const desktopControlsClass = isLibrary ? "hidden xl:flex items-center" : "hidden md:flex items-center"
-  
+  const handleLogout = async () => {
+  try {
+    await fetch("http://localhost:8000/api/auth/logout", {
+      method: "POST",
+      credentials: "include", // send cookies
+    });
+
+    // Optional: redirect user after logout
+    window.location.href = "/login";
+  } catch (error) {
+    console.error("Logout failed:", error);
+  }
+};
   useEffect(() => {
     const handleScroll = () => {
       const y = window.scrollY
@@ -177,6 +189,7 @@ export default function TopBar() {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
                 transition={{ duration: 0.3, ease: "linear" }}
+                onClick={handleLogout}
                 // className={desktopControlsClass}
                 className="duration-200 hover:text-text-primary hover:scale-110 transition rounded-md border py-1! px-1! backdrop-blur-2xl! border-white/30 bg-white/10 hover:bg-white/10 text-white"
               >

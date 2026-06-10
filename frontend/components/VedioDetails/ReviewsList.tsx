@@ -31,7 +31,7 @@ export default function ReviewsList({ reviews, currentUserId, onLike, onDelete, 
     onEdit(id, draft)
     setEditingId(null)
   }
-
+  
   return (
     <ScrollArea className="h-125">
       <div className="space-y-2! md:space-y-4!">

@@ -10,6 +10,8 @@ services:
             python3 manage.py makemigrations --noinput &&
             python3 manage.py migrate --noinput &&
             python3 manage.py seed_movies &&
+            python3 manage.py setup_oauth &&
+            
             python3 manage.py runserver 0.0.0.0:8000"
     volumes:
       - ./backend:/app
@@ -56,7 +58,11 @@ services:
 
   celery:
     build: .
-    command: ["celery", "-A", "config", "worker", "-l", "info", "--max-tasks-per-child", "10"]
+    command: >
+      celery -A config worker
+      --pool=gevent
+      --concurrency=100
+      --loglevel=info
     working_dir: /app/
     volumes:
       - ./backend:/app

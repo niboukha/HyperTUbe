@@ -4,17 +4,14 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
-import { Input } from '@/components/ui/input'
 import { Star } from 'lucide-react'
-// import type { Review } from '@/types'
 import { useParams } from 'next/navigation'
 
 type FeedbackFormProps = {
-  onSubmit?: (comment: string, rating: number) => void;
-  movie_id?: string;
-};
+  onSubmit: (comment: string, rating: number) => void
+}
 
-export default function FeedbackForm({ onSubmit, movie_id }: FeedbackFormProps) {
+export default function FeedbackForm({ onSubmit }: FeedbackFormProps) {
 
   const params   = useParams()
   const movieId  = params.id as string 
@@ -24,29 +21,15 @@ export default function FeedbackForm({ onSubmit, movie_id }: FeedbackFormProps) 
   const [isSubmitting, setIsSubmitting] = useState(false)
 
 
-  const postComment = async (movieI:any, content:any, stars:any) => {
-  const response = await fetch(`http://localhost:8000/comments/`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    credentials: "include", // sends session cookie
-    body: JSON.stringify({
-      movie_id:movieId,content, stars:stars
-    }),
-  });
-  const data = await response.json();
-  console.log("te",data)
-  return data;
-};
+  
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    postComment(movie_id,comment,rating)
     if (!comment.trim() || rating === 0) {
       alert('Please fill in all fields and select a rating')
       return
     }
-
+    
+      onSubmit(comment,rating)
       setComment('')
       setRating(0)
   }

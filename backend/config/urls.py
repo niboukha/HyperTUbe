@@ -21,8 +21,10 @@ from django.conf.urls.static import static
 from django.conf import settings
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from rest_framework_simplejwt.views import TokenObtainPairView
-from apps.users.views import login_view
+from apps.users.views import JWTOAuth2CallbackView, login_view,UserSearchView
+from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
+from allauth.socialaccount.providers.github.views import GitHubOAuth2Adapter
+
 
 
 urlpatterns = [
@@ -32,13 +34,21 @@ urlpatterns = [
 
     path("api/auth/", include("apps.users.urls")),
 
-    path("accounts/", include("allauth.urls")), 
-    path("accounts/intra42/",include("apps.users.providers.intra42.urls")),
-    
+    # Custom JWT callbacks — must be registered BEFORE allauth.urls
+    path("accounts/google/login/callback/", JWTOAuth2CallbackView.adapter_view(GoogleOAuth2Adapter)),
+    path("accounts/github/login/callback/", JWTOAuth2CallbackView.adapter_view(GitHubOAuth2Adapter)),
+
+    path("accounts/", include("allauth.urls")),
+    path("accounts/intra42/", include("apps.users.providers.intra42.urls")),
+
     path('oauth/token', login_view, name='login'),
     path('oauth/token/refresh', TokenRefreshView.as_view(), name='refresh'),
+    
+    path("users/", UserSearchView.as_view(), name="user-search"),
 
-    path('comments/',include("apps.comments.urls")),
+
+    path('comments/', include("apps.comments.urls")),
+    path('api/streaming/', include("apps.streaming.urls")),
 ]
 
 if settings.DEBUG:

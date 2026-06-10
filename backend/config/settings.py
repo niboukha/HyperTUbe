@@ -48,8 +48,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    "corsheaders",
     "rest_framework",
+    'rest_framework.authtoken',
+
+    'dj_rest_auth',
+    'dj_rest_auth.registration',
+    "corsheaders",
     "apps.movies",
     "apps.streaming",
     "apps.users",
@@ -61,6 +65,7 @@ INSTALLED_APPS = [
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
     'allauth.socialaccount.providers.github',
+    'apps.users.providers.intra42',
 ]
 
 CACHES = {
@@ -99,19 +104,19 @@ MIDDLEWARE = [
 ]
 
 REST_FRAMEWORK = {
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 5,
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        # Remove this ↓ (session based)
-        # 'rest_framework.authentication.SessionAuthentication',
-
-        # Add this ↓ (JWT based)
-        # 'rest_framework_simplejwt.authentication.JWTAuthentication',
-        'apps.users.jwtAuthentication.CookieJWTAuthentication',  # ✅ handles both
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        'apps.users.jwtAuthentication.CookieJWTAuthentication',
 
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
 }
+SOCIALACCOUNT_STORE_TOKENS = False
+SESSION_ENGINE = 'django.contrib.sessions.backends.cache'  # store in Redis not DB
 
 LOGGING = {
     "version": 1,
@@ -252,7 +257,9 @@ CORS_ALLOW_ALL_ORIGINS = True
 REST_USE_JWT = True
 SITE_ID = 1
 SOCIALACCOUNT_LOGIN_ON_GET = True
-LOGIN_REDIRECT_URL = "http://localhost:8001/api/auth/social/callback/"
+LOGIN_REDIRECT_URL = "http://localhost:3000/home"
+# LOGIN_REDIRECT_URL = "/api/auth/accounts/social/callback/"
+
 
 AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
@@ -274,7 +281,7 @@ EMAIL_HOST_PASSWORD = "zrxq lbna avlz kixn"
 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
-SOCIALACCOUNT_ADAPTER="users.adapters.SocialAccountAdapter"
+SOCIALACCOUNT_ADAPTER="apps.users.adapters.SocialAccountAdapter"
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -286,6 +293,13 @@ SIMPLE_JWT = {
     # 'AUTH_HEADER_TYPES':      ('Bearer',),
 }
 
+
+REST_AUTH = {
+    'USE_JWT': True,
+    'JWT_AUTH_COOKIE': 'access-token',      # optional: store in cookie
+    'JWT_AUTH_REFRESH_COOKIE': 'refresh-token',
+    'JWT_AUTH_HTTPONLY': False,              # set True to block JS access
+}
 # Celery Configuration Options
 # CELERY_BROKER_URL = 'redis://redis:6379/0'
 # CELERY_RESULT_BACKEND = 'redis://redis:6379/0'

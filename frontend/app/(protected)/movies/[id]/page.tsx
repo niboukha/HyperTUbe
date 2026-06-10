@@ -75,6 +75,7 @@ export default function VedioDetails()
       console.error('Failed to delete review', err)
     }
   }
+
   const handleEdit = async (
     review_id: string,
     updated: { username: string; content: string; stars: number }
@@ -98,7 +99,6 @@ export default function VedioDetails()
     }
   }
   useEffect(() => {
-    return
     fetch('http://localhost:8000/api/auth/me', {
       credentials: 'include',
     })
@@ -106,7 +106,6 @@ export default function VedioDetails()
       .then(data => setCurrentUserId(parseInt(data?.id) ?? null))
       .catch(() => setCurrentUserId(null))
   }, [])
-
  
   
   const handleLike = async (review_id: string) => {  
@@ -114,10 +113,36 @@ export default function VedioDetails()
         credentials: "include",
         method: "POST",
       });
+
+     setReviews((prev) =>
+      prev.map((r) =>
+        r.id === review_id
+          ? {
+              ...r,
+              isLiked: !r.isLiked,
+              likes: r.isLiked ? r.likes - 1 : r.likes + 1,
+            }
+          : r
+      )
+    );
     
     }
 
-
+  const postComment = async (content:any, stars:any) => {
+  const response = await fetch(`http://localhost:8000/comments/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include", // sends session cookie
+    body: JSON.stringify({
+      movie_id:movieId,content, stars:stars
+    }),
+  });
+  const data = await response.json();
+  setReviews(prev => [data, ...prev])
+  return data;
+};
   useEffect(() => {
     
     if (!trailerOpen || !movie)
@@ -130,17 +155,16 @@ export default function VedioDetails()
     return () => setTrailerUrl(null)
 
   }, [trailerOpen, movie])
-  
+
   useEffect(()=>{
-    return
-      const fetchComments = async () => {
-      const response = await fetch(`http://localhost:8000/comments/${movieId}/`, {
-        credentials: "include",
-      });
-      const reviewsList = await response.json();
-      setReviews(reviewsList)
-      return reviewsList;
-    };
+    const fetchComments = async () => {
+    const response = await fetch(`http://localhost:8000/comments/${movieId}/`, {
+      credentials: "include",
+    });
+    const reviewsList = await response.json();
+    setReviews(reviewsList)
+    return reviewsList;
+  };
 
     fetchComments()
   },[])
@@ -404,7 +428,7 @@ export default function VedioDetails()
 
             <div className=" grid grid-cols-1 lg:grid-cols-12 gap-4! md:gap-0">
               <div className="lg:col-span-4">
-                <FeedbackForm onSubmit={()=>{}} movie_id={movieId} />
+                <FeedbackForm onSubmit={postComment} />
               </div>
 
               <div className="lg:col-span-8 ">

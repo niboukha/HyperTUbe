@@ -419,6 +419,40 @@ def get_ffmpeg_args(video_codec, audio_codec):
         return ['-c:v', 'libx264', '-c:a', 'copy']
     else:
         return ['-c:v', 'libx264', '-c:a', 'aac']
+    
+# @shared_task
+# def cleanup_old_movies():
+#     """Delete .mkv and torrent record after 1 month unwatched"""
+#     from django.utils import timezone
+#     from datetime import timedelta
+    
+#     one_month_ago = timezone.now() - timedelta(days=30)
+    
+#     old_movies = Movie.objects.filter(
+#         last_watched__lt=one_month_ago,
+#         mkv_path__isnull=False
+#     )
+    
+#     for movie in old_movies:
+#         movie_dir = f'{DOWNLOAD_DIR}/{movie.id}'
+#         hls_dir   = f'{HLS_DIR}/{movie.id}'
+        
+#         # ✅ Delete torrent record
+#         Torrent.objects.filter(movie=movie).delete()
+#         print(f'[Cleanup] Deleted torrent record for {movie.title} ✅')
+        
+#         # Delete directories
+#         for folder in [movie_dir, hls_dir]:
+#             if os.path.exists(folder):
+#                 shutil.rmtree(folder)
+#                 print(f'[Cleanup] Deleted {folder} ✅')
+        
+#         movie.status       = 'idle'
+#         movie.hls_path     = None
+#         movie.last_watched = None
+#         movie.save()
+        
+#         print(f'[Cleanup] Reset: {movie.title} ✅')
 
 
 @shared_task(bind=True)

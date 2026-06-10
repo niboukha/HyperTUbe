@@ -1,27 +1,33 @@
-from rest_framework.decorators import api_view,permission_classes
-from rest_framework.response import Response
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework import status
-from .serializer import RegisterSerializer
-from .serializer import LoginSerializer
-from rest_framework_simplejwt.tokens import RefreshToken
-from django.shortcuts import redirect
-from rest_framework.permissions import AllowAny
 
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
 from django.contrib.auth.tokens import default_token_generator
-from django.utils.http import urlsafe_base64_encode
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes
 from django.core.mail import send_mail
-from django.utils.http import urlsafe_base64_decode
 from django.conf import settings
-from django.contrib.auth import logout
-from .serializer import PasswordSerializer
-from rest_framework.permissions import IsAuthenticated  # ← change this
+from .serializer import RegisterSerializer, LoginSerializer, PasswordSerializer
+from allauth.socialaccount.providers.oauth2.views import OAuth2CallbackView
+from django.db.models import Q
+from rest_framework.views import APIView
 
 
+class JWTOAuth2CallbackView(OAuth2CallbackView):
+    """Wraps allauth's OAuth2 callback to set JWT cookies instead of a session."""
+    def dispatch(self, request, *args, **kwargs):
+        response = super().dispatch(request, *args, **kwargs)
+        if request.user.is_authenticated:
+            refresh = RefreshToken.for_user(request.user)
+            response.set_cookie(
+                "access_token", str(refresh.access_token),
+                httponly=True, secure=False, samesite="Lax", max_age=3600,
+            )
+           
+        return response
 
-# @csrf_exempt
 @api_view(["POST"])
 @permission_classes([AllowAny])  
 def register(request):
@@ -32,7 +38,6 @@ def register(request):
         refresh = RefreshToken.for_user(user)
 
         access_token  = str(refresh.access_token)
-        refresh_token = str(refresh)
         
 
         response = Response({
@@ -65,7 +70,6 @@ def login_view(request):
         user = serializer.validated_data["user"]
         refresh = RefreshToken.for_user(user)
         access_token  = str(refresh.access_token)
-        refresh_token = str(refresh)
         
 
         response = Response({
@@ -90,7 +94,7 @@ def login_view(request):
 # this view just for testing
 
 @api_view(['GET'])
-# @permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated])
 def me(request):
     return Response({
         "id": str(request.user.id),
@@ -98,31 +102,6 @@ def me(request):
         "email": request.user.email,
     })
 
-
-def social_login_callback(request):
-    user = request.user
-
-    if user.is_authenticated:
-        # generate JWT for the social user
-        refresh = RefreshToken.for_user(user)
-        access_token  = str(refresh.access_token)
-        refresh_token = str(refresh)
-
-        # redirect to frontend with cookie set
-        response = redirect("http://localhost:8001/")
-
-        response.set_cookie(
-            key      = "access_token",
-            value    = access_token,
-            httponly = True,
-            secure   = False, 
-            samesite = "Lax",
-            max_age  = 3600,
-        )
-        return response
-
-    #this to error page  page 
-    return redirect("http://localhost:8001") 
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
@@ -134,7 +113,7 @@ def password_reset_request(request):
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = default_token_generator.make_token(user)
 
-        link = f"http://localhost:5173/confirm-password?uid={uid}&token={token}"
+        link = f"http://localhost:3000/reset-password?uid={uid}&token={token}"
         send_mail(
                 "Reset Password",
                 f"Click here to reset your password: {link}",
@@ -174,7 +153,6 @@ def password_reset_confirm(request):
                 return Response({
                     "message": "Password updated successfully"
                 })
-            print("===>",serializer.errors)
             return Response(serializer.errors, status=400)
 
 
@@ -189,7 +167,6 @@ def password_reset_confirm(request):
         status=400
     )
 
-# test itttttttttttttt and give it url
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def settings_change_password(request):
@@ -218,25 +195,50 @@ def settings_change_password(request):
 
  
 
-
+# logout
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def logout_view(request):
-    # logout(request)
-    # remove cookies and eveything thath related to user
+    
     response = Response({"message": "Logged out"})
     response.delete_cookie("access_token")
+    response.delete_cookie("sessionid")
+    response.delete_cookie("csrftoken")
+    response.delete_cookie("messages")
+
+    
 
     return response
 
 
-# await fetch("/api/logout/", {
-#   method: "POST",
-#   credentials: "include"
-# })
-
-# comments 
-# add comments and react for a movie
 
 
+from rest_framework.pagination import PageNumberPagination
+
+# users search
+
+class UserSearchView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        query = request.GET.get("q", "")
+
+        users = User.objects.filter(
+            username__icontains=query
+        ).order_by("id")
+
+        paginator = PageNumberPagination()
+        paginator.page_size = 5
+
+        result_page = paginator.paginate_queryset(users, request)
+
+        data = [
+            {
+                "id": u.id,
+                "username": u.username,
+            }
+            for u in result_page
+        ]
+
+        return paginator.get_paginated_response(data)
 
