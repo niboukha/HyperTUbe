@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
+import { useTranslations } from "next-intl";
 
 export default function SettingsLayout({
   children,
@@ -11,6 +11,7 @@ export default function SettingsLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const t = useTranslations("Settings");
 
   const activeTab = pathname.includes("security") ? "security" : "profile";
 
@@ -43,7 +44,7 @@ export default function SettingsLayout({
                             : "text-gray-400"
                         }`}
                 >
-                  Profile
+                  {t("profile")}
                 </button>
                 <button
                     onClick={() => router.push("/settings/security")}
@@ -53,7 +54,7 @@ export default function SettingsLayout({
                             : "text-gray-400"
                         }`}
                 >
-                  Security
+                  {t("security")}
                 </button>
               </nav>
             </CardContent>

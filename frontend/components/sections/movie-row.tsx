@@ -16,6 +16,7 @@ import { TooltipButton } from "../ui/tool-tip-button"
 import { AvailabilityBadge } from "../ui/AvailabilityBadge"
 import Link from "next/link"
 import { useRuntimes } from "@/hooks/use-runtimes"
+import { useLanguage } from "@/hooks/use-language"
 
 type MovieRowProps = {
   title: string
@@ -59,6 +60,9 @@ function RowInfoPanel({ movie }: { movie: MovieResult }) {
 export default function MovieRow({ title, endpoint, priority }: MovieRowProps) {
   const [movies, setMovies] = useState<MovieResult[]>([])
   const [loading, setLoading] = useState(true)
+  const { langCode } = useLanguage()
+  const sep = endpoint.includes("?") ? "&" : "?"
+  const effectiveEndpoint = `${endpoint}${sep}lang=${langCode}`
   const {
     hover,
     handleMouseEnter,
@@ -69,15 +73,15 @@ export default function MovieRow({ title, endpoint, priority }: MovieRowProps) {
 
   useEffect(() => {
     let cancelled = false
+    setLoading(true)
 
     const run = async () => {
       try {
-        const res  = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`)
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${effectiveEndpoint}`)
 
         if (!res.ok) {
-          // log the actual Django error body, not just the status code
           const body = await res.json()
-          console.error(`MovieRow ${endpoint} → HTTP ${res.status}:`, body)
+          console.error(`MovieRow ${effectiveEndpoint} → HTTP ${res.status}:`, body)
           throw new Error(`${res.status}`)
         }
 
@@ -93,7 +97,7 @@ export default function MovieRow({ title, endpoint, priority }: MovieRowProps) {
 
     run()
     return () => { cancelled = true }
-  }, [endpoint])
+  }, [effectiveEndpoint])
 
   const hoveredMovie = hover ? movies[hover.index] : null
 

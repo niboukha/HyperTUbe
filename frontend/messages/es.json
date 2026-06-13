@@ -1,0 +1,94 @@
+{
+  "Nav": {
+    "home": "Inicio",
+    "library": "Biblioteca",
+    "history": "Historial",
+    "watchlist": "Mi lista"
+  },
+  "Header": {
+    "account": "Cuenta",
+    "profile": "Perfil",
+    "settings": "Configuración",
+    "logout": "Cerrar sesión",
+    "sections": "Secciones",
+    "language": "Idioma",
+    "navigationMenu": "Menú de navegación"
+  },
+  "Watchlist": {
+    "today": "Hoy",
+    "yesterday": "Ayer",
+    "daysAgo": "Hace {count} días",
+    "lastWeek": "La semana pasada",
+    "earlier": "Antes",
+    "empty": "Tu lista está vacía.",
+    "hint": "Pulsa + en cualquier película para guardarla aquí.",
+    "titles": "{count} títulos"
+  },
+  "Library": {
+    "noResultsFor": "Sin resultados para",
+    "showingTopRated": "Mostrando las películas mejor valoradas",
+    "topRatedMovies": "Películas mejor valoradas"
+  },
+  "Settings": {
+    "profile": "Perfil",
+    "security": "Seguridad",
+    "firstName": "Nombre",
+    "lastName": "Apellido",
+    "username": "Nombre de usuario",
+    "email": "Correo electrónico",
+    "cancel": "Cancelar",
+    "saveChanges": "Guardar cambios",
+    "changeImage": "Cambiar imagen",
+    "oldPassword": "Contraseña antigua",
+    "newPassword": "Nueva contraseña",
+    "confirmNewPassword": "Confirmar contraseña"
+  },
+  "Auth": {
+    "signIn": "Iniciar sesión",
+    "signUp": "Registrarse",
+    "usernamePlaceholder": "Introduce tu nombre de usuario",
+    "passwordPlaceholder": "Contraseña",
+    "forgotPassword": "¿Olvidaste tu contraseña?",
+    "or": "O",
+    "noAccount": "¿No tienes cuenta?",
+    "haveAccount": "¿Ya tienes una cuenta?",
+    "firstNamePlaceholder": "Nombre",
+    "lastNamePlaceholder": "Apellido",
+    "emailPlaceholder": "Correo electrónico",
+    "forgotPasswordTitle": "¿Olvidaste tu contraseña?",
+    "forgotPasswordDesc": "Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.",
+    "sending": "Enviando...",
+    "resetPassword": "Restablecer contraseña",
+    "emailSent": "¡Correo enviado!",
+    "emailSentDesc": "Revisa tu correo para un enlace de restablecimiento. El enlace caduca en 24 horas.",
+    "backToLogin": "Volver al inicio de sesión",
+    "resetting": "Restableciendo...",
+    "invalidResetLink": "Enlace de restablecimiento inválido o expirado.",
+    "confirmPasswordPlaceholder": "Confirmar contraseña",
+    "newPasswordPlaceholder": "Nueva contraseña",
+    "checkEmail": "Revisa tu correo",
+    "checkEmailDesc": "Hemos enviado un enlace de restablecimiento a tu correo. Revisa tu bandeja de entrada y haz clic en el enlace.",
+    "confirmedEmail": "He confirmado mi correo",
+    "didntReceive": "¿No recibiste el correo? Revisa tu carpeta de spam o solicita un nuevo enlace."
+  },
+  "Landing": {
+    "signIn": "Iniciar sesión",
+    "getStarted": "Comenzar"
+  },
+  "Sections": {
+    "continueWatching": "Continuar viendo",
+    "upcomingMovies": "Próximas películas",
+    "action": "Acción",
+    "animation": "Animación",
+    "comedy": "Comedia",
+    "horror": "Terror",
+    "scienceFiction": "Ciencia ficción",
+    "war": "Guerra",
+    "crime": "Crimen"
+  },
+  "Common": {
+    "play": "Reproducir",
+    "addToList": "Añadir a lista",
+    "left": "restante"
+  }
+}

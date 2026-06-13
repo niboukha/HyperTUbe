@@ -12,12 +12,22 @@ import Link from "next/link";
 import { MovieResult } from "@/types/search"
 import { useIsMobile } from "@/hooks/useMobile";
 import { TMDB_GENRE_LABELS } from "@/lib/tmdb-genres";
+import { useLanguage } from "@/hooks/use-language";
+import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 
 import { Badge } from "@/components/ui/badge";
 import { AvailabilityBadge } from "@/components/ui/AvailabilityBadge";
 
 export default function Landing() {
+  const { lang: currentLang, setLang, langCode } = useLanguage()
+  const router = useRouter()
+  const t = useTranslations("Landing")
+
+  const setCurrentLang = async (lang: Parameters<typeof setLang>[0]) => {
+    await setLang(lang)
+  }
 
   const isMobile = useIsMobile();
   const [movies, setMovies] = useState<MovieResult[]>([]);
@@ -26,23 +36,29 @@ export default function Landing() {
 
 
   useEffect(() => {
+    let cancelled = false
     async function fetchMovieDetails() {
       try {
         const res = await fetch(
-          `http://localhost:8000/movies/?type=trending`
-        );
-        const data = await res.json();
-        setMovies(data.results)
-        console.log('Movie details:', data);
+          `http://localhost:8000/movies/?type=trending&lang=${langCode}`
+        )
+        const data = await res.json()
+        if (cancelled) return
+        const incoming: MovieResult[] = data.results ?? []
+        setMovies(prev => {
+          if (prev.length === 0) return incoming
+          // Keep the current rotation order; only update the localised text fields.
+          const byId = new Map(incoming.map(m => [m.id, m]))
+          return prev.map(m => byId.get(m.id) ?? m)
+        })
       } catch (err) {
-        console.error('Error fetching movie details:', err);
+        console.error('Error fetching movie details:', err)
       }
     }
-    fetchMovieDetails();
-  },[]);
+    fetchMovieDetails()
+    return () => { cancelled = true }
+  }, [langCode]);
   
-
-
   const next = () => {
     setMovies(prev => {
       const first = prev[0];
@@ -76,10 +92,10 @@ export default function Landing() {
       <div className="   absolute top-0  left-0   w-full flex justify-between items-center px-4! md:px-12! py-4! z-50   ">
         <Logo/>
         <div className="  md:flex items-center gap-3">
-          <LanguageMenu />
+          <LanguageMenu currentLang={currentLang} setCurrentLang={setCurrentLang} />
           <Link href="/login">
             <Button className="hidden md:flex   px-7! py-4! text-lg!  bg-[#BD0404] text-[#ffffff] hover:bg-[#BD0404] hover:scale-105 font-meduim rounded-sm">
-              Sign In
+              {t("signIn")}
             </Button>
           </Link>
         </div>
@@ -202,12 +218,11 @@ export default function Landing() {
                             className="text-[10px] font-bold px-1.5! py-0.5!"
                             badgeClassName="w-3 h-3"
                           />
-
-                          {
-                            item?.rating > 0 && (
+                          
+                          {item?.rating != null && item.rating > 0 && (
                             <Badge variant="link" className="text-text-muted text-xs gap-1 rounded-md">
                               <Star className="h-3 w-3 fill-yellow-400/70 text-yellow-400/70" />
-                              {item?.rating.toFixed(1)}
+                              {item.rating.toFixed(1)}
                               <span className="text-text-muted/60">/10</span>
                             </Badge>
                           )}
@@ -248,7 +263,7 @@ export default function Landing() {
                     </div>
 
                     <div className="">
-                      <Button className="bg-[#FFFFFF]/5! border-[#FFFFFF]/20 rounded-md! p-6! text-xl md:text-xl hover:scale-105" >Get Started <ChevronRight color="#F6C700"  strokeWidth={5}  /></Button>
+                      <Button className="bg-[#FFFFFF]/5! border-[#FFFFFF]/20 rounded-md! p-6! text-xl md:text-xl hover:scale-105">{t("getStarted")} <ChevronRight color="#F6C700"  strokeWidth={5}  /></Button>
                     </div>
 
                   </motion.div> 

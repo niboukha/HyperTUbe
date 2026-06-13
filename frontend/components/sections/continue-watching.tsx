@@ -15,6 +15,7 @@ import { CarouselSkeleton } from "../carousel/CarouselSkeleton"
 import { TooltipButton } from "../ui/tool-tip-button"
 import { Movie, MovieResult } from "@/types/search"
 import { getMovieDetails } from "@/lib/utils/fetchMovies"
+import { useTranslations } from "next-intl"
 
 type ContinueWatchingMovie = {
   id: number
@@ -29,18 +30,21 @@ type ContinueWatchingMovie = {
   availability: "free" | "premium"
 }
 
-export default function ContinueWatching( { title = "Continue Watching" }: { title?: string }) {
+export default function ContinueWatching() {
+  const t = useTranslations("Sections")
+  const tCommon = useTranslations("Common")
+  const title = t("continueWatching")
+
   const [movies, setMovies] = useState<ContinueWatchingMovie[]>([])
   const [loading, setLoading] = useState(true)
   const { hover, clearHoverTimeout, handleMouseEnter, handleMouseLeave, getPortalStyle } = useHoverPortal()
-  
+
   useEffect(() => {
     const fetch_ = async () => {
       try {
         const res = await fetch("/api/movies?type=trending")
         const data = await res.json()
         const results: Movie[] = Array.isArray(data) ? data : data?.results ?? []
-        // console.log("Fetched movies for Continue Watching:", results)
         setMovies(mapTrendingToContinueWatching(results))
       } catch {
         setMovies([])
@@ -55,33 +59,8 @@ export default function ContinueWatching( { title = "Continue Watching" }: { tit
   const hoveredimagepath = hoveredMovie?.backdrop_path || hoveredMovie?.poster_path || null
   const [duration, setDuration] = useState<string>("")
 
-  // useEffect(() => {
-  //   if (hover === null) return
-
-  //   const movie = movies[hover.index]
-  //   if (!movie) return
-
-  //   const id = movie.id
-
-  //   async function load() {
-  //     const data = await getMovieDetails(id)
-
-  //     if (!data.runtime) {
-  //       setDuration("N/A")
-  //       return
-  //     }
-
-  //     const h = Math.floor(data.runtime / 60)
-  //     const m = data.runtime % 60
-
-  //     setDuration(`${h}h ${m}m`)
-  //   }
-
-  //   load()
-  // }, [hover, movies])
-
   if (loading) return <CarouselSkeleton title={title} />
-  
+
   return (
     <>
       <Carousel title={title}>
@@ -125,9 +104,9 @@ export default function ContinueWatching( { title = "Continue Watching" }: { tit
                     <span className="text-white/15 text-4xl">🎬</span>
                   </div>
                 )}
-                            
+
                 <div className="absolute inset-0 bg-linear-to-t from-background/50 via-background/10 to-transparent" />
-                
+
                 <div className="absolute bottom-0! left-0! right-0! mx-2! pb-2!">
                   <Progress value={movie.progress} className="h-0.75! bg-text-primary/20" />
                   <div className="absolute top-0! left-0! h-0.75! bg-accent-red rounded-full" style={{ width: `${movie.progress}%` }} />
@@ -153,25 +132,22 @@ export default function ContinueWatching( { title = "Continue Watching" }: { tit
           infoPanel={
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-2 text-text-primary/50 text-xs">
-                <span>{hoveredMovie.remainingTime} left</span>
-                {/* <span>•</span>
-                <span>{duration}</span> */}
+                <span>{hoveredMovie.remainingTime} {tCommon("left")}</span>
               </div>
               <div className="flex items-center gap-2 mt-1">
                 <TooltipButton
                   className="w-8 h-8 rounded-full bg-text-primary flex items-center justify-center hover:bg-text-primary/80 transition"
-                  label="Play"
+                  label={tCommon("play")}
                 >
                   <Play className="h-4 w-4 text-background fill-background ml-0.5" />
                 </TooltipButton>
                 <TooltipButton
                   className="w-8 h-8 rounded-full border border-text-primary/30 flex items-center justify-center hover:border-text-primary transition"
-                  label="Add to List"
+                  label={tCommon("addToList")}
                 >
                   <Plus className="h-4 w-4 text-text-primary" />
-                  onClick={toggle}
                 </TooltipButton>
-                
+
                 <TooltipButton
                   className="ml-auto w-8 h-8 rounded-full border border-text-primary/30 flex items-center justify-center hover:border-text-primary text-text-muted transition bg-transparent text-[10px]!"
                   label={`${hoveredMovie.progress}% watched`}

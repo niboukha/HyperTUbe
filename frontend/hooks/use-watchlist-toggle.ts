@@ -28,6 +28,11 @@ async function fetchIds(): Promise<Set<string>> {
 
 function invalidate() { _ids = null }
 
+export function syncCacheRemove(movieId: string) {
+  if (_ids) _ids.delete(String(movieId))
+  notify()
+}
+
 export function useWatchlistToggle(movie: Pick<MovieResult, "id" | "title" | "poster_path" | "year" | "rating" | "genre_ids" | "overview" | "backdrop_path">) {
   const [inWatchlist, setInWatchlist] = useState(false)
   const [loading, setLoading] = useState(false)

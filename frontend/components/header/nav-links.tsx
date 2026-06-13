@@ -3,9 +3,11 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { navLinks } from "@/constants/nav-links"
+import { useTranslations } from "next-intl"
 
 export default function NavLinks() {
   const pathname = usePathname()
+  const t = useTranslations("Nav")
 
   return (
     <nav className="hidden md:flex items-center gap-5">
@@ -24,7 +26,7 @@ export default function NavLinks() {
               }
             `}
           >
-            {link.label}
+            {t(link.key as any)}
 
             {/* underline */}
             <span className="absolute -bottom-1 left-0 h-0.5 bg-accent-red transition-all duration-200 w-0 group-hover:w-full" />

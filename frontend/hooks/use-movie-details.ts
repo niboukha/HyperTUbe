@@ -1,5 +1,6 @@
 import { MovieDetail } from "@/types/movie"
 import { useEffect, useState } from "react"
+import { useLanguage } from "@/hooks/use-language"
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"
 type DetailStatus = "loading" | "pending" | "ready" | "not_found" | "error"
@@ -7,6 +8,7 @@ type DetailStatus = "loading" | "pending" | "ready" | "not_found" | "error"
 export function useMovieDetail(movieId: string) {
   const [data,    setData]    = useState<MovieDetail | null>(null)
   const [status, setStatus] = useState<DetailStatus>("loading")
+  const { langCode } = useLanguage()
 
   useEffect(() => {
     if (!movieId) return
@@ -22,7 +24,7 @@ export function useMovieDetail(movieId: string) {
         setData(null)
         setStatus(prev => (prev === "pending" ? "pending" : "loading"))
 
-        const res = await fetch(`${API}/movies/${movieId}/`, {
+        const res = await fetch(`${API}/movies/${movieId}/?lang=${langCode}`, {
           signal: controller.signal,
         })
         if (res.status === 404) {
@@ -58,7 +60,7 @@ export function useMovieDetail(movieId: string) {
       clearTimeout(pollTimer)
       controller?.abort()
     }
-  }, [movieId])
+  }, [movieId, langCode])
 
   return {
     data,

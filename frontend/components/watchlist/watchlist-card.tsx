@@ -43,8 +43,8 @@ export function normaliseTMDB(raw: any, genreMap: Record<number, string>): Movie
   return {
     id:           `tmdb-${raw.id}`,
     title:        raw.title || raw.name || "Untitled",
-    poster:       raw.poster_path  ? `${IMG}/w500${raw.poster_path}`   : "",
-    backdrop:     raw.backdrop_path? `${IMG}/w1280${raw.backdrop_path}`: "",
+    poster:       raw.poster_path,
+    backdrop:     raw.backdrop_path,
     rating:       raw.vote_average ? +raw.vote_average.toFixed(1) : 0,
     year:         raw.release_date ? +raw.release_date.slice(0, 4) : 0,
     duration:     formatRuntime(raw.runtime),
@@ -96,7 +96,9 @@ export function MovieCard({
     [movie.id, onToggleSave],
   );
 
-  const backdropSrc = imgErr || !movie.backdrop ? null : movie.backdrop;
+  const imageSrc = imgErr
+    ? null
+    : movie.backdrop || movie.poster || null;
 
   return (
     <motion.div
@@ -112,13 +114,14 @@ export function MovieCard({
     >
         <div className="relative w-full aspect-16/10 overflow-hidden">
 
-            {backdropSrc ? (
+            {imageSrc ? (
             <Image
-                src={backdropSrc}
+                src={imageSrc}
                 alt={movie.title}
                 fill
                 sizes="(max-width:768px) 100vw, 400px"
                 className="object-cover transition-transform duration-700 group-hover:scale-[1.04]"
+                unoptimized
                 onError={() => setImgErr(true)}
                 priority
             />

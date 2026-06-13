@@ -8,7 +8,6 @@ from django.contrib.auth.models import User
 
 
 class SocialAccountAdapter(DefaultSocialAccountAdapter):
-
     def new_user(self, request, sociallogin):
         return UserProfile()
 

@@ -43,10 +43,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         )
         return user
 
-
-
-
-
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField(required=True)
     password = serializers.CharField(required=True, write_only=True)
@@ -78,3 +74,26 @@ class PasswordSerializer(serializers.Serializer):
             )
 
         return data
+
+
+class ProfileUpdateSerializer(serializers.ModelSerializer):
+    first_name = serializers.CharField(required=False, allow_blank=True)
+    last_name  = serializers.CharField(required=False, allow_blank=True)
+    email      = serializers.EmailField(required=False)
+    username   = serializers.CharField(required=False)
+
+    class Meta:
+        model  = User
+        fields = ["first_name", "last_name", "email", "username"]
+
+    def validate_email(self, value):
+        user = self.instance
+        if User.objects.filter(email=value).exclude(pk=user.pk).exists():
+            raise serializers.ValidationError("This email is already in use.")
+        return value
+
+    def validate_username(self, value):
+        user = self.instance
+        if User.objects.filter(username=value).exclude(pk=user.pk).exists():
+            raise serializers.ValidationError("This username is already taken.")
+        return value

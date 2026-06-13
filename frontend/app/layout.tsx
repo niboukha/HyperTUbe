@@ -5,6 +5,7 @@ import { Figtree } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Footer from "@/components/Footer";
+import IntlProvider from "@/components/providers/IntlProvider";
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -26,7 +27,11 @@ export default function RootLayout({
       className={cn(poppins.variable, inter.variable, anton.variable, bebasNeue.variable, "font-sans", figtree.variable)}
     >
         <body className="min-h-screen bg-background">
-          <TooltipProvider>{children}</TooltipProvider>
+          <TooltipProvider>
+            <IntlProvider>
+              {children}
+            </IntlProvider>
+          </TooltipProvider>
           <div id="hover-root" />
           <Footer />
       </body>

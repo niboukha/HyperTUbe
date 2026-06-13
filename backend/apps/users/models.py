@@ -1,7 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import User
 
-# Create your models here.
+LANGUAGE_CHOICES = [("en", "English"), ("fr", "French"), ("es", "Spanish")]
+
 class UserProfile(User):
-    # user = models.OneToOneField(User, on_delete=models.CASCADE)
     profile_picture = models.URLField(blank=True, null=True)
+    language = models.CharField(max_length=10, choices=LANGUAGE_CHOICES, default="en")

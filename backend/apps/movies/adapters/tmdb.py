@@ -143,7 +143,8 @@ def _fetch_until_enough(fetch_page, page: int, target: int = TMDB_TARGET_RESULTS
 
 # Fetch helpers ----------------------------------------------------------------------------------------
 
-def fetch_by_type(type_: str, page: int = 1, target: int = TMDB_TARGET_RESULTS) -> dict:
+def fetch_by_type(type_: str, page: int = 1, target: int = TMDB_TARGET_RESULTS,
+                  language: str = "en") -> dict:
     url  = (f"{TMDB_BASE}/trending/movie/week"
             if type_ == "trending" else f"{TMDB_BASE}/movie/{type_}")
     require_votes = type_ != "upcoming"
@@ -151,7 +152,7 @@ def fetch_by_type(type_: str, page: int = 1, target: int = TMDB_TARGET_RESULTS) 
     def fetch_page(current_page: int) -> dict:
         return safe_get(
             url,
-            params={"page": current_page},
+            params={"page": current_page, "language": language},
             headers=HEADERS,
             timeout=TMDB_TIMEOUT,
             retries=TMDB_RETRIES,
@@ -165,13 +166,15 @@ def fetch_by_type(type_: str, page: int = 1, target: int = TMDB_TARGET_RESULTS) 
         require_votes=require_votes,
     )
 
-def fetch_by_genre(genre_ids: list, page: int = 1, target: int = TMDB_TARGET_RESULTS) -> dict:
+def fetch_by_genre(genre_ids: list, page: int = 1, target: int = TMDB_TARGET_RESULTS,
+                   language: str = "en") -> dict:
     def fetch_page(current_page: int) -> dict:
         return safe_get(
             f"{TMDB_BASE}/discover/movie",
             headers=HEADERS,
             params={"with_genres": ",".join(str(i) for i in genre_ids),
-                    "page": current_page, "sort_by": "popularity.desc"},
+                    "page": current_page, "sort_by": "popularity.desc",
+                    "language": language},
             timeout=TMDB_TIMEOUT,
             retries=TMDB_RETRIES,
             fallback={},
@@ -180,11 +183,13 @@ def fetch_by_genre(genre_ids: list, page: int = 1, target: int = TMDB_TARGET_RES
     return _fetch_until_enough(fetch_page, page=page, target=target)
 
 def search(query: str = "", genre_ids: list = None, year_from: int = None,
-           year_to: int = None, sort_by: str = "popularity", page: int = 1) -> dict:
+           year_to: int = None, sort_by: str = "popularity", page: int = 1,
+           language: str = "en") -> dict:
     if query:
         body = safe_get(
             f"{TMDB_BASE}/search/movie", headers=HEADERS,
-            params={"query": query, "page": page, "include_adult": False},
+            params={"query": query, "page": page, "include_adult": False,
+                    "language": language},
             timeout=TMDB_TIMEOUT,
             retries=TMDB_RETRIES,
             fallback={},
@@ -199,26 +204,26 @@ def search(query: str = "", genre_ids: list = None, year_from: int = None,
         }
         params = {"page": page, "include_adult": False,
                   "sort_by": sort_map.get(sort_by, "popularity.desc"),
-                  "vote_count.gte": MIN_VOTE_COUNT}
+                  "vote_count.gte": MIN_VOTE_COUNT, "language": language}
         if genre_ids: params["with_genres"] = ",".join(str(i) for i in genre_ids)
         if year_from: params["primary_release_date.gte"] = f"{year_from}-01-01"
         if year_to:   params["primary_release_date.lte"] = f"{year_to}-12-31"
         body = safe_get(f"{TMDB_BASE}/discover/movie", headers=HEADERS,
                         params=params, timeout=TMDB_TIMEOUT,
                         retries=TMDB_RETRIES, fallback={})
-        
-        print("-------------- length of results from tmdb discover:", len(body.get("results") or []))
+
     return build_response(body, _filtered(body.get("results")))
 
-def fetch_detail(tmdb_id: int) -> dict | None:
+def fetch_detail(tmdb_id: int, language: str = "en") -> dict | None:
     from ..cache.movie_cache import get_detail, set_detail
 
-    cache_key = f"tmdb-{tmdb_id}"
+    cache_key = f"tmdb-{tmdb_id}:{language}"
     cached = get_detail(cache_key)
     if cached:
         return cached
 
     body = safe_get(f"{TMDB_BASE}/movie/{tmdb_id}", headers=HEADERS,
+                    params={"language": language},
                     timeout=TMDB_TIMEOUT, retries=TMDB_RETRIES, fallback=None)
     data = _normalize_detail(body) if body and body.get("id") else None
     if data:

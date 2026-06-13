@@ -91,9 +91,12 @@ def _movies_list_response(request):
 
         genre_ids = _parse_genre_ids(genre)
 
+        language = request.lang
+
         #  home section
         if type_ and not q:
-            data = get_home_section(type_=type_, genre_ids=genre_ids, page=page)
+            data = get_home_section(type_=type_, genre_ids=genre_ids, page=page,
+                                    language=language)
             return Response(data, status=status.HTTP_200_OK)
 
         # library / search
@@ -105,6 +108,7 @@ def _movies_list_response(request):
             min_rating = min_rating,
             sort_by    = SORT_MAP.get(sort, "name"),
             page       = page,
+            language   = language,
         )
         return Response(data, status=status.HTTP_200_OK)
 
@@ -159,7 +163,7 @@ def movie_detail(request, movie_id: str):
                     {"error": "Invalid TMDB id"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            data = fetch_detail(int(raw))
+            data = fetch_detail(int(raw), language=request.lang)
 
         else:
             return Response(
@@ -302,29 +306,26 @@ def movie_search(request):
 
 @api_view(["GET"])
 def watchlist_list(request):
-    """GET /watchlist/ — returns the authenticated user's saved movies."""
+    """
+    GET /watchlist/ — returns the authenticated user's saved movies.
+
+    Titles and overviews are resolved at request time from the originating
+    provider in the user's current language (?lang= or profile preference),
+    so watchlist cards are always displayed in the active locale.
+    """
     from .models import UserMovieState
+    from .services.resolver import resolve_watchlist_items
+
+    language = request.lang
+
     states = (
         UserMovieState.objects
         .filter(user=request.user, is_saved=True)
         .select_related("movie")
         .order_by("-id")
     )
-    items = [
-        {
-            "movie_id":    s.movie.tmdb_id,
-            "title":       s.movie.title,
-            "poster_path": s.movie.poster_url,
-            "overview":    s.movie.overview,
-            "backdrop_path": s.movie.backdrop_url,
-            # "genres":     s.movie.genres,
 
-            "year":        str(s.movie.release_date.year) if s.movie.release_date else None,
-            "rating":      s.movie.rating,
-            "added_at":    (s.created_at or s.updated_at).isoformat(),
-        }
-        for s in states
-    ]
+    items = resolve_watchlist_items(states, language)
     return Response({"items": items})
 
 

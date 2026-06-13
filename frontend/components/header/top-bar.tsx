@@ -4,17 +4,23 @@ import { useEffect, useRef, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import Logo from "@/components/ui/logo"
 import SearchBar from "../search/search-bar"
-import { Language, languages } from "@/constants/languages"
 import NavLinks from "./nav-links"
 import ProfileMenu from "./profile-menu"
 import MobileToggle from "./mobile-toggle"
 import LanguageMenu from "./language-menu"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { LogOut } from "lucide-react"
 import { useCurrentUser } from "@/hooks/use-current-user"
+import { useLanguage } from "@/hooks/use-language"
 
 export default function TopBar() {
-  const [currentLang, setCurrentLang]       = useState<Language>(languages[0])
+  const { lang: currentLang, setLang } = useLanguage()
+  const router = useRouter()
+
+  const setCurrentLang = async (lang: Parameters<typeof setLang>[0]) => {
+    await setLang(lang)
+    router.refresh()
+  }
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen]         = useState(false)
   const [hidden, setHidden]                 = useState(false)

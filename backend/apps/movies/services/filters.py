@@ -23,8 +23,8 @@ PUBLIC_DOMAIN_ROWS = 300          # Public Domain Torrents catalog rows for libr
 
 # Create a unique short name for the upstream movie pool. Sort and filters are
 # applied after this pool is cached so switching controls reorders the same set.
-def _library_cache_key(query, partial: bool = False) -> str:
-    raw = f"{(query or '').strip().lower()}"
+def _library_cache_key(query, language: str = "en", partial: bool = False) -> str:
+    raw = f"{(query or '').strip().lower()}:{language}"
     suffix = ":partial" if partial else ""
     return "movies:library:v10:" + hashlib.md5(raw.encode()).hexdigest() + suffix
 
@@ -37,21 +37,21 @@ def library_search(
     min_rating: float = 0,
     sort_by: str     = "popularity",
     page: int        = 1,
+    language: str    = "en",
 ) -> dict:
     # clear_all_cache()
     page            = max(1, page)
     query           = (query or "").strip()
     has_search      = bool(query)
     effective_sort  = sort_by or ("name" if has_search else "popularity")
-    key             = _library_cache_key(query)
-    partial_key     = _library_cache_key(query, partial=True)
+    key             = _library_cache_key(query, language)
+    partial_key     = _library_cache_key(query, language, partial=True)
     snapshot        = cache.get(key) or cache.get(partial_key)
-
-    print("snapshot from cache?---------------------", "yes" if snapshot else "no")
 
     if snapshot is None:
         snapshot = _fetch_library_snapshot(
             query=query,
+            language=language,
         )
         if snapshot.get("partial"):
             cache.set(partial_key, snapshot, PARTIAL_CACHE_TTL)
@@ -118,6 +118,7 @@ def _enrich_publicdomain_page(movies: list) -> list:
 
 def _fetch_library_snapshot(
     query: str = "",
+    language: str = "en",
 ) -> dict:
     tmdb_results = []
     archive_results = []
@@ -145,7 +146,7 @@ def _fetch_library_snapshot(
             timeout=ARCHIVE_WAIT,
         )
 
-        tmdb_results = _fetch_tmdb_library_rows(pool, query=query)
+        tmdb_results = _fetch_tmdb_library_rows(pool, query=query, language=language)
 
         try:
             archive_data = archive_f.result(timeout=ARCHIVE_WAIT)
@@ -175,7 +176,7 @@ def _fetch_library_snapshot(
     }
 
 
-def _fetch_tmdb_library_rows(pool: ThreadPoolExecutor, query: str = "") -> list:
+def _fetch_tmdb_library_rows(pool: ThreadPoolExecutor, query: str = "", language: str = "en") -> list:
     results = []
     seen = set()
     next_page = 1
@@ -184,7 +185,7 @@ def _fetch_tmdb_library_rows(pool: ThreadPoolExecutor, query: str = "") -> list:
     while next_page <= TMDB_MAX_PAGES and len(results) < TMDB_TARGET_ROWS:
         last_page = min(next_page + batch_size - 1, TMDB_MAX_PAGES)
         futures = [
-            pool.submit(_fetch_tmdb_library_page, query, page)
+            pool.submit(_fetch_tmdb_library_page, query, page, language)
             for page in range(next_page, last_page + 1)
         ]
         batch_added = 0
@@ -208,10 +209,10 @@ def _fetch_tmdb_library_rows(pool: ThreadPoolExecutor, query: str = "") -> list:
     return results[:TMDB_TARGET_ROWS]
 
 
-def _fetch_tmdb_library_page(query: str, page: int) -> dict:
+def _fetch_tmdb_library_page(query: str, page: int, language: str = "en") -> dict:
     if query:
-        return tmdb.search(query=query, sort_by="name", page=page)
-    return tmdb.search(sort_by="popularity", page=page)
+        return tmdb.search(query=query, sort_by="name", page=page, language=language)
+    return tmdb.search(sort_by="popularity", page=page, language=language)
 
 
 def _should_blend_sources(

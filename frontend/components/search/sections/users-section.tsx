@@ -31,6 +31,7 @@ export function UsersSection({ users, query, onSelect }: Props) {
                 sizes="32px"
                 priority
                 className="object-cover"
+                unoptimized
               />
             </div>
             <p className="text-sm text-white/80">@{highlightMatch(user.username || "", query)}</p>

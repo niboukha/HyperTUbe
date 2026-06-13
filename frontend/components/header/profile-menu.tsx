@@ -1,6 +1,7 @@
 "use client"
 
 import { User, Settings, LogOut } from "lucide-react"
+import Link from "next/link"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -13,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { useRouter } from 'next/navigation'
 import type { CurrentUser } from "@/hooks/use-current-user"
+import { useTranslations } from "next-intl"
 
 type Props = {
   onOpen?: () => void
@@ -21,9 +23,8 @@ type Props = {
 
 export default function ProfileMenu({ onOpen, user }: Props) {
   const router = useRouter()
+  const t = useTranslations("Header")
   const initials = user?.username?.slice(0, 2).toUpperCase() ?? "?"
-
-  console.log("Rendering ProfileMenu with user:", user)
 
   const handleLogout = async () => {
     try {
@@ -66,26 +67,30 @@ export default function ProfileMenu({ onOpen, user }: Props) {
         border-white/30 bg-white/10 text-white"
       >
         <DropdownMenuLabel className="text-text-primary text-xs font-medium px-1!">
-          Account
+          {t("account")}
         </DropdownMenuLabel>
 
         <DropdownMenuSeparator className="bg-text-primary/30" />
 
         {/* PROFILE */}
-        <DropdownMenuItem className="
-          group rounded-md text-text-primary bg-transparent!        
+        <DropdownMenuItem asChild className="
+          group rounded-md text-text-primary bg-transparent!
           transition-all duration-150
           hover:bg-text-primary/5! hover:text-text-primary! hover:font-bold
           px-1! py-1!
         ">
-          <User className="text-current! mr-2 h-4 w-4" />
-          Profile
+          <Link href="/settings/profile">
+            <User className="text-current! mr-2 h-4 w-4" />
+            {t("profile")}
+          </Link>
         </DropdownMenuItem>
 
         {/* SETTINGS */}
-        <DropdownMenuItem className="group rounded-md text-text-primary hover:text-text-primary! hover:font-bold transition-all duration-150 bg-transparent! hover:bg-text-primary/5! px-1! py-1!">
-          <Settings className="mr-2 h-4 w-4" />
-          Settings
+        <DropdownMenuItem asChild className="group rounded-md text-text-primary hover:text-text-primary! hover:font-bold transition-all duration-150 bg-transparent! hover:bg-text-primary/5! px-1! py-1!">
+          <Link href="/settings">
+            <Settings className="mr-2 h-4 w-4" />
+            {t("settings")}
+          </Link>
         </DropdownMenuItem>
 
         <DropdownMenuSeparator className="bg-text-primary/30" />
@@ -95,7 +100,7 @@ export default function ProfileMenu({ onOpen, user }: Props) {
           onClick={handleLogout}
         className="group rounded-md text-text-primary! hover:bg-text-primary/5! hover:text-accent-red! hover:font-bold! transition-all duration-150 px-1! py-1!">
           <LogOut className="mr-2 h-4 w-4" />
-          Logout
+          {t("logout")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

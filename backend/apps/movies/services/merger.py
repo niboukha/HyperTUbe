@@ -16,17 +16,18 @@ ARCHIVE_LIMIT = 10         # 10 TMDB + 10 Archive per home section page
 ARCHIVE_WAIT = 6.0      # seconds we're willing to wait for Archive on home
 
 
-def _cache_key(type_: str, genre_ids=None, page=1) -> str:
+def _cache_key(type_: str, genre_ids=None, page=1, language="en") -> str:
     genre_str = "-".join(str(g) for g in sorted(genre_ids or []))
-    return f"movies:home:v2:{type_}:g{genre_str}:p{page}"
+    return f"movies:home:v3:{type_}:g{genre_str}:p{page}:l{language}"
 
 
 def get_home_section(
     type_: str,
     genre_ids: list = None,
     page: int = 1,
+    language: str = "en",
 ) -> dict:
-    key    = _cache_key(type_, genre_ids, page)
+    key    = _cache_key(type_, genre_ids, page, language)
     cached = cache.get(key)
     if cached:
         return cached
@@ -34,7 +35,7 @@ def get_home_section(
     # genre section: TMDB + Archive in parallel
     if type_ == "genre" and genre_ids:
         with ThreadPoolExecutor(max_workers=2) as pool:
-            tmdb_f    = pool.submit(tmdb.fetch_by_genre, genre_ids, page, HOME_TOTAL)
+            tmdb_f    = pool.submit(tmdb.fetch_by_genre, genre_ids, page, HOME_TOTAL, language)
             archive_f = pool.submit(
                 archive.fetch_movies,
                 genre_ids=genre_ids,
@@ -43,16 +44,14 @@ def get_home_section(
                 timeout=ARCHIVE_WAIT,
             )
 
-            tmdb_data = tmdb_f.result()          # TMDB is fast, always wait
+            tmdb_data = tmdb_f.result()
 
             try:
                 archive_data = archive_f.result(timeout=ARCHIVE_WAIT)
             except (FutureTimeout, Exception):
                 archive_data = {"results": [], "total_pages": 1}
 
-        # Trim TMDB to HOME_TOTAL so home cards stay balanced
         archive_results = archive_data.get("results", [])[:ARCHIVE_LIMIT]
-
         remaining       = HOME_TOTAL - len(archive_results)
         tmdb_results    = tmdb_data.get("results", [])[:remaining]
 
@@ -65,7 +64,7 @@ def get_home_section(
     # trending / top_rated / now_playing — TMDB only
     else:
         tmdb_type = type_ if type_ != "genre" else "trending"
-        data      = tmdb.fetch_by_type(tmdb_type, page, HOME_TOTAL)
+        data      = tmdb.fetch_by_type(tmdb_type, page, HOME_TOTAL, language)
 
         merged      = data.get("results", [])[:20]
         total_pages = data.get("total_pages", 1)

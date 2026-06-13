@@ -5,8 +5,11 @@ import { useEffect, useState } from "react"
 export type CurrentUser = {
   id: string
   username: string
+  first_name: string
+  last_name: string
   email: string
   avatar: string | null
+  language: string
 }
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
@@ -21,6 +24,5 @@ export function useCurrentUser() {
       .catch(() => setUser(null))
   }, [])
 
-  // console.log("useCurrentUser: current user is", user)
   return user
 }

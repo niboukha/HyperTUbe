@@ -3,20 +3,25 @@
 import { useEffect, useRef, useState } from "react"
 import MovieRow from "./movie-row"
 import { CarouselSkeleton } from "../carousel/CarouselSkeleton"
+import { useTranslations } from "next-intl"
 
 type Props = {
-  title:    string
-  endpoint: string
+  title?:    string
+  titleKey?: string
+  endpoint:  string
 }
 
-export default function LazyRow({ title, endpoint }: Props) {
-  const ref            = useRef<HTMLDivElement>(null)
-  const hasShown       = useRef(false)          // persists across StrictMode remounts
+export default function LazyRow({ title, titleKey, endpoint }: Props) {
+  const t = useTranslations("Sections")
+  const resolvedTitle = titleKey ? t(titleKey as any) : (title ?? "")
+
+  const ref       = useRef<HTMLDivElement>(null)
+  const hasShown  = useRef(false)
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
     const el = ref.current
-    if (!el || hasShown.current) return         // skip if already triggered
+    if (!el || hasShown.current) return
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -36,8 +41,8 @@ export default function LazyRow({ title, endpoint }: Props) {
   return (
     <div ref={ref} className="min-h-[120px]">
       {!visible
-        ? <CarouselSkeleton title={title} />
-        : <MovieRow title={title} endpoint={endpoint} />
+        ? <CarouselSkeleton title={resolvedTitle} />
+        : <MovieRow title={resolvedTitle} endpoint={endpoint} />
       }
     </div>
   )

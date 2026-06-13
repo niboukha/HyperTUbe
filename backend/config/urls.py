@@ -21,7 +21,7 @@ from django.conf.urls.static import static
 from django.conf import settings
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from apps.users.views import JWTOAuth2CallbackView, login_view,UserSearchView
+from apps.users.views import JWTOAuth2CallbackView, login_view, UserSearchView, user_profile
 from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
 from allauth.socialaccount.providers.github.views import GitHubOAuth2Adapter
 
@@ -45,6 +45,7 @@ urlpatterns = [
     path('oauth/token/refresh', TokenRefreshView.as_view(), name='refresh'),
     
     path("users/", UserSearchView.as_view(), name="user-search"),
+    path("api/users/<int:pk>/", user_profile, name="user-profile"),
 
 
     path('comments/', include("apps.comments.urls")),

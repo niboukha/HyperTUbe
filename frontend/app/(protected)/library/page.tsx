@@ -8,6 +8,7 @@ import { ResultsHeader } from "@/components/library/results-header"
 import { InfiniteScroll } from "@/components/ui/infinite-scroll"
 import { useLibraryMovies } from "@/hooks/use-library-movies"
 import { MovieGrid } from "@/components/library/movie-grid"
+import { useTranslations } from "next-intl"
 
 const DEFAULT_FILTERS: Filters = {
   genres:     [],
@@ -16,6 +17,7 @@ const DEFAULT_FILTERS: Filters = {
   yearRange:  [MIN_YEAR, CURRENT_YEAR],
 }
 export default function LibraryPage() {
+  const t = useTranslations("Library")
   const searchParams          = useSearchParams()
   const urlQuery              = searchParams.get("q") ?? ""
   const [filters, setFilters] = useState<Filters>({
@@ -61,13 +63,13 @@ export default function LibraryPage() {
           <div className="flex flex-col items-center py-2! text-center">
             <p className="text-white/15 text-5xl mb-4!">🎬</p>
             <p className="text-white/40 text-base font-medium">
-              No results for{" "}
+              {t("noResultsFor")}{" "}
               <span className="text-white/70">
                 `{urlQuery || filters.genres.join(", ")}`
               </span>
             </p>
             <p className="text-white/20 text-sm mt-1!">
-              Showing top-rated movies instead
+              {t("showingTopRated")}
             </p>
           </div>
 
@@ -76,7 +78,7 @@ export default function LibraryPage() {
               <div className="flex items-center gap-3">
                 <span className="text-accent-red font-title text-lg">|</span>
                 <span className="text-white/70 font-title tracking-wide uppercase text-sm">
-                  Top Rated Movies
+                  {t("topRatedMovies")}
                 </span>
               </div>
               <MovieGrid movies={suggestions} />

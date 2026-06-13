@@ -3,6 +3,10 @@
 import { InfiniteScroll } from "@/components/ui/infinite-scroll";
 import { Movie, MovieCard, normaliseTMDB } from "@/components/watchlist/watchlist-card";
 import { useMemo, useState, useCallback, useEffect } from "react";
+import { syncCacheRemove } from "@/hooks/use-watchlist-toggle";
+import { useLanguage } from "@/hooks/use-language";
+import { apiFetch } from "@/lib/api";
+import { useTranslations } from "next-intl";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -13,23 +17,27 @@ const GENRE_MAP: Record<number, string> = {
   9648: "Mystery", 878: "Sci-Fi", 10752: "War", 37: "Western",
 };
 
-function groupLabel(iso: string): string {
+function getGroupLabel(iso: string, t: ReturnType<typeof useTranslations<"Watchlist">>): string {
   const diff = Math.floor(
     (Date.now() - new Date(iso).getTime()) / 86_400_000,
   );
-  if (diff === 0) return "Today";
-  if (diff === 1) return "Yesterday";
-  if (diff < 7)  return `${diff} days ago`;
-  if (diff < 14) return "Last week";
-  return "Earlier";
+  if (diff === 0) return t("today");
+  if (diff === 1) return t("yesterday");
+  if (diff < 7)  return t("daysAgo", { count: diff });
+  if (diff < 14) return t("lastWeek");
+  return t("earlier");
 }
 
 export default function WatchlistPage() {
   const [movies,  setMovies]  = useState<(Movie & { _savedAt: string })[]>([]);
   const [loading, setLoading] = useState(true);
+  const { langCode } = useLanguage();
+  const t = useTranslations("Watchlist");
 
   useEffect(() => {
-    fetch(`${API}/watchlist/`, { credentials: "include" })
+    setLoading(true);
+    setMovies([]);
+    apiFetch("/watchlist/", { lang: langCode })
       .then(r => r.ok ? r.json() : { items: [] })
       .then(data => {
         const items = (data.items ?? []).map((entry: any) =>
@@ -47,21 +55,20 @@ export default function WatchlistPage() {
               },
               GENRE_MAP,
             ),
+            id:       entry.movie_id,
             isSaved:  true,
             _savedAt: entry.added_at ?? new Date().toISOString(),
           })
         );
-        console.log("Fetched watchlist items:", items);
         setMovies(items);
       })
       .catch(() => setMovies([]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [langCode]);
 
   const toggleSave = useCallback((id: string) => {
-    // Optimistic remove from UI
     setMovies(prev => prev.filter(m => m.id !== id));
-    // Sync with backend
+    syncCacheRemove(id);
     fetch(`${API}/watchlist/toggle/`, {
       method:      "POST",
       credentials: "include",
@@ -75,19 +82,19 @@ export default function WatchlistPage() {
     const g: Record<string, (Movie & { _savedAt: string })[]> = {};
     const order: string[] = [];
     for (const m of movies) {
-      const label = groupLabel(m._savedAt ?? new Date().toISOString());
+      const label = getGroupLabel(m._savedAt ?? new Date().toISOString(), t);
       if (!g[label]) { g[label] = []; order.push(label); }
       g[label].push(m);
     }
     return { g, order };
-  }, [movies]);
+  }, [movies, t]);
 
   return (
     <div className="min-h-screen flex flex-col gap-4 pb-16! overflow-x-hidden pt-18! px-5! md:px-13! lg:px-16!">
 
       {/* Header */}
       <div className="flex items-baseline gap-3 mb-2">
-        <span className="text-white/25 text-sm">{movies.length} titles</span>
+        <span className="text-white/25 text-sm">{t("titles", { count: movies.length })}</span>
       </div>
 
       {/* Loading skeleton */}
@@ -103,8 +110,8 @@ export default function WatchlistPage() {
       {!loading && movies.length === 0 && (
         <div className="flex flex-col items-center justify-center flex-1 gap-3 py-32">
           <span className="text-white/40 text-4xl">🎬</span>
-          <p className="text-white/40 text-sm">Your watchlist is empty.</p>
-          <p className="text-white/25 text-xs">Hit the + button on any movie to save it here.</p>
+          <p className="text-white/40 text-sm">{t("empty")}</p>
+          <p className="text-white/25 text-xs">{t("hint")}</p>
         </div>
       )}
 

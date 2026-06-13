@@ -1,0 +1,94 @@
+{
+  "Nav": {
+    "home": "Home",
+    "library": "Library",
+    "history": "History",
+    "watchlist": "Watchlist"
+  },
+  "Header": {
+    "account": "Account",
+    "profile": "Profile",
+    "settings": "Settings",
+    "logout": "Logout",
+    "sections": "Sections",
+    "language": "Language",
+    "navigationMenu": "Navigation Menu"
+  },
+  "Watchlist": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "daysAgo": "{count} days ago",
+    "lastWeek": "Last week",
+    "earlier": "Earlier",
+    "empty": "Your watchlist is empty.",
+    "hint": "Hit the + button on any movie to save it here.",
+    "titles": "{count} titles"
+  },
+  "Library": {
+    "noResultsFor": "No results for",
+    "showingTopRated": "Showing top-rated movies instead",
+    "topRatedMovies": "Top Rated Movies"
+  },
+  "Settings": {
+    "profile": "Profile",
+    "security": "Security",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "username": "Username",
+    "email": "Email",
+    "cancel": "Cancel",
+    "saveChanges": "Save Changes",
+    "changeImage": "Change image",
+    "oldPassword": "Old Password",
+    "newPassword": "New Password",
+    "confirmNewPassword": "Confirm New Password"
+  },
+  "Auth": {
+    "signIn": "Sign In",
+    "signUp": "Sign Up",
+    "usernamePlaceholder": "Enter your username",
+    "passwordPlaceholder": "Password",
+    "forgotPassword": "Forgot Password?",
+    "or": "OR",
+    "noAccount": "Don't have an account?",
+    "haveAccount": "Already have an account?",
+    "firstNamePlaceholder": "First Name",
+    "lastNamePlaceholder": "Last Name",
+    "emailPlaceholder": "Email Address",
+    "forgotPasswordTitle": "Forgot Password?",
+    "forgotPasswordDesc": "Enter your email and we'll send you a link to reset your password.",
+    "sending": "Sending...",
+    "resetPassword": "Reset Password",
+    "emailSent": "Email Sent!",
+    "emailSentDesc": "Check your email for a link to reset your password. The link expires in 24 hours.",
+    "backToLogin": "Back to Login",
+    "resetting": "Resetting...",
+    "invalidResetLink": "Invalid or expired reset link.",
+    "confirmPasswordPlaceholder": "Confirm New Password",
+    "newPasswordPlaceholder": "New Password",
+    "checkEmail": "Check Your Email",
+    "checkEmailDesc": "We've sent a password reset link to your email. Please check your inbox and click the link to reset your password.",
+    "confirmedEmail": "I've Confirmed My Email",
+    "didntReceive": "Didn't receive the email? Check your spam folder or request a new link."
+  },
+  "Landing": {
+    "signIn": "Sign In",
+    "getStarted": "Get Started"
+  },
+  "Sections": {
+    "continueWatching": "Continue Watching",
+    "upcomingMovies": "Upcoming Movies",
+    "action": "Action",
+    "animation": "Animation",
+    "comedy": "Comedy",
+    "horror": "Horror",
+    "scienceFiction": "Science Fiction",
+    "war": "War",
+    "crime": "Crime"
+  },
+  "Common": {
+    "play": "Play",
+    "addToList": "Add to List",
+    "left": "left"
+  }
+}

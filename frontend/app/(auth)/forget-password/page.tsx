@@ -4,10 +4,12 @@ import { InputField } from '@/components/auth/InputField'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import Logo from '@/components/ui/logo'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, CheckCircle2 } from 'lucide-react'
 import { useState } from 'react'
+import { useTranslations } from "next-intl"
 
 export default function ForgetPasswordPage() {
+  const t = useTranslations("Auth")
   const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -41,69 +43,73 @@ export default function ForgetPasswordPage() {
 
   return (
     <div className="min-h-screen bg-black relative overflow-hidden">
-      <header className="absolute top-0 left-0 w-full p-6! z-20">
-        <Logo />
-      </header>
       <div
-        className="absolute inset-0 opacity-40"
+        className="absolute inset-0 opacity-50"
         style={{
-          backgroundImage: `url('/auth/auth-background.png')`,
+          backgroundImage: `url('./auth/auth-background.png')`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
         }}
       />
 
+      <div className="absolute top-0 left-0 w-full p-6! z-20">
+        <Logo />
+      </div>
+
       <div className='relative z-10 min-h-screen flex flex-col'>
         <div className="flex-1 flex items-center justify-center px-4!">
 
-          <Card className="flex flex-col w-[450px] h-[409px] rounded-sm bg-[#151515] border-0 inset-0 opacity-89">
+          <Card className="flex flex-col justify-center w-[495px] sm:h-[500px] h-[450px] rounded-sm bg-[#151515] border-0 inset-0 opacity-89">
 
-            <CardHeader className="sm:mt-12! sm:mb-2! sm:px-17! px-4!">
-              <h4 className="text-white text-3xl font-title">Reset Password</h4>
-              <span className="text-gray-400 text-sm mt-2">Enter your email to reset your password.</span>
-            </CardHeader>
+            {sent ? (
+              <div className="flex flex-col items-center justify-center gap-4 py-8! px-5!">
+                <div className="rounded-full bg-green-500/20 p-3!">
+                  <CheckCircle2 className="w-6 h-6 text-green-400" />
+                </div>
+                <div className="text-center">
+                  <p className="text-white font-semibold text-base">{t("emailSent")}</p>
+                  <p className="text-gray-400 text-sm mt-2">{t("emailSentDesc")}</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <CardHeader className="pb-6! px-10! sm:px-12!">
+                  <h1 className="text-white text-3xl sm:text-4xl font-title">{t("forgotPasswordTitle")}</h1>
+                  <p className="text-gray-500 text-sm mt-2">{t("forgotPasswordDesc")}</p>
+                </CardHeader>
 
-            <CardContent>
-              {sent ? (
-                <p className="text-green-400 text-sm text-center px-4!">
-                  Check your email — a reset link has been sent.
-                </p>
-              ) : (
-                <form onSubmit={handleSubmit}>
-                  <div className='flex flex-col justify-center items-center gap-2'>
-                    <span className="text-white text-sm w-full sm:px-18! px-4!">Email</span>
+                <CardContent className="px-6! sm:px-12!">
+                  <form className="space-y-4!" onSubmit={handleSubmit}>
                     <InputField
-                      placeholder="Email Address"
+                      placeholder={t("emailPlaceholder")}
                       type='email'
                       value={email}
                       onChange={(e: any) => setEmail(e.target.value)}
-                      className='w-[314px] h-[50px] py-6! px-4! rounded-sm bg-[#333333]'
+                      className='w-full rounded-md bg-[#333333] text-white placeholder:text-gray-500 border-0 py-5.5! px-4!'
                     />
                     {error && (
                       <p className="text-red-500 text-sm text-center">{error}</p>
                     )}
-                  </div>
-
-                  <div className='flex justify-center items-center mt-3!'>
                     <Button
                       type="submit"
                       disabled={loading}
-                      className="w-[314px] bg-[#BD0404] hover:bg-[#BD0404] text-white font-semibold h-[48px] rounded-sm py-3! text-base !mt-8"
+                      className="w-full bg-[#BD0404] hover:bg-[#a30303] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold h-12 rounded-lg text-base transition-colors duration-200"
                     >
-                      {loading ? "Sending..." : "Reset Password"}
+                      {loading ? t("sending") : t("resetPassword")}
                     </Button>
-                  </div>
-                </form>
-              )}
-            </CardContent>
+                  </form>
+                </CardContent>
+              </>
+            )}
 
-            <CardFooter className="flex flex-1 flex-col justify-center items-center">
-              <div className="text-center h-full flex justify-end items-center sm:mb-2! gap-1">
-                <a href="/login"><ArrowLeft className='w-4 h-4 text-white' /></a>
-                <span className='text-gray-400'>Back to Login</span>
+            <CardFooter className="flex flex-col px-6! sm:px-12!">
+              <div className="flex justify-center items-center gap-2 w-full">
+                <a href="/login" className="flex items-center gap-1 text-gray-400 hover:text-white text-sm font-medium transition-colors">
+                  <ArrowLeft className='w-4 h-4' />
+                  {t("backToLogin")}
+                </a>
               </div>
             </CardFooter>
-
           </Card>
         </div>
       </div>

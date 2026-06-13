@@ -219,7 +219,7 @@ export default function SearchBar({
       if (e.key === "Enter" && activeIndex >= 0) {
         const nav = allNavigable[activeIndex]
         if (nav?.type === "movie")  { saveRecentSearch(query); router.push(`/movies/${nav.item.id}`); if (!inline) closeSearch() }
-        if (nav?.type === "user")   { router.push(`/user/${(nav.item as UserResult).id}`); if (!inline) closeSearch() }
+        if (nav?.type === "user")   { router.push(`/users/${(nav.item as UserResult).id}`); if (!inline) closeSearch() }
       }
     }
     window.addEventListener("keydown", h)
@@ -229,7 +229,7 @@ export default function SearchBar({
   const panelProps = {
     query, movies, users: matchedUsers, loading, activeIndex, recentSearches,
     onSelectMovie:   (m: MovieResult) => { saveRecentSearch(query || m.title); router.push(`/movies/${m.id}`); if (!inline) closeSearch() },
-    onSelectUser:    (u: UserResult)  => { router.push(`/user/${u.id}`); if (!inline) closeSearch() },
+    onSelectUser:    (u: UserResult)  => { router.push(`/users/${u.id}`); if (!inline) closeSearch() },
     onSelectGenre:   (g: string)      => { saveRecentSearch(g); router.push(`/library?genre=${g.toLowerCase()}`); if (!inline) closeSearch() },
     onSelectRecent:  (t: string)      => { setQuery(t); inputRef.current?.focus() },
     onRemoveRecent:  (e: React.MouseEvent, t: string) => { e.stopPropagation(); removeRecentSearch(t); setRecentSearches(getRecentSearches()) },

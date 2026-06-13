@@ -1,0 +1,94 @@
+{
+  "Nav": {
+    "home": "Accueil",
+    "library": "Bibliothèque",
+    "history": "Historique",
+    "watchlist": "Ma liste"
+  },
+  "Header": {
+    "account": "Compte",
+    "profile": "Profil",
+    "settings": "Paramètres",
+    "logout": "Déconnexion",
+    "sections": "Sections",
+    "language": "Langue",
+    "navigationMenu": "Menu de navigation"
+  },
+  "Watchlist": {
+    "today": "Aujourd'hui",
+    "yesterday": "Hier",
+    "daysAgo": "Il y a {count} jours",
+    "lastWeek": "La semaine dernière",
+    "earlier": "Précédemment",
+    "empty": "Votre liste est vide.",
+    "hint": "Appuyez sur + sur un film pour l'ajouter ici.",
+    "titles": "{count} titres"
+  },
+  "Library": {
+    "noResultsFor": "Aucun résultat pour",
+    "showingTopRated": "Affichage des films les mieux notés",
+    "topRatedMovies": "Films les mieux notés"
+  },
+  "Settings": {
+    "profile": "Profil",
+    "security": "Sécurité",
+    "firstName": "Prénom",
+    "lastName": "Nom de famille",
+    "username": "Nom d'utilisateur",
+    "email": "E-mail",
+    "cancel": "Annuler",
+    "saveChanges": "Enregistrer",
+    "changeImage": "Changer l'image",
+    "oldPassword": "Ancien mot de passe",
+    "newPassword": "Nouveau mot de passe",
+    "confirmNewPassword": "Confirmer le mot de passe"
+  },
+  "Auth": {
+    "signIn": "Se connecter",
+    "signUp": "S'inscrire",
+    "usernamePlaceholder": "Entrez votre nom d'utilisateur",
+    "passwordPlaceholder": "Mot de passe",
+    "forgotPassword": "Mot de passe oublié ?",
+    "or": "OU",
+    "noAccount": "Vous n'avez pas de compte ?",
+    "haveAccount": "Vous avez déjà un compte ?",
+    "firstNamePlaceholder": "Prénom",
+    "lastNamePlaceholder": "Nom de famille",
+    "emailPlaceholder": "Adresse e-mail",
+    "forgotPasswordTitle": "Mot de passe oublié ?",
+    "forgotPasswordDesc": "Entrez votre e-mail et nous vous enverrons un lien pour réinitialiser votre mot de passe.",
+    "sending": "Envoi en cours...",
+    "resetPassword": "Réinitialiser le mot de passe",
+    "emailSent": "E-mail envoyé !",
+    "emailSentDesc": "Vérifiez votre e-mail pour un lien de réinitialisation. Le lien expire dans 24 heures.",
+    "backToLogin": "Retour à la connexion",
+    "resetting": "Réinitialisation...",
+    "invalidResetLink": "Lien de réinitialisation invalide ou expiré.",
+    "confirmPasswordPlaceholder": "Confirmer le mot de passe",
+    "newPasswordPlaceholder": "Nouveau mot de passe",
+    "checkEmail": "Vérifiez votre e-mail",
+    "checkEmailDesc": "Nous avons envoyé un lien de réinitialisation à votre e-mail. Vérifiez votre boîte de réception et cliquez sur le lien.",
+    "confirmedEmail": "J'ai confirmé mon e-mail",
+    "didntReceive": "Vous n'avez pas reçu l'e-mail ? Vérifiez vos spams ou demandez un nouveau lien."
+  },
+  "Landing": {
+    "signIn": "Se connecter",
+    "getStarted": "Commencer"
+  },
+  "Sections": {
+    "continueWatching": "Continuer à regarder",
+    "upcomingMovies": "Films à venir",
+    "action": "Action",
+    "animation": "Animation",
+    "comedy": "Comédie",
+    "horror": "Horreur",
+    "scienceFiction": "Science-fiction",
+    "war": "Guerre",
+    "crime": "Crime"
+  },
+  "Common": {
+    "play": "Lire",
+    "addToList": "Ajouter à la liste",
+    "left": "restant"
+  }
+}

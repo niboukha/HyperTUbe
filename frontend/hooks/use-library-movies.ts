@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { Filters, MIN_YEAR, CURRENT_YEAR } from "@/components/library/filter-bar"
 import { MovieResult } from "@/types/search"
+import { useLanguage } from "@/hooks/use-language"
 
 const API = process.env.NEXT_PUBLIC_API_URL || ""
 
@@ -14,9 +15,10 @@ const SORT_MAP: Record<string, string> = {
   oldest:  "oldest",
 }
 
-function buildUrl(q: string, page: number, filters: Filters): string {
+function buildUrl(q: string, page: number, filters: Filters, lang: string = "en"): string {
   const p = new URLSearchParams()
   p.set("page", String(page))
+  p.set("lang", lang)
   if (q)                                      p.set("q", q)
   if (filters.genres.length > 0)              p.set("genre", filters.genres.join(","))
   if (filters.minRating > 0)                  p.set("minRating", String(filters.minRating))
@@ -37,6 +39,8 @@ function isDefaultFilters(f: Filters): boolean {
 }
 
 export function useLibraryMovies(urlQuery: string, filters: Filters) {
+  const { langCode } = useLanguage()
+
   const [movies,      setMovies]      = useState<MovieResult[]>([])
   const [page,        setPage]        = useState(1)
   const [totalPages,  setTotalPages]  = useState(1)
@@ -78,7 +82,7 @@ export function useLibraryMovies(urlQuery: string, filters: Filters) {
       setError(false)
 
       try {
-        const res  = await fetch(buildUrl(urlQuery, 1, f), { signal: ctrl.signal })
+        const res  = await fetch(buildUrl(urlQuery, 1, f, langCode), { signal: ctrl.signal })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const data = await res.json()
         setMovies(data.results ?? [])
@@ -99,7 +103,7 @@ export function useLibraryMovies(urlQuery: string, filters: Filters) {
       if (debounceRef.current) clearTimeout(debounceRef.current)
       ctrl.abort()
     }
-  }, [urlQuery, filtersKey])
+  }, [urlQuery, filtersKey, langCode])
 
   const fetchSuggestions = useCallback(async (nextPage: number) => {
     const suggestionFilters: Filters = {
@@ -108,10 +112,10 @@ export function useLibraryMovies(urlQuery: string, filters: Filters) {
       minRating: 0,
       yearRange: [MIN_YEAR, CURRENT_YEAR],
     }
-    const res = await fetch(buildUrl("", nextPage, suggestionFilters))
+    const res = await fetch(buildUrl("", nextPage, suggestionFilters, langCode))
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     return res.json()
-  }, [])
+  }, [langCode])
 
   useEffect(() => {
     if (!isEmpty || suggestions.length > 0) return
@@ -150,7 +154,7 @@ export function useLibraryMovies(urlQuery: string, filters: Filters) {
     const next = page + 1
     setLoadingMore(true)
     try {
-      const res  = await fetch(buildUrl(urlQuery, next, f))
+      const res  = await fetch(buildUrl(urlQuery, next, f, langCode))
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setMovies(prev => {
@@ -164,7 +168,7 @@ export function useLibraryMovies(urlQuery: string, filters: Filters) {
     } finally {
       setLoadingMore(false)
     }
-  }, [loadingMore, page, totalPages, urlQuery, filtersKey])
+  }, [loadingMore, page, totalPages, urlQuery, filtersKey, langCode])
 
   const loadMoreSuggestions = useCallback(async () => {
     if (loadingMoreSugg || suggPage >= suggTotalPages) return
@@ -183,7 +187,7 @@ export function useLibraryMovies(urlQuery: string, filters: Filters) {
     } finally {
       setLoadingMoreSugg(false)
     }
-  }, [loadingMoreSugg, suggPage, suggTotalPages, fetchSuggestions])
+  }, [loadingMoreSugg, suggPage, suggTotalPages, fetchSuggestions, langCode])
 
   return {
     movies, loading, loadingMore, loadMore,
