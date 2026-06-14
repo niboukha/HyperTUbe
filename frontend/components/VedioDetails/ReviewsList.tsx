@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Review } from '@/types/Review'
 import { Button } from '../ui/button'
+import { useTranslations, useLocale } from 'next-intl'
 
 interface ReviewsListProps {
   reviews: Review[]
@@ -17,6 +18,8 @@ interface ReviewsListProps {
 }
 
 export default function ReviewsList({ reviews, currentUserId, onLike, onDelete, onEdit }: ReviewsListProps) {
+  const t = useTranslations('Reviews')
+  const locale = useLocale()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState({ username: '', content: '', stars: 0 })
 
@@ -69,7 +72,7 @@ export default function ReviewsList({ reviews, currentUserId, onLike, onDelete, 
                       </span>
                       <span className="text-white/30 text-xs">
                         {review.created_at
-                          ? new Date(review.created_at).toLocaleDateString('en-US', {
+                          ? new Date(review.created_at).toLocaleDateString(locale, {
                               month: 'short',
                               day: 'numeric',
                               year: 'numeric',
@@ -132,13 +135,13 @@ export default function ReviewsList({ reviews, currentUserId, onLike, onDelete, 
                             onClick={cancelEdit}
                             className="flex items-center gap-1 text-xs text-white/40 hover:text-white/70 bg-transparent px-2 py-1 h-auto"
                           >
-                            <X size={13} /> Cancel
+                            <X size={13} /> {t('cancel')}
                           </Button>
                           <Button
                             onClick={() => saveEdit(review.id)}
                             className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 bg-transparent px-2 py-1 h-auto"
                           >
-                            <Check size={13} /> Save
+                            <Check size={13} /> {t('save')}
                           </Button>
                         </>
                       ) : (
@@ -147,13 +150,13 @@ export default function ReviewsList({ reviews, currentUserId, onLike, onDelete, 
                             onClick={() => onDelete(review.id)}
                             className="flex items-center gap-1 text-xs text-white/30 hover:text-white/70 bg-transparent px-2 py-1 h-auto"
                           >
-                            <Trash2 size={13} /> Delete
+                            <Trash2 size={13} /> {t('delete')}
                           </Button>
                           <Button
                             onClick={() => startEdit(review)}
                             className="flex items-center gap-1 text-xs text-white/30 hover:text-white/70 bg-transparent px-2 py-1 h-auto"
                           >
-                            <Pencil size={13} /> Edit
+                            <Pencil size={13} /> {t('edit')}
                           </Button>
                         </div>
                       )}

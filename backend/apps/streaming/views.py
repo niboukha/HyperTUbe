@@ -6,7 +6,6 @@ from django.http import FileResponse, Http404
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
-from rest_framework.decorators import permission_classes
 
 from django.utils import timezone
 from apps.movies.models import Movie
@@ -59,6 +58,11 @@ def mark_stale_ready_subtitle(subtitle):
     subtitle.save(update_fields=['status'])
 
 
+class _ArchivePending(Exception):
+    """Archive.org metadata fetch timed out — movie may exist but is not indexed yet."""
+    pass
+
+
 def resolve_streaming_movie(movie_ref):
     movie_ref = str(movie_ref)
 
@@ -99,8 +103,10 @@ def create_streaming_movie_from_archive(archive_id):
     import requests
 
     detail = fetch_detail(archive_id)
-    if not detail or detail.get('_pending'):
+    if not detail:
         return None
+    if detail.get('_pending'):
+        raise _ArchivePending(archive_id)
 
     torrent_url = f'https://archive.org/download/{archive_id}/{archive_id}_archive.torrent'
 
@@ -185,14 +191,24 @@ def _runtime_to_minutes(value):
     return int(digits) if digits else None
 
 
-# @permission_classes([AllowAny])
 class MovieStreamingResolveView(APIView):
     """
     Resolve a frontend movie id into the local Django Movie id used by streaming.
     """
 
     def get(self, request, movie_ref):
-        movie = resolve_streaming_movie(movie_ref)
+        try:
+            movie = resolve_streaming_movie(movie_ref)
+        except _ArchivePending:
+            return Response(
+                {
+                    'status': 'pending',
+                    'detail': 'Archive.org metadata is still being fetched — retry shortly',
+                    'movie_ref': movie_ref,
+                },
+                status=202,
+            )
+
         if not movie:
             return Response(
                 {
@@ -210,7 +226,6 @@ class MovieStreamingResolveView(APIView):
         })
 
 
-# @permission_classes([AllowAny])
 class MovieStreamView(APIView):
     """
     HLS Streaming endpoint
@@ -293,7 +308,6 @@ class MovieStreamView(APIView):
             return Response({'status': 'error', 'message': 'An error occurred'}, status=500)
 
 
-# @permission_classes([AllowAny])
 class MovieSubtitlesView(APIView):
     """
     Return ready subtitle tracks for a movie.
@@ -363,17 +377,15 @@ class MovieSubtitlesView(APIView):
             torrent = Torrent.objects.filter(movie_id=movie_id).first()
             video_exists = bool(torrent and torrent.video_path and os.path.exists(torrent.video_path))
             if video_exists:
-                from django.core.cache import cache
                 from .tasks import enqueue_subtitle_preparation_once
 
-                cache.delete(f'subtitles:prepare:{movie_id}:en')
                 print(
                     '[Subtitles] No usable English tracks; queueing preparation from subtitles API | '
                     f'movie_id={movie_id} video_path={torrent.video_path}'
                 )
                 enqueue_subtitle_preparation_once(
                     movie_id,
-                    user_language='en',
+                    user_language=preferred_subtitle_language(request),
                     video_path=torrent.video_path,
                 )
 
@@ -381,11 +393,13 @@ class MovieSubtitlesView(APIView):
         return Response(tracks)
 
 
-# @permission_classes([AllowAny])
 class MovieHLSFileView(APIView):
     """
     Serve HLS playlists and segments through Django with stable browser headers.
+    Must be AllowAny: hls.js fetches .m3u8 and .ts segments directly without
+    auth headers, so authentication here would break video playback entirely.
     """
+    permission_classes = [AllowAny]
 
     def get(self, request, movie_id, filename):
         torrent = Torrent.objects.filter(movie_id=movie_id).first()
@@ -399,11 +413,13 @@ class MovieHLSFileView(APIView):
         return media_file_response(file_path, content_type)
 
 
-# @permission_classes([AllowAny])
 class MovieSubtitleFileView(APIView):
     """
     Serve WebVTT subtitle files through Django with stable browser headers.
+    Must be AllowAny: browser <track> elements fetch subtitle files directly
+    without auth headers, so authentication here would silently drop subtitles.
     """
+    permission_classes = [AllowAny]
 
     def get(self, request, movie_id, subtitle_id):
         subtitle = Subtitle.objects.filter(

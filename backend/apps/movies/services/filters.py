@@ -301,6 +301,12 @@ def _apply_library_filters(
             if float(m.get("rating") or 0) >= min_rating
         ]
 
+    # if availability in ("free", "premium"):
+    #     filtered = [
+    #         m for m in filtered
+    #         if m.get("availability") == availability
+    #     ]
+
     return filtered
 
 

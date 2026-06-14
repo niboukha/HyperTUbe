@@ -184,9 +184,22 @@ def enqueue_subtitle_preparation_once(movie_id, user_language=None, video_path=N
     """
     Queue subtitle preparation with a cache-based dedup lock so repeated
     status-poll requests from the frontend do not flood Celery.
+
+    Lock key is based on the LANGUAGE LIST the task will download, not the raw
+    user_language string. This has two important properties:
+
+    1. user_language=None and user_language='en' both produce languages=['en'],
+       so they share the same lock and never queue duplicate tasks for English.
+
+    2. user_language='fr' produces languages=['en','fr'] — a different lock key —
+       so a French-speaking user can queue a task that adds French subtitles even
+       if an English-only task has already run, satisfying the requirement:
+       "if the video language does not match the user's preferred language,
+       those subtitles will be downloaded and selectable."
     """
-    language_key = normalize_subtitle_language(user_language) or 'default'
-    lock_key = f'subtitles:prepare:{movie_id}:{language_key}'
+    languages = wanted_subtitle_languages(user_language)
+    lang_key = '_'.join(sorted(languages))
+    lock_key = f'subtitles:prepare:{movie_id}:{lang_key}'
 
     try:
         should_enqueue = cache.add(lock_key, 'queued', SUBTITLE_PREP_LOCK_TTL)
@@ -195,7 +208,7 @@ def enqueue_subtitle_preparation_once(movie_id, user_language=None, video_path=N
         should_enqueue = True
 
     if not should_enqueue:
-        subtitle_log('Preparation already queued recently', movie_id=movie_id, language=language_key)
+        subtitle_log('Preparation already queued recently', movie_id=movie_id)
         return None
 
     subtitle_log('Queueing subtitle preparation task', movie_id=movie_id, video_path=video_path)

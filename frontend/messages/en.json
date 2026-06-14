@@ -90,5 +90,47 @@
     "play": "Play",
     "addToList": "Add to List",
     "left": "left"
+  },
+  "Badges": {
+    "free": "FREE",
+    "premium": "PREMIUM"
+  },
+  "Reviews": {
+    "title": "Reviews",
+    "noReviewsYet": "No reviews yet",
+    "noReviewsHint": "The stage is yours — be the first to share your take.",
+    "shareThoughts": "Share your thoughts",
+    "yourComment": "Your Comment",
+    "writeReviewPlaceholder": "Write your review here...",
+    "fillAllFields": "Please fill in all fields and select a rating",
+    "submitting": "Submitting...",
+    "postReview": "Post Review",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit"
+  },
+  "FilterBar": {
+    "sort": "Sort",
+    "sortBy": "Sort by",
+    "rating": "Rating",
+    "year": "Year",
+    "genres": "Genres",
+    "filters": "filters",
+    "filtersTitle": "Filters",
+    "clear": "Clear",
+    "showResults": "Show results",
+    "minimumRating": "Minimum rating",
+    "anyRating": "Any rating",
+    "starsPlus": "{count}+ stars",
+    "yearRange": "Year range",
+    "from": "From",
+    "to": "To",
+    "resetRange": "Reset range",
+    "name": "Name",
+    "mostPopular": "Most Popular",
+    "topRated": "Top Rated",
+    "newestFirst": "Newest First",
+    "oldestFirst": "Oldest First"
   }
 }

@@ -90,5 +90,47 @@
     "play": "Lire",
     "addToList": "Ajouter à la liste",
     "left": "restant"
+  },
+  "Badges": {
+    "free": "GRATUIT",
+    "premium": "PREMIUM"
+  },
+  "Reviews": {
+    "title": "Avis",
+    "noReviewsYet": "Aucun avis pour le moment",
+    "noReviewsHint": "Soyez le premier à partager votre avis.",
+    "shareThoughts": "Partagez votre avis",
+    "yourComment": "Votre commentaire",
+    "writeReviewPlaceholder": "Rédigez votre avis ici...",
+    "fillAllFields": "Veuillez remplir tous les champs et sélectionner une note",
+    "submitting": "Envoi...",
+    "postReview": "Publier l'avis",
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "delete": "Supprimer",
+    "edit": "Modifier"
+  },
+  "FilterBar": {
+    "sort": "Trier",
+    "sortBy": "Trier par",
+    "rating": "Note",
+    "year": "Année",
+    "genres": "Genres",
+    "filters": "filtres",
+    "filtersTitle": "Filtres",
+    "clear": "Effacer",
+    "showResults": "Voir les résultats",
+    "minimumRating": "Note minimale",
+    "anyRating": "Toute note",
+    "starsPlus": "{count}+ étoiles",
+    "yearRange": "Plage d'années",
+    "from": "De",
+    "to": "À",
+    "resetRange": "Réinitialiser",
+    "name": "Nom",
+    "mostPopular": "Les plus populaires",
+    "topRated": "Les mieux notés",
+    "newestFirst": "Plus récents",
+    "oldestFirst": "Plus anciens"
   }
 }

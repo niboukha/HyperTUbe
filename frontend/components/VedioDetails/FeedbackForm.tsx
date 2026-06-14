@@ -6,15 +6,17 @@ import { Card } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { Star } from 'lucide-react'
 import { useParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 
 type FeedbackFormProps = {
   onSubmit: (comment: string, rating: number) => void
 }
 
 export default function FeedbackForm({ onSubmit }: FeedbackFormProps) {
+  const t = useTranslations('Reviews')
 
   const params   = useParams()
-  const movieId  = params.id as string 
+  const movieId  = params.id as string
   const [comment, setComment] = useState('')
   const [rating, setRating] = useState(0)
   const [hoveredRating, setHoveredRating] = useState(0)
@@ -25,7 +27,7 @@ export default function FeedbackForm({ onSubmit }: FeedbackFormProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!comment.trim() || rating === 0) {
-      alert('Please fill in all fields and select a rating')
+      alert(t('fillAllFields'))
       return
     }
     
@@ -36,7 +38,7 @@ export default function FeedbackForm({ onSubmit }: FeedbackFormProps) {
 
   return (
     <Card className="rounded-sm! p-6! shadow-lg bg-[#1A1A1D]! border-[#FFFFFF]/10! border max-h-100">
-      <h2 className="text-md! md:text-xl font-[bebasNeue] font-bold text-white mb-3!">Share your thoughts</h2>
+      <h2 className="text-md! md:text-xl font-[bebasNeue] font-bold text-white mb-3!">{t('shareThoughts')}</h2>
 
       <form onSubmit={handleSubmit} className="">
         
@@ -66,11 +68,11 @@ export default function FeedbackForm({ onSubmit }: FeedbackFormProps) {
         {/* Comment Section */}
         <div className="">
           <label htmlFor="comment" className="block text-sm font-medium text-foreground">
-            Your Comment
+            {t('yourComment')}
           </label>
           <Textarea
             id="comment"
-            placeholder="Write your review here..."
+            placeholder={t('writeReviewPlaceholder')}
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             rows={6}
@@ -85,8 +87,7 @@ export default function FeedbackForm({ onSubmit }: FeedbackFormProps) {
               disabled={isSubmitting}
               className="w-full text-md md:text-xl font-semibold! bg-[#BD0404] text-primary-foreground font py-6! rounded-md hover:bg-[#BD0404]/90 transition-all duration-200 hover:scale-102"
             >
-              {isSubmitting ? 'Submitting...' : 'Post Review'}
-              {/* to change the button text when submitting */}
+              {isSubmitting ? t('submitting') : t('postReview')}
             </Button>   
         </div>
       </form>

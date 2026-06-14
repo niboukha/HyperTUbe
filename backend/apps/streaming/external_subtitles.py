@@ -9,6 +9,7 @@ from pathlib import Path
 
 import requests
 from django.core.files.base import ContentFile
+from django.db import transaction
 
 from apps.movies.models import Movie
 from apps.streaming.models import Subtitle
@@ -192,19 +193,38 @@ def download_external_subtitle_fallback(movie_id: int, language: str, validator=
                     print(f"[Subtitles] External fallback rejected result | movie_id={movie_id} language={normalized_language} provider_id={selected.provider_id}")
                     continue
 
-                subtitle = Subtitle(
-                    movie=movie,
-                    language=normalized_language,
-                    label=normalized_language.upper(),
-                    source=Subtitle.Source.EXTERNAL,
-                    status=Subtitle.Status.READY,
-                    subtitle_link="",
-                )
-                subtitle.file.save(
-                    f"movie_{movie.id}/{normalized_language}.opensubtitles.{selected.provider_id}.vtt",
-                    ContentFile(vtt_path.read_bytes()),
-                    save=True,
-                )
+                vtt_bytes = vtt_path.read_bytes()
+
+                # SELECT FOR UPDATE inside a transaction: if another concurrent
+                # Celery worker already saved a subtitle for this language while
+                # we were downloading/validating, skip saving and return theirs.
+                with transaction.atomic():
+                    if Subtitle.objects.select_for_update().filter(
+                        movie=movie,
+                        language=normalized_language,
+                        status=Subtitle.Status.READY,
+                    ).exists():
+                        winner = Subtitle.objects.filter(
+                            movie=movie,
+                            language=normalized_language,
+                            status=Subtitle.Status.READY,
+                        ).first()
+                        print(f"[Subtitles] External fallback race: another worker already saved | movie_id={movie.id} language={normalized_language} subtitle_id={winner.id}")
+                        return winner
+
+                    subtitle = Subtitle(
+                        movie=movie,
+                        language=normalized_language,
+                        label=normalized_language.upper(),
+                        source=Subtitle.Source.EXTERNAL,
+                        status=Subtitle.Status.READY,
+                        subtitle_link="",
+                    )
+                    subtitle.file.save(
+                        f"movie_{movie.id}/{normalized_language}.opensubtitles.{selected.provider_id}.vtt",
+                        ContentFile(vtt_bytes),
+                        save=True,
+                    )
         except Exception as exc:
             print(f"[Subtitles] External fallback result failed | movie_id={movie_id} language={normalized_language} provider_id={selected.provider_id} error={exc}")
             continue

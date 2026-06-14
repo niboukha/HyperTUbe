@@ -46,12 +46,22 @@ function toAbsoluteBackendUrl(path: string) {
   return `${API}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
-function preferredSubtitleLanguage() {
-  // Temporary test mode: force English subtitles only.
-  // Re-enable this after English-only validation:
+function preferredSubtitleLanguage(): string {
+  // Read from the same cookie that use-language.ts writes when the user picks a
+  // language in settings. This is always the user's explicit app preference.
+  if (typeof document !== "undefined") {
+    const cookie = document.cookie.match(/(?:^|;\s*)lang=([^;]*)/)?.[1];
+    if (cookie) return cookie;
+  }
+  // Fall back to localStorage (use-language.ts key "ht_lang")
+  try {
+    const stored = localStorage.getItem("ht_lang");
+    console.log("preferredSubtitleLanguage() read from localStorage:", stored);
+    if (stored) return stored;
+  } catch {}
+  // Last resort: browser navigator language
   if (typeof navigator === "undefined") return "en";
   return (navigator.languages?.[0] || navigator.language || "en").split("-")[0];
-  // return "en";
 }
 
 export default function Watch() {
@@ -59,8 +69,6 @@ export default function Watch() {
   const movieId  = params.id as string;
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef   = useRef<Hls | null>(null);
-  const appliedSubtitleOffsetRef = useRef(0);
-  const desiredSubtitleOffsetRef = useRef(0);
 
   const [subtitles,        setSubtitles]        = useState<SubtitleTrack[]>([]);
   const [streamingMovieId, setStreamingMovieId] = useState<number | null>(null);
@@ -68,27 +76,53 @@ export default function Watch() {
   const [streamStatus,     setStreamStatus]     = useState<StreamStatus["status"]>("idle");
   const [streamError,      setStreamError]      = useState<string | null>(null);
   const [movieTitle,       setMovieTitle]       = useState("Loading movie...");
-  const [subtitleOffsetSeconds, setSubtitleOffsetSeconds] = useState(0);
 
   // ── Step 1: resolve movie ID ──────────────────────────────────────────────
+  // Archive movies return 202 while their metadata is still being fetched from
+  // archive.org. Retry for up to 2 minutes before showing an error.
   useEffect(() => {
+    let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout>;
+    const startedAt = Date.now();
+    const retryForMs  = 120_000;
+    const retryEveryMs = 5_000;
+
     async function resolveMovie() {
       try {
         const res = await fetch(`${API}/api/streaming/resolve/${movieId}/`, {
           credentials: "include",
         });
-        if (!res.ok) {
-          setStreamError("This movie is not available for local streaming yet.");
+
+        if (res.status === 202) {
+          if (!cancelled && Date.now() - startedAt < retryForMs) {
+            retryTimer = setTimeout(resolveMovie, retryEveryMs);
+          } else if (!cancelled) {
+            setStreamError("This archive movie could not be indexed. Please try again later.");
+          }
           return;
         }
+
+        if (!res.ok) {
+          if (!cancelled) setStreamError("This movie is not available for local streaming yet.");
+          return;
+        }
+
         const data: StreamingResolve = await res.json();
-        setStreamingMovieId(data.movie_id);
-        setMovieTitle(data.title);
+        if (!cancelled) {
+          setStreamingMovieId(data.movie_id);
+          setMovieTitle(data.title);
+        }
       } catch {
-        setStreamError("Could not connect to the streaming server.");
+        if (!cancelled) setStreamError("Could not connect to the streaming server.");
       }
     }
+
     resolveMovie();
+
+    return () => {
+      cancelled = true;
+      clearTimeout(retryTimer);
+    };
   }, [movieId]);
 
   // ── Step 2: poll stream status until ready ────────────────────────────────
@@ -100,6 +134,7 @@ export default function Watch() {
     async function poll() {
       try {
         const language = encodeURIComponent(preferredSubtitleLanguage());
+        console.log("Polling stream status for movie", streamingMovieId, "with subtitle language", language);
         const res  = await fetch(`${API}/api/streaming/${streamingMovieId}/stream/?language=${language}`, {
           credentials: "include",
         });
@@ -218,33 +253,6 @@ export default function Watch() {
     };
   }, [hlsUrl]);
 
-  function applySubtitleOffset(deltaSeconds: number) {
-    const video = videoRef.current;
-    if (!video || deltaSeconds === 0) return false;
-
-    let shifted = false;
-    for (let i = 0; i < video.textTracks.length; i++) {
-      const track = video.textTracks[i];
-      if (track.mode !== "showing" || !track.cues) continue;
-
-      for (let j = 0; j < track.cues.length; j++) {
-        const cue = track.cues[j];
-        cue.startTime = Math.max(0, cue.startTime + deltaSeconds);
-        cue.endTime = Math.max(cue.startTime, cue.endTime + deltaSeconds);
-        shifted = true;
-      }
-    }
-    return shifted;
-  }
-
-  useEffect(() => {
-    desiredSubtitleOffsetRef.current = subtitleOffsetSeconds;
-    const delta = subtitleOffsetSeconds - appliedSubtitleOffsetRef.current;
-    if (applySubtitleOffset(delta)) {
-      appliedSubtitleOffsetRef.current = subtitleOffsetSeconds;
-    }
-  }, [subtitleOffsetSeconds]);
-
   // ── Step 5: activate first subtitle track once the VTT file is parsed ──────
   // The old approach used setTimeout(250) which raced with the browser's async
   // VTT fetch+parse. If the file wasn't parsed yet, setting mode="showing"
@@ -255,19 +263,11 @@ export default function Watch() {
   useEffect(() => {
     const video = videoRef.current;
     if (!video || subtitles.length === 0) return;
-    appliedSubtitleOffsetRef.current = 0;
 
     function activateFirstTrack() {
-      // Disable all tracks, then enable the first one
       for (let i = 0; i < video!.textTracks.length; i++) {
         video!.textTracks[i].mode = i === 0 ? "showing" : "disabled";
       }
-      window.requestAnimationFrame(() => {
-        const delta = desiredSubtitleOffsetRef.current - appliedSubtitleOffsetRef.current;
-        if (applySubtitleOffset(delta)) {
-          appliedSubtitleOffsetRef.current = desiredSubtitleOffsetRef.current;
-        }
-      });
     }
 
     function onAddTrack(e: TrackEvent) {
@@ -330,28 +330,6 @@ export default function Watch() {
                 />
               ))}
             </video>
-
-            {subtitles.length > 0 && (
-              <div className="absolute bottom-4 right-4 flex items-center gap-2 rounded-md bg-black/70 !p-2 text-xs text-white">
-                <button
-                  type="button"
-                  onClick={() => setSubtitleOffsetSeconds(value => value - 1)}
-                  className="rounded border border-white/20 !px-3 !py-1 hover:bg-white/10"
-                >
-                  -1s
-                </button>
-                <span className="min-w-10 text-center text-white/70">
-                  {subtitleOffsetSeconds > 0 ? "+" : ""}{subtitleOffsetSeconds}s
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setSubtitleOffsetSeconds(value => value + 1)}
-                  className="rounded border border-white/20 !px-3 !py-1 hover:bg-white/10"
-                >
-                  +1s
-                </button>
-              </div>
-            )}
 
             {!hlsUrl && (
               <div className="absolute inset-0 flex items-center justify-center rounded-md bg-black/80 text-center">

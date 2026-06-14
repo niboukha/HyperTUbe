@@ -7,6 +7,7 @@ import { GENRES } from "@/constants/search-bar"
 import FilterPill from "./filter-pill"
 import { FilterDropdown, YearInput } from "./utils"
 import { useIsMobile } from "@/hooks/use-filter-mobile"
+import { useTranslations } from "next-intl"
 
 export type SortOption = "popular" | "rating" | "newest" | "oldest" | "name"
 export type Filters = {
@@ -19,24 +20,25 @@ export type Filters = {
 export const CURRENT_YEAR = new Date().getFullYear()
 export const MIN_YEAR     = 1960
 
-const SORT_OPTIONS: { value: SortOption; label: string; icon: React.ReactNode }[] = [
-  { value: "name",    label: "Name", icon: <ArrowUpAZ className="h-3.5 w-3.5" /> },
-  { value: "popular", label: "Most Popular", icon: <TrendingUp className="h-3.5 w-3.5" /> },
-  { value: "rating",  label: "Top Rated",    icon: <Star className="h-3.5 w-3.5" /> },
-  { value: "newest",  label: "Newest First", icon: <Clock className="h-3.5 w-3.5" /> },
-  { value: "oldest",  label: "Oldest First", icon: <Clock className="h-3.5 w-3.5 rotate-180" /> },
-]
-
 type Props = {
   filters: Filters
   onChange: (f: Filters) => void
 }
 
 export function FilterBar({ filters, onChange }: Props) {
+  const t       = useTranslations("FilterBar")
   const isMobile = useIsMobile()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [activePanel, setActivePanel, containerRef] = useActivePanel()
   const [draftYear, setDraftYear] = useState<[number, number]>(filters.yearRange)
+
+  const SORT_OPTIONS: { value: SortOption; label: string; icon: React.ReactNode }[] = [
+    { value: "name",    label: t("name"),        icon: <ArrowUpAZ className="h-3.5 w-3.5" /> },
+    { value: "popular", label: t("mostPopular"), icon: <TrendingUp className="h-3.5 w-3.5" /> },
+    { value: "rating",  label: t("topRated"),    icon: <Star className="h-3.5 w-3.5" /> },
+    { value: "newest",  label: t("newestFirst"), icon: <Clock className="h-3.5 w-3.5" /> },
+    { value: "oldest",  label: t("oldestFirst"), icon: <Clock className="h-3.5 w-3.5 rotate-180" /> },
+  ]
 
   const activeFilterCount =
     filters.genres.length +
@@ -91,7 +93,7 @@ export function FilterBar({ filters, onChange }: Props) {
             className="flex items-center gap-2 px-2! py-1! rounded-full transition-all border-white/12 bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/80 hover:border-white/20 border"
           >
             <Filter className="h-4 w-4" />
-            <span className="text-sm font-regular">filters</span>
+            <span className="text-sm font-regular">{t("filters")}</span>
             {activeFilterCount > 0 && (
               <span className="ml-1 inline-flex items-center justify-center w-5 h-5 text-xs font-semibold bg-white/20 rounded-full">
                 {activeFilterCount}
@@ -107,7 +109,7 @@ export function FilterBar({ filters, onChange }: Props) {
               onClick={clearFilters}
               className="text-xs text-white/40 hover:text-white/70 transition-colors"
             >
-              Clear
+              {t("clear")}
             </motion.button>
           )}
         </div>
@@ -133,7 +135,7 @@ export function FilterBar({ filters, onChange }: Props) {
               >
                 {/* Header */}
                 <div className="sticky bg-black/95 top-0 border-b border-white/10 px-4! py-4! flex items-center justify-between">
-                  <h2 className="text-white font-semibold">Filters</h2>
+                  <h2 className="text-white font-semibold">{t("filtersTitle")}</h2>
                   <button
                     onClick={() => setMobileOpen(false)}
                     className="p-1.5! rounded-full hover:bg-white/10 transition-colors"
@@ -146,7 +148,7 @@ export function FilterBar({ filters, onChange }: Props) {
                 <div className="px-4! py-4! space-y-6!">
                   {/* Sort */}
                   <div>
-                    <h3 className="text-xs text-white/30 uppercase tracking-wider mb-3!">Sort by</h3>
+                    <h3 className="text-xs text-white/30 uppercase tracking-wider mb-3!">{t("sortBy")}</h3>
                     <div className="space-y-2!">
                       {SORT_OPTIONS.map((opt) => (
                         <button
@@ -173,7 +175,7 @@ export function FilterBar({ filters, onChange }: Props) {
 
                   {/* Genres */}
                   <div>
-                    <h3 className="text-xs text-white/30 uppercase tracking-wider mb-3!">Genres</h3>
+                    <h3 className="text-xs text-white/30 uppercase tracking-wider mb-3!">{t("genres")}</h3>
                     <div className="flex flex-wrap gap-2">
                       {GENRES.map((genre) => {
                         const selected = filters.genres.includes(genre)
@@ -196,7 +198,7 @@ export function FilterBar({ filters, onChange }: Props) {
 
                   {/* Rating */}
                   <div>
-                    <h3 className="text-xs text-white/30 uppercase tracking-wider mb-3!">Minimum rating</h3>
+                    <h3 className="text-xs text-white/30 uppercase tracking-wider mb-3!">{t("minimumRating")}</h3>
                     <div className="space-y-2!">
                       {[0, 5, 6, 7, 7.5, 8, 9].map((r) => (
                         <button
@@ -212,7 +214,7 @@ export function FilterBar({ filters, onChange }: Props) {
                           }`}
                         >
                           <Star className={`h-4 w-4 ${r > 0 ? "text-yellow-400/70 fill-yellow-400/70" : "text-white/20"}`} />
-                          {r === 0 ? "Any rating" : `${r}+ stars`}
+                          {r === 0 ? t("anyRating") : t("starsPlus", { count: r })}
                           {filters.minRating === r && (
                             <Check className="ml-auto! h-4 w-4 text-white/60" />
                           )}
@@ -223,10 +225,10 @@ export function FilterBar({ filters, onChange }: Props) {
 
                   {/* Year Range */}
                   <div>
-                    <h3 className="text-xs text-white/30 uppercase tracking-wider mb-3!">Year range</h3>
+                    <h3 className="text-xs text-white/30 uppercase tracking-wider mb-3!">{t("yearRange")}</h3>
                     <div className="space-y-3!">
                       <YearInput
-                        label="From"
+                        label={t("from")}
                         value={draftYear[0]}
                         min={MIN_YEAR}
                         max={draftYear[1]}
@@ -234,7 +236,7 @@ export function FilterBar({ filters, onChange }: Props) {
                         onCommit={(v) => commitYearRange([v, draftYear[1]])}
                       />
                       <YearInput
-                        label="To"
+                        label={t("to")}
                         value={draftYear[1]}
                         min={draftYear[0]}
                         max={CURRENT_YEAR}
@@ -248,7 +250,7 @@ export function FilterBar({ filters, onChange }: Props) {
                         }}
                         className="text-xs text-white/30 hover:text-white/60 transition-colors text-left pt-2!"
                       >
-                        Reset range
+                        {t("resetRange")}
                       </button>
                     </div>
                   </div>
@@ -260,7 +262,7 @@ export function FilterBar({ filters, onChange }: Props) {
                     onClick={() => setMobileOpen(false)}
                     className="w-full px-4! py-3! rounded-lg bg-white/10 hover:bg-white/20 text-white font-medium transition-colors"
                   >
-                    Show results
+                    {t("showResults")}
                   </button>
                 </div>
               </motion.div>
@@ -278,7 +280,7 @@ export function FilterBar({ filters, onChange }: Props) {
 
         {/* Sort */}
         <div className="shrink-0">
-          <FilterPill active={activePanel === "sort"} onClick={() => setActivePanel((p) => (p === "sort" ? null : "sort"))} icon={selectedSort?.icon} label={selectedSort?.label ?? "Sort"}>
+          <FilterPill active={activePanel === "sort"} onClick={() => setActivePanel((p) => (p === "sort" ? null : "sort"))} icon={selectedSort?.icon} label={selectedSort?.label ?? t("sort")}>
             <AnimatePresence>
               {activePanel === "sort" && (
                 <FilterDropdown isSorte = {true}>
@@ -339,16 +341,16 @@ export function FilterBar({ filters, onChange }: Props) {
 
         {/* Rating, Year, Clear */}
         <div className="shrink-0 flex items-center gap-2">
-          <FilterPill active={activePanel === "rating"} onClick={() => setActivePanel((p) => (p === "rating" ? null : "rating"))} label="Rating" badge={filters.minRating > 0 ? `${filters.minRating}+` : undefined} icon={<Star className="h-3 w-3" />}>
+          <FilterPill active={activePanel === "rating"} onClick={() => setActivePanel((p) => (p === "rating" ? null : "rating"))} label={t("rating")} badge={filters.minRating > 0 ? `${filters.minRating}+` : undefined} icon={<Star className="h-3 w-3" />}>
             <AnimatePresence>
               {activePanel === "rating" && (
                 <FilterDropdown>
-                  <p className="text-[11px] text-white/30 uppercase tracking-wider px-1! mb-3!">Minimum rating</p>
+                  <p className="text-[11px] text-white/30 uppercase tracking-wider px-1! mb-3!">{t("minimumRating")}</p>
                   {[0, 5, 6, 7, 7.5, 8, 9].map((r) => (
                     <button key={r} onClick={() => { onChange({ ...filters, minRating: r }); setActivePanel(null) }}
                       className={`flex items-center gap-2 w-full px-3! py-1.5! rounded-[6px] text-sm transition-colors ${filters.minRating === r ? "bg-white/12 text-white" : "text-white/55 hover:bg-white/8 hover:text-white/90"}`}>
                       <Star className={`h-3 w-3 ${r > 0 ? "text-yellow-400/70 fill-yellow-400/70" : "text-white/20"}`} />
-                      {r === 0 ? "Any rating" : `${r}+ stars`}
+                      {r === 0 ? t("anyRating") : t("starsPlus", { count: r })}
                       {filters.minRating === r && <Check className="ml-auto h-3 w-3 text-white/60" />}
                     </button>
                   ))}
@@ -363,7 +365,7 @@ export function FilterBar({ filters, onChange }: Props) {
           if (activePanel !== "year") setDraftYear(filters.yearRange)
           setActivePanel((p) => (p === "year" ? null : "year"))
         }}
-        label="Year"
+        label={t("year")}
         badge={
           filters.yearRange[0] !== MIN_YEAR || filters.yearRange[1] !== CURRENT_YEAR
             ? `${filters.yearRange[0]}–${filters.yearRange[1]}`
@@ -374,11 +376,11 @@ export function FilterBar({ filters, onChange }: Props) {
           {activePanel === "year" && (
             <FilterDropdown>
               <p className="text-[11px] text-white/30 uppercase tracking-wider px-1! mb-3!">
-                Year range
+                {t("yearRange")}
               </p>
               <div className="flex flex-col gap-2!">
                 <YearInput
-                  label="From"
+                  label={t("from")}
                   value={draftYear[0]}
                   min={MIN_YEAR}
                   max={draftYear[1]}
@@ -386,7 +388,7 @@ export function FilterBar({ filters, onChange }: Props) {
                   onCommit={(v) => commitYearRange([v, draftYear[1]])}
                 />
                 <YearInput
-                  label="To"
+                  label={t("to")}
                   value={draftYear[1]}
                   min={draftYear[0]}
                   max={CURRENT_YEAR}
@@ -402,7 +404,7 @@ export function FilterBar({ filters, onChange }: Props) {
                 }}
                 className="mt-3! w-full text-xs text-white/30 hover:text-white/60 transition-colors text-center"
               >
-                Reset range
+                {t("resetRange")}
               </button>
             </FilterDropdown>
           )}
@@ -416,7 +418,7 @@ export function FilterBar({ filters, onChange }: Props) {
               <motion.button initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.85 }}
                 onClick={clearFilters}
                 className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 border border-white/10 rounded-full px-2.5! py-1.5! transition-all hover:border-white/20">
-                <X className="h-3 w-3" /> Clear ({activeFilterCount})
+                <X className="h-3 w-3" /> {t("clear")} ({activeFilterCount})
               </motion.button>
             )}
           </AnimatePresence>

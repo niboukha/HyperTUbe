@@ -152,6 +152,7 @@ export default function MovieRow({ title, endpoint, priority }: MovieRowProps) {
                     priority={priority && index < 4}
                     sizes="(max-width: 768px) 240px, 260px"
                     className="object-cover"
+                    unoptimized={!!src?.includes("archive.org")}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-white/5">

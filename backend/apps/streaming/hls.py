@@ -79,7 +79,7 @@ def start_ffmpeg(video_file, hls_dir, movie_id, torrent, codec_args):
         # Original version:
         # subprocess.Popen(cmd)
         # wait_for_segments(hls_dir)
-        #
+        
         # Why it is commented:
         # with torrent files, the first few HLS segments can appear while the
         # source video is still incomplete. If FFmpeg crashes after that, the DB

@@ -90,5 +90,47 @@
     "play": "Reproducir",
     "addToList": "Añadir a lista",
     "left": "restante"
+  },
+  "Badges": {
+    "free": "GRATIS",
+    "premium": "PREMIUM"
+  },
+  "Reviews": {
+    "title": "Reseñas",
+    "noReviewsYet": "Sin reseñas aún",
+    "noReviewsHint": "Sé el primero en compartir tu opinión.",
+    "shareThoughts": "Comparte tu opinión",
+    "yourComment": "Tu comentario",
+    "writeReviewPlaceholder": "Escribe tu reseña aquí...",
+    "fillAllFields": "Por favor, rellena todos los campos y selecciona una puntuación",
+    "submitting": "Enviando...",
+    "postReview": "Publicar reseña",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "delete": "Eliminar",
+    "edit": "Editar"
+  },
+  "FilterBar": {
+    "sort": "Ordenar",
+    "sortBy": "Ordenar por",
+    "rating": "Puntuación",
+    "year": "Año",
+    "genres": "Géneros",
+    "filters": "filtros",
+    "filtersTitle": "Filtros",
+    "clear": "Limpiar",
+    "showResults": "Ver resultados",
+    "minimumRating": "Puntuación mínima",
+    "anyRating": "Cualquier puntuación",
+    "starsPlus": "{count}+ estrellas",
+    "yearRange": "Rango de años",
+    "from": "Desde",
+    "to": "Hasta",
+    "resetRange": "Restablecer",
+    "name": "Nombre",
+    "mostPopular": "Más populares",
+    "topRated": "Mejor valorados",
+    "newestFirst": "Más recientes",
+    "oldestFirst": "Más antiguos"
   }
 }

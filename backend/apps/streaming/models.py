@@ -43,5 +43,14 @@ class Subtitle(models.Model):
     stream_index    = models.IntegerField(blank=True, null=True)
     created_at      = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['movie', 'language'],
+                condition=models.Q(status='ready'),
+                name='unique_ready_subtitle_per_movie_language',
+            )
+        ]
+
     def __str__(self):
         return f"the subtitle is {self.language} and the id is {self.id}"

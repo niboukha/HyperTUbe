@@ -159,6 +159,7 @@ export default function PrimeRow({ title, movies }: MovieRowProps) {
                           sizes="500px"
                           className="object-cover"
                           quality={100}
+                          unoptimized={backdropSrc.includes("archive.org")}
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-black/40">
@@ -184,6 +185,7 @@ export default function PrimeRow({ title, movies }: MovieRowProps) {
                           sizes="160px"
                           quality={100}
                           className="object-cover"
+                          unoptimized={posterSrc.includes("archive.org")}
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-black/40">

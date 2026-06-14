@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import Crow from "@/components/VedioDetails/Crow";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Clapperboard,Play,Plus, Star } from 'lucide-react';
+import { Clapperboard, Play, Plus, Check, Star } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import ReviewsList from "@/components/VedioDetails/ReviewsList";
 import {
@@ -24,7 +24,9 @@ import Link from "next/link";
 import PrimeRow from "@/components/sections/prime-row";
 import { useCollection } from "@/hooks/use-collection";
 import { useMovieDetail } from "@/hooks/use-movie-details";
+import { useWatchlistToggle } from "@/hooks/use-watchlist-toggle";
 import Overview from "@/components/ui/Overview";
+import { useTranslations } from "next-intl";
 
 export function stripHtml(html: string) {
   return html
@@ -47,6 +49,7 @@ async function fetchTrailer(movie: MovieDetail): Promise<string | null> {
 
 export default function VedioDetails()
 {
+  const t = useTranslations("Reviews")
   const [trailerOpen, setTrailerOpen] = useState<boolean>(false);
   const [trailer, setTrailer] = useState<string | null>(null);
   
@@ -60,6 +63,9 @@ export default function VedioDetails()
   
   const { data: movie, pending, error, notFound } = useMovieDetail(movieId)
   const { data: collection } = useCollection(movie?.collection?.id)
+  const { inWatchlist, toggle: toggleWatchlist } = useWatchlistToggle(
+    movie ?? { id: "", title: "", poster_path: null, year: "", rating: 0, genre_ids: [], overview: "", backdrop_path: null }
+  )
 
   // fetch trailer only when dialog opens
  const handleDelete = async (review_id: string) => {
@@ -172,8 +178,9 @@ export default function VedioDetails()
   useEffect(() => {
     if (!movie || !["archive", "publicdomain"].includes(movie.source)) return;
     console.log("--------> Resolving streaming for movie", movie.id)
-    fetch(`http://localhost:8000/api/streaming/resolve/${movie.id}/`)
-      .catch(() => undefined);
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/streaming/resolve/${movie.id}/`, {
+      credentials: "include",
+    }).catch(() => undefined);
   }, [movie])
 
     
@@ -341,16 +348,20 @@ export default function VedioDetails()
 
               {/* Watchlist */}
               <motion.div
-                className="h-12 w-12 bg-[#FFFFFF]/14 backdrop-blur-lg rounded-md flex justify-center items-center cursor-pointer"
+                className={`h-12 w-12 backdrop-blur-lg rounded-md flex justify-center items-center cursor-pointer ${inWatchlist ? "bg-[#FFFFFF]/25" : "bg-[#FFFFFF]/14"}`}
                 whileHover={{ scale: 1.1, backgroundColor: "rgba(255,255,255,0.2)" }}
                 whileTap={{ scale: 0.9 }}
                 transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                onClick={toggleWatchlist}
               >
                 <motion.div
-                  whileHover={{ rotate: 90 }}
+                  whileHover={{ rotate: inWatchlist ? 0 : 90 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <Plus className="h-8 w-8" color="#ffffff" />
+                  {inWatchlist
+                    ? <Check className="h-6 w-6" color="#ffffff" />
+                    : <Plus className="h-8 w-8" color="#ffffff" />
+                  }
                 </motion.div>
               </motion.div>
           </motion.div>
@@ -424,7 +435,7 @@ export default function VedioDetails()
             />
         )}
         <div className="space-y-2! mb-15!" >
-            <HeaderTitle title="Reviews"/>
+            <HeaderTitle title={t("title")}/>
 
             <div className=" grid grid-cols-1 lg:grid-cols-12 gap-4! md:gap-0">
               <div className="lg:col-span-4">
@@ -448,10 +459,10 @@ export default function VedioDetails()
                       <div className="flex flex-col h-full items-center  justify-center py-16 px-8 gap-3 ">
                         <p className="text-4xl">🎬</p>
                         <p className="text-white/60 text-sm font-medium font-[poppins]">
-                          No reviews yet
+                          {t("noReviewsYet")}
                         </p>
                         <p className="text-white/20 text-xs text-center">
-                          The stage is yours  be the first to share your take.
+                          {t("noReviewsHint")}
                         </p>
                       </div>
                   )
