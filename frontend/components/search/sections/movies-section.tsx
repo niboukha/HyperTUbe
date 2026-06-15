@@ -1,4 +1,4 @@
-import Image from "next/image"
+import { MovieImage } from "@/components/ui/movie-image"
 import { Film, Star } from "lucide-react"
 import { highlightMatch } from "@/lib/utils/search-bar"
 import { MovieResult } from "@/types/search"
@@ -29,7 +29,7 @@ export function MoviesSection({ movies, query, activeIndex, topCount, onSelect }
           >
             <div className="w-9 h-12 shrink-0 rounded-md bg-white/5 overflow-hidden relative">
               {movie.poster_path ? (
-                <Image
+                <MovieImage
                   src={resolveImage(movie.poster_path)!}
                   alt={movie.title}
                   fill

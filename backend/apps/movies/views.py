@@ -153,7 +153,7 @@ def movie_detail(request, movie_id: str):
                     {"error": "Invalid Public Domain Torrents id"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            data = fetch_detail(raw)
+            data = fetch_detail(raw, language=request.lang)
 
         elif movie_id.startswith("tmdb-"):
             from .adapters.tmdb import fetch_detail

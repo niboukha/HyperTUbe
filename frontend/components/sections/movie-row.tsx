@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
-import Image from "next/image"
+import { MovieImage } from "@/components/ui/movie-image"
 import { Play, Plus, Check } from "lucide-react"
 import { useWatchlistToggle } from "@/hooks/use-watchlist-toggle"
 
@@ -144,15 +144,13 @@ export default function MovieRow({ title, endpoint, priority }: MovieRowProps) {
             >
               <div className="relative w-60 md:w-65 aspect-video rounded-md overflow-hidden cursor-pointer">
                 {src ? (
-                  <Image
+                  <MovieImage
                     src={movie.backdrop_path ? `${movie.backdrop_path}` : `${movie.poster_path}`}
                     alt={movie.title}
                     fill
-                    // Only eagerly load first row's images
                     priority={priority && index < 4}
                     sizes="(max-width: 768px) 240px, 260px"
                     className="object-cover"
-                    unoptimized={!!src?.includes("archive.org")}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-white/5">

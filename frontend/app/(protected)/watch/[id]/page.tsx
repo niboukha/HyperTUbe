@@ -4,6 +4,7 @@ import { Calendar, Clock } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
+import { useLanguage } from "@/hooks/use-language";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
@@ -69,6 +70,8 @@ export default function Watch() {
   const movieId  = params.id as string;
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef   = useRef<Hls | null>(null);
+
+  const { langCode } = useLanguage();
 
   const [subtitles,        setSubtitles]        = useState<SubtitleTrack[]>([]);
   const [streamingMovieId, setStreamingMovieId] = useState<number | null>(null);
@@ -169,42 +172,51 @@ export default function Watch() {
   }, [streamingMovieId]);
 
   // ── Step 3: load subtitles once stream URL is known ───────────────────────
-  // The backend triggers subtitle preparation as soon as the stream is ready,
-  // so subtitles may not exist yet on the first request. Keep retrying for a
-  // short bounded window so slower embedded extraction/external lookup can land.
+  // Depends on langCode so it re-runs when the user switches UI language.
+  // On each run it also pings the stream endpoint to ensure the backend has
+  // queued subtitle preparation for the current language (covers the case where
+  // the stream was already ready before the user changed their language preference).
+  // Retry logic: keep going until the preferred-language track is present in the
+  // response (not just any track), so a French user doesn't get stuck with English
+  // even though the French VTT finishes downloading shortly after the English one.
   useEffect(() => {
     if (!streamingMovieId || !hlsUrl) return;
     let cancelled = false;
     let retryTimer: ReturnType<typeof setTimeout>;
     const startedAt = Date.now();
-    const retryForMs = 90_000;
+    const retryForMs  = 90_000;
     const retryEveryMs = 5_000;
 
-    async function fetchSubtitles(): Promise<boolean> {
-      try {
-        const language = encodeURIComponent(preferredSubtitleLanguage());
-        const res = await fetch(`${API}/api/streaming/${streamingMovieId}/subtitles/?language=${language}`, {
-          credentials: "include",
-        });
-        if (!res.ok) return false;
-        const tracks: SubtitleTrack[] = await res.json();
-        if (cancelled) return tracks.length > 0;
+    // Trigger subtitle preparation for the current language. Safe to call even
+    // when stream is already ready — enqueue_subtitle_preparation_once is idempotent.
+    fetch(`${API}/api/streaming/${streamingMovieId}/stream/?language=${encodeURIComponent(langCode)}`, {
+      credentials: "include",
+    }).catch(() => {});
 
-        setSubtitles(
-          tracks.map(track => ({
-            ...track,
-            src: normalizeBackendUrl(track.src),
-          }))
+    async function fetchSubtitles(): Promise<SubtitleTrack[]> {
+      try {
+        const res = await fetch(
+          `${API}/api/streaming/${streamingMovieId}/subtitles/?language=${encodeURIComponent(langCode)}`,
+          { credentials: "include" }
         );
-        return tracks.length > 0;
+        if (!res.ok) return [];
+        const tracks: SubtitleTrack[] = await res.json();
+        if (cancelled) return tracks;
+        setSubtitles(tracks.map(track => ({ ...track, src: normalizeBackendUrl(track.src) })));
+        return tracks;
       } catch {
-        return false;
+        return [];
       }
     }
 
     async function loadSubtitles() {
-      const found = await fetchSubtitles();
-      if (!found && !cancelled && Date.now() - startedAt < retryForMs) {
+      const tracks = await fetchSubtitles();
+      if (cancelled) return;
+      // Stop retrying only once the preferred language track has arrived.
+      // This prevents the English-arrives-first early exit that left French
+      // users with only one track until a manual refresh.
+      const hasPreferred = tracks.some(t => t.language === langCode);
+      if (!hasPreferred && Date.now() - startedAt < retryForMs) {
         retryTimer = setTimeout(loadSubtitles, retryEveryMs);
       }
     }
@@ -215,7 +227,7 @@ export default function Watch() {
       cancelled = true;
       clearTimeout(retryTimer);
     };
-  }, [streamingMovieId, hlsUrl]);
+  }, [streamingMovieId, hlsUrl, langCode]);
 
   // ── Step 4: attach HLS to <video> ────────────────────────────────────────
   useEffect(() => {
@@ -253,55 +265,60 @@ export default function Watch() {
     };
   }, [hlsUrl]);
 
-  // ── Step 5: activate first subtitle track once the VTT file is parsed ──────
-  // The old approach used setTimeout(250) which raced with the browser's async
-  // VTT fetch+parse. If the file wasn't parsed yet, setting mode="showing"
-  // had no effect and the track appeared silent until the user toggled it off
-  // and back on. We now use the TextTrackList `addtrack` event which fires once
-  // the browser has registered the track, then wait for its `load` event before
-  // setting the mode — guaranteeing cues are available when we activate it.
+  // ── Step 5: activate the preferred-language subtitle track ──────────────────
+  // Priority: user's langCode → English fallback → first available track.
+  // Depends on both `subtitles` (new tracks may have been added) and `langCode`
+  // (user switched language — re-activate the right track without a page refresh).
   useEffect(() => {
     const video = videoRef.current;
     if (!video || subtitles.length === 0) return;
 
-    function activateFirstTrack() {
-      for (let i = 0; i < video!.textTracks.length; i++) {
-        video!.textTracks[i].mode = i === 0 ? "showing" : "disabled";
+    function activatePreferredTrack() {
+      if (!video) return;
+      const tracks = video.textTracks;
+      let targetIndex = -1;
+
+      // 1. Exact match for preferred language
+      for (let i = 0; i < tracks.length; i++) {
+        if (tracks[i].language === langCode) { targetIndex = i; break; }
+      }
+      // 2. English fallback
+      if (targetIndex === -1) {
+        for (let i = 0; i < tracks.length; i++) {
+          if (tracks[i].language === "en") { targetIndex = i; break; }
+        }
+      }
+      // 3. First available track
+      if (targetIndex === -1 && tracks.length > 0) targetIndex = 0;
+
+      for (let i = 0; i < tracks.length; i++) {
+        tracks[i].mode = i === targetIndex ? "showing" : "disabled";
       }
     }
 
     function onAddTrack(e: TrackEvent) {
       const track = e.track as TextTrack;
-      if (!track) return;
+      if (!track || track.mode !== "disabled") return;
 
-      if (track.mode !== "disabled") return; // already handled
-
-      // Wait for the VTT file to finish loading before activating
-      const onLoad = () => activateFirstTrack();
-      // TextTrack doesn't expose load events directly — listen via the
-      // underlying HTMLTrackElement on the video
       const trackEl = Array.from(video!.querySelectorAll("track")).find(
         el => el.label === track.label && el.srclang === track.language
       );
       if (trackEl) {
-        trackEl.addEventListener("load", onLoad, { once: true });
-        // If already loaded (readyState 2), fire immediately
-        if ((trackEl as HTMLTrackElement).readyState === 2) onLoad();
+        trackEl.addEventListener("load", activatePreferredTrack, { once: true });
+        if ((trackEl as HTMLTrackElement).readyState === 2) activatePreferredTrack();
       } else {
-        // No matching <track> element found — activate directly
-        activateFirstTrack();
+        activatePreferredTrack();
       }
     }
 
     video.textTracks.addEventListener("addtrack", onAddTrack);
-
-    // Handle subtitles that were already added before this effect ran
-    if (video.textTracks.length > 0) activateFirstTrack();
+    // Activate immediately for tracks already present (e.g. language switch)
+    if (video.textTracks.length > 0) activatePreferredTrack();
 
     return () => {
       video.textTracks.removeEventListener("addtrack", onAddTrack);
     };
-  }, [subtitles]);
+  }, [subtitles, langCode]);
 
   return (
     <div className="min-h-screen flex flex-col items-center !px-4 lg:!px-16 !space-y-4 !mt-15 !mb-15">
@@ -319,16 +336,22 @@ export default function Watch() {
               height="100%"
               className="rounded-md h-full w-full"
             >
-              {subtitles.map((subtitle, index) => (
-                <track
-                  key={subtitle.id}
-                  kind={subtitle.kind}
-                  src={subtitle.src}
-                  srcLang={subtitle.language}
-                  label={subtitle.label}
-                  default={index === 0}
-                />
-              ))}
+              {subtitles.map((subtitle, index) => {
+                const hasPreferredLang = subtitles.some(s => s.language === langCode);
+                return (
+                  <track
+                    key={subtitle.id}
+                    kind={subtitle.kind}
+                    src={subtitle.src}
+                    srcLang={subtitle.language}
+                    label={subtitle.label}
+                    default={
+                      subtitle.language === langCode ||
+                      (!hasPreferredLang && index === 0)
+                    }
+                  />
+                );
+              })}
             </video>
 
             {!hlsUrl && (

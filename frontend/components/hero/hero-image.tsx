@@ -1,5 +1,7 @@
+"use client"
+
 import { motion, AnimatePresence } from "framer-motion"
-import Image from "next/image"
+import { MovieImage } from "@/components/ui/movie-image"
 import { backgroundVariants } from "@/lib/annimations/hero-variants"
 import { MovieResult } from "@/types/search"
 
@@ -19,7 +21,7 @@ export default function HeroImage({ movie }: HeroImageProps) {
           exit="exit"
           className="absolute inset-0 will-change-transform"
         >
-          <Image
+          <MovieImage
               src={`${movie.backdrop_path}`}
               alt={movie.title}
               fill

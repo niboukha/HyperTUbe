@@ -18,6 +18,10 @@ from apps.streaming.subtitles import convert_srt_to_vtt, normalize_subtitle_lang
 class SubtitleProviderError(Exception):
     pass
 
+class SubtitleQuotaExceeded(Exception):
+    """OpenSubtitles daily download quota exhausted — no point retrying today."""
+    pass
+
 @dataclass(frozen=True)
 class OpenSubtitlesResult:
     provider_id: str
@@ -76,10 +80,10 @@ class OpenSubtitlesClient:
         seen_file_ids = set()
 
         for query in _subtitle_search_queries(movie):
-            results.extend(
-                result for result in self._search_movie_subtitles_query(movie, language, query)
-                if result.file_id not in seen_file_ids and not seen_file_ids.add(result.file_id)
-            )
+            for result in self._search_movie_subtitles_query(movie, language, query):
+                if result.file_id not in seen_file_ids:
+                    seen_file_ids.add(result.file_id)
+                    results.append(result)
             if results:
                 break
 
@@ -94,19 +98,22 @@ class OpenSubtitlesClient:
         if movie.release_date:
             params["year"] = movie.release_date.year
 
-        print(f"[Subtitles] OpenSubtitles search started | movie_id={movie.id} query={query} language={language}")
+        import urllib.parse
+        full_url = f"{self.base_url}/subtitles?{urllib.parse.urlencode(params)}"
+        print(f"[Subtitles] >>> REQUEST  GET {full_url}")
         response = requests.get(
             f"{self.base_url}/subtitles",
             headers=self._headers(authenticated=False),
             params=params,
             timeout=15,
         )
+        print(f"[Subtitles] <<< RESPONSE status={response.status_code} result_count={len(response.json().get('data', []))}")
         response.raise_for_status()
 
         results = []
         for item in response.json().get("data", []):
-            attributes = item.get("attributes") or {}
-            files = attributes.get("files") or []
+            attributes  = item.get("attributes") or {}
+            files       = attributes.get("files") or []
             if not files:
                 continue
 
@@ -134,6 +141,11 @@ class OpenSubtitlesClient:
             json={"file_id": result.file_id},
             timeout=15,
         )
+        if response.status_code == 406:
+            remaining = response.json().get("remaining", 0)
+            raise SubtitleQuotaExceeded(
+                f"OpenSubtitles daily download quota exhausted | remaining={remaining}"
+            )
         response.raise_for_status()
 
         download_url = response.json().get("link")
@@ -225,6 +237,9 @@ def download_external_subtitle_fallback(movie_id: int, language: str, validator=
                         ContentFile(vtt_bytes),
                         save=True,
                     )
+        except SubtitleQuotaExceeded as exc:
+            print(f"[Subtitles] External fallback aborted; quota exhausted | movie_id={movie_id} language={normalized_language} error={exc}")
+            return None
         except Exception as exc:
             print(f"[Subtitles] External fallback result failed | movie_id={movie_id} language={normalized_language} provider_id={selected.provider_id} error={exc}")
             continue
@@ -253,6 +268,8 @@ def _subtitle_search_queries(movie: Movie) -> list[str]:
         add(re.sub(r"^(?:d\s*w|dw|d\.?\s*w\.?)\s+griffith\s+", "", normalized, flags=re.IGNORECASE))
 
     add(re.sub(r"^(?:d\s*w|dw|d\.?\s*w\.?)\s+griffith[:\s]+", "", movie.title or "", flags=re.IGNORECASE))
+
+    print(f"[Subtitles] Generated search queries | movie_id={movie.id} queries={candidates}")
     return candidates
 
 

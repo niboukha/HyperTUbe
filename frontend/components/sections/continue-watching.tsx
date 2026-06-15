@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import Image from "next/image"
+import { MovieImage } from "@/components/ui/movie-image"
 import { Play, Plus } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
@@ -91,7 +91,7 @@ export default function ContinueWatching() {
                 className="relative w-60 md:w-65 aspect-video rounded-md overflow-hidden cursor-pointer"
               >
                 {image ? (
-                  <Image
+                  <MovieImage
                     src={image}
                     alt={title}
                     fill

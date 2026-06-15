@@ -2,7 +2,7 @@
 
 import { createPortal } from "react-dom"
 import { motion, AnimatePresence } from "framer-motion"
-import Image from "next/image"
+import { MovieImage } from "@/components/ui/movie-image"
 import { Clock, Star } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { HoverState } from "./use-hover-portal"
@@ -63,7 +63,7 @@ export default function CarouselPortal({
           {/* Image */}
           <div className="relative w-full aspect-video rounded-t-[6px] overflow-hidden">
             {image ? (
-              <Image
+              <MovieImage
                 src={image}
                 alt={title}
                 fill

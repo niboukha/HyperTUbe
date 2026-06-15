@@ -315,7 +315,10 @@ class MovieSubtitlesView(APIView):
     Simplified: just query ready subtitles and return them.
     Subtitle preparation is triggered by MovieStreamView when the stream becomes
     ready — no need to trigger or poll it here.
+    AllowAny: the VTT track list is not sensitive; browser fetches subtitle URLs
+    directly without auth headers (same reasoning as HLS file views).
     """
+    permission_classes = [AllowAny]
 
     def get(self, request, movie_id):
         if not Movie.objects.filter(id=movie_id).exists():

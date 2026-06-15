@@ -27,6 +27,7 @@ import { useMovieDetail } from "@/hooks/use-movie-details";
 import { useWatchlistToggle } from "@/hooks/use-watchlist-toggle";
 import Overview from "@/components/ui/Overview";
 import { useTranslations } from "next-intl";
+import { PremiumModal } from "@/components/premium-modal";
 
 export function stripHtml(html: string) {
   return html
@@ -52,6 +53,7 @@ export default function VedioDetails()
   const t = useTranslations("Reviews")
   const [trailerOpen, setTrailerOpen] = useState<boolean>(false);
   const [trailer, setTrailer] = useState<string | null>(null);
+  const [premiumModalOpen, setPremiumModalOpen] = useState(false);
   
   const params   = useParams()
   const movieId  = params.id as string   // e.g. "tmdb-1266127"
@@ -318,15 +320,25 @@ export default function VedioDetails()
             whileTap={{ scale: 0.95 }}
             transition={{ type: "spring", stiffness: 400, damping: 15 }}
             >    
-              <Button
-                  asChild
-                  className="h-12 w-35 bg-text-primary hover:bg-text-primary text-foreground font-semibold gap-2 rounded-md shadow-lg hover:shadow-xl  text-md"
-              >
-                <Link href={`/watch/${movie.id}`}>
+              {movie.availability === 'premium' ? (
+                <Button
+                  className="h-12 w-35 bg-text-primary hover:bg-text-primary text-foreground font-semibold gap-2 rounded-md shadow-lg hover:shadow-xl text-md"
+                  onClick={() => setPremiumModalOpen(true)}
+                >
                   <Play className="w-5 h-5 fill-current" />
                   Watch Now
-                </Link>
-              </Button>
+                </Button>
+              ) : (
+                <Button
+                  asChild
+                  className="h-12 w-35 bg-text-primary hover:bg-text-primary text-foreground font-semibold gap-2 rounded-md shadow-lg hover:shadow-xl text-md"
+                >
+                  <Link href={`/watch/${movie.id}`}>
+                    <Play className="w-5 h-5 fill-current" />
+                    Watch Now
+                  </Link>
+                </Button>
+              )}
               </motion.div>
 
               { (
@@ -471,6 +483,12 @@ export default function VedioDetails()
             </div>
         </div>
       </div>
+
+      <PremiumModal
+        isOpen={premiumModalOpen}
+        onClose={() => setPremiumModalOpen(false)}
+        movieTitle={movie.title}
+      />
     </main>
   )
 }

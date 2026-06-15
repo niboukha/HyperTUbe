@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { MovieResult } from "@/types/search"
-import Image from "next/image"
+import { MovieImage } from "@/components/ui/movie-image"
 import { Plus, Check, ChevronLeft, ChevronRight, Star } from "lucide-react"
 import { useWatchlistToggle } from "@/hooks/use-watchlist-toggle"
 import { useCarousel } from "../carousel/use-carousel"
@@ -151,7 +151,7 @@ export default function PrimeRow({ title, movies }: MovieRowProps) {
                       className="absolute inset-0"
                     >
                       {backdropSrc ? (
-                        <Image
+                        <MovieImage
                           src={backdropSrc}
                           alt={movie.title}
                           fill
@@ -159,7 +159,6 @@ export default function PrimeRow({ title, movies }: MovieRowProps) {
                           sizes="500px"
                           className="object-cover"
                           quality={100}
-                          unoptimized={backdropSrc.includes("archive.org")}
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-black/40">
@@ -177,7 +176,7 @@ export default function PrimeRow({ title, movies }: MovieRowProps) {
                       className="absolute inset-0"
                     >
                       {posterSrc ? (
-                        <Image
+                        <MovieImage
                           src={posterSrc}
                           alt={movie.title}
                           fill
@@ -185,7 +184,6 @@ export default function PrimeRow({ title, movies }: MovieRowProps) {
                           sizes="160px"
                           quality={100}
                           className="object-cover"
-                          unoptimized={posterSrc.includes("archive.org")}
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-black/40">

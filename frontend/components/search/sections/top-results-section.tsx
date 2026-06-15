@@ -1,4 +1,4 @@
-import Image from "next/image"
+import { MovieImage } from "@/components/ui/movie-image"
 import { Film, Star } from "lucide-react"
 import { highlightMatch } from "@/lib/utils/search-bar"
 import { MovieResult } from "@/types/search"
@@ -35,7 +35,7 @@ export function TopResultsSection({ movies, query, activeIndex, onSelect }: Prop
           >
             <div className="aspect-[2/3] bg-white/5 relative">
               {movie.poster_path ? (
-                <Image
+                <MovieImage
                   src={resolveImage(movie.poster_path)!}
                   alt={movie.title}
                   fill

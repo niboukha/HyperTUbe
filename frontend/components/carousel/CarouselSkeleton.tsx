@@ -17,8 +17,8 @@ export function CarouselSkeleton({ title, isprime }: Props) {
             key={i}
             className={
               isprime
-                ? "aspect-video min-w-[200px] flex-1 bg-white/5 h-100!"
-                : "aspect-video min-w-[180px] md:min-w-[230px] bg-white/5"
+                ? "aspect-video min-w-50 flex-1 bg-white/5 h-100!"
+                : "aspect-video min-w-45 md:min-w-57.5 bg-white/5"
             }
           />
         ))}

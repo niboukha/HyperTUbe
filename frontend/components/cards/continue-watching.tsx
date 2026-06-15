@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import Image from "next/image"
+import { MovieImage } from "@/components/ui/movie-image"
 import { motion } from "framer-motion"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -159,27 +159,14 @@ export default function ContinueWatching() {
             >
               {/* Card Shell */}
               <div className="relative w-64 md:w-[320px] aspect-video rounded-[6px] overflow-hidden z-50">
-                <Image
-                  src={movie.image}
-                  alt={movie.title}
-                  fill
-                  priority
-                  sizes="(max-width: 768px) 256px, 320px"
-                  className="object-cover transition-transform duration-700 ease-out"
-                  style={{
-                    // transform: hoveredIndex === index ? "scale(1.08)" : "scale(1)",
-                  }}
-                />
-
                 {movie.image ? (
-                  <Image
+                  <MovieImage
                     src={movie.image}
                     alt={movie.title}
                     fill
                     priority
                     sizes="(max-width: 768px) 256px, 320px"
                     className="object-cover transition-transform duration-700 ease-out"
-                    quality={0}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">

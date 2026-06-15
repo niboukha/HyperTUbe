@@ -95,6 +95,20 @@
     "free": "FREE",
     "premium": "PREMIUM"
   },
+  "PremiumModal": {
+    "title": "Premium Content",
+    "subtitle": "{movieTitle} is part of our upcoming Premium catalog.",
+    "description": "Premium subscriptions are not available yet, but they will be introduced in a future update of our platform. Once available, you'll be able to unlock exclusive movies, early releases, and additional features.",
+    "comingSoon": "Coming Soon",
+    "featureCatalog": "Premium movie catalog",
+    "featureEarlyAccess": "Early access releases",
+    "featureRecommendations": "Personalized recommendations",
+    "featureAdFree": "Ad-free experience",
+    "notified": "We'll notify you when Premium is available!",
+    "notifyBtn": "Notify Me When Available",
+    "exploreFreeBtn": "Explore Free Movies",
+    "maybeLaterBtn": "Maybe Later"
+  },
   "Reviews": {
     "title": "Reviews",
     "noReviewsYet": "No reviews yet",

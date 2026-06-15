@@ -1,5 +1,5 @@
 import { MovieResult } from "@/types/search";
-import Image from "next/image";
+import { MovieImage } from "@/components/ui/movie-image";
 import { useHoverPortal } from "../carousel/use-hover-portal";
 
 import { motion } from "framer-motion"
@@ -92,7 +92,7 @@ export default function MovieCard({ index, movie, runtime, runtimeLoading }: Mov
       >
         <div className="relative w-full aspect-16/10 overflow-hidden aspect-video">
           {image ? (
-            <Image
+            <MovieImage
               src={image}
               alt={movie.title}
               fill

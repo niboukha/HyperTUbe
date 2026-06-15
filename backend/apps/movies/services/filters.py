@@ -75,7 +75,7 @@ def library_search(
     total_pages = max(1, math.ceil(total / PAGE_SIZE))
     start       = (page - 1) * PAGE_SIZE
     end         = start + PAGE_SIZE
-    page_results = _enrich_publicdomain_page(all_results[start:end])
+    page_results = _enrich_publicdomain_page(all_results[start:end], language=language)
 
     result = {
         "results":          page_results,
@@ -93,7 +93,7 @@ def library_search(
     return result
 
 
-def _enrich_publicdomain_page(movies: list) -> list:
+def _enrich_publicdomain_page(movies: list, language: str = "en") -> list:
     publicdomain_indexes = [
         index for index, movie in enumerate(movies)
         if movie.get("source") == "publicdomain"
@@ -104,7 +104,7 @@ def _enrich_publicdomain_page(movies: list) -> list:
     enriched = list(movies)
     with ThreadPoolExecutor(max_workers=min(6, len(publicdomain_indexes))) as pool:
         futures = {
-            pool.submit(publicdomain.enrich_movie, movies[index]): index
+            pool.submit(publicdomain.enrich_movie, movies[index], language): index
             for index in publicdomain_indexes
         }
         for future in as_completed(futures):
@@ -114,6 +114,43 @@ def _enrich_publicdomain_page(movies: list) -> list:
             except Exception as exc:
                 logger.warning("library Public Domain card enrichment skipped: %s", exc)
     return enriched
+
+
+# _LANGUAGE_NAMES = {
+#     "en": "English",
+#     "fr": "French",
+#     "es": "Spanish",
+# }
+
+
+# def _filter_publicdomain_by_language(movies: list, language: str) -> list:
+#     """
+#     Enrich publicdomain movies with TMDB data (via their embedded IMDB ID) and
+#     return only those whose spoken_languages include the user's language.
+#     Skipped for English — the catalog is almost entirely English so all pass.
+#     """
+#     if not movies or language == "en":
+#         return movies
+
+#     lang_name = _LANGUAGE_NAMES.get(language)
+#     if not lang_name:
+#         return movies
+
+#     filtered = []
+#     with ThreadPoolExecutor(max_workers=min(6, len(movies))) as pool:
+#         futures = {
+#             pool.submit(publicdomain.enrich_movie, movie): movie
+#             for movie in movies
+#         }
+#         for future in as_completed(futures):
+#             try:
+#                 result = future.result()
+#                 if lang_name in (result.get("languages") or []):
+#                     filtered.append(result)
+#             except Exception as exc:
+#                 logger.warning("publicdomain language filter enrichment failed: %s", exc)
+
+#     return filtered
 
 
 def _fetch_library_snapshot(

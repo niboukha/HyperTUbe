@@ -208,13 +208,13 @@ def _resolve_tmdb_id(title: str, html: str = "") -> int | None:
     return _resolve_tmdb_id_by_title(search_title, year)
 
 
-def _enrich_with_tmdb(movie: dict, html: str = "", include_credits: bool = False) -> dict:
+def _enrich_with_tmdb(movie: dict, html: str = "", include_credits: bool = False, language: str = "en") -> dict:
     try:
         tmdb_id = _resolve_tmdb_id(movie.get("title"), html)
         if not tmdb_id:
             return movie
 
-        detail = tmdb.fetch_detail(tmdb_id)
+        detail = tmdb.fetch_detail(tmdb_id, language=language)
         if not detail:
             return movie
 
@@ -249,22 +249,22 @@ def _enrich_with_tmdb(movie: dict, html: str = "", include_credits: bool = False
         return movie
 
 
-def enrich_movie(movie: dict) -> dict:
+def enrich_movie(movie: dict, language: str = "en") -> dict:
     if movie.get("source") != "publicdomain":
         return movie
 
     publicdomain_id = movie.get("publicdomain_id") or str(movie.get("id", "")).removeprefix("publicdomain-")
     if not publicdomain_id:
-        return _enrich_with_tmdb(movie)
+        return _enrich_with_tmdb(movie, language=language)
 
     from ..cache.movie_cache import get_detail, set_detail
 
-    cache_key = f"publicdomain-card-{publicdomain_id}"
+    cache_key = f"publicdomain-card-{publicdomain_id}:{language}"
     cached = get_detail(cache_key)
     if cached:
         return {**movie, **cached}
 
-    enriched = _enrich_with_tmdb(movie)
+    enriched = _enrich_with_tmdb(movie, language=language)
     set_detail(cache_key, enriched)
     return enriched
 
@@ -357,7 +357,7 @@ def fetch_movies(
         results = [_enrich_with_tmdb(movie) for movie in results]
     return build_response(body, results)
     
-def fetch_detail(publicdomain_id: str) -> dict | None:
+def fetch_detail(publicdomain_id: str, language: str = "en") -> dict | None:
     try:
         response = requests.get(
             DETAIL_URL,
@@ -427,7 +427,7 @@ def fetch_detail(publicdomain_id: str) -> dict | None:
         "torrent_files":  torrent_files,
     }
 
-    movie = _enrich_with_tmdb(movie, html, include_credits=True)
+    movie = _enrich_with_tmdb(movie, html, include_credits=True, language=language)
 
     print("PUBLICDOMAIN_TORRENT_FILES:")
     print(json.dumps(torrent_files, indent=2, ensure_ascii=False))

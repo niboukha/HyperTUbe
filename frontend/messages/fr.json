@@ -95,6 +95,20 @@
     "free": "GRATUIT",
     "premium": "PREMIUM"
   },
+  "PremiumModal": {
+    "title": "Contenu Premium",
+    "subtitle": "{movieTitle} fait partie de notre catalogue Premium à venir.",
+    "description": "Les abonnements Premium ne sont pas encore disponibles, mais ils seront introduits dans une prochaine mise à jour de notre plateforme. Une fois disponibles, vous pourrez accéder à des films exclusifs, des sorties anticipées et des fonctionnalités supplémentaires.",
+    "comingSoon": "Bientôt disponible",
+    "featureCatalog": "Catalogue de films Premium",
+    "featureEarlyAccess": "Accès anticipé aux sorties",
+    "featureRecommendations": "Recommandations personnalisées",
+    "featureAdFree": "Expérience sans publicité",
+    "notified": "Nous vous informerons quand le Premium sera disponible !",
+    "notifyBtn": "Me notifier quand disponible",
+    "exploreFreeBtn": "Explorer les films gratuits",
+    "maybeLaterBtn": "Peut-être plus tard"
+  },
   "Reviews": {
     "title": "Avis",
     "noReviewsYet": "Aucun avis pour le moment",
