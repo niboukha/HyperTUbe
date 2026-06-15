@@ -23,8 +23,9 @@ PUBLIC_DOMAIN_ROWS = 300          # Public Domain Torrents catalog rows for libr
 
 # Create a unique short name for the upstream movie pool. Sort and filters are
 # applied after this pool is cached so switching controls reorders the same set.
-def _library_cache_key(query, language: str = "en", partial: bool = False) -> str:
-    raw = f"{(query or '').strip().lower()}:{language}"
+def _library_cache_key(query, genre_ids: list = None, language: str = "en", partial: bool = False) -> str:
+    genre_str = "-".join(str(g) for g in sorted(genre_ids or []))
+    raw = f"{(query or '').strip().lower()}:{genre_str}:{language}"
     suffix = ":partial" if partial else ""
     return "movies:library:v10:" + hashlib.md5(raw.encode()).hexdigest() + suffix
 
@@ -44,13 +45,14 @@ def library_search(
     query           = (query or "").strip()
     has_search      = bool(query)
     effective_sort  = sort_by or ("name" if has_search else "popularity")
-    key             = _library_cache_key(query, language)
-    partial_key     = _library_cache_key(query, language, partial=True)
+    key             = _library_cache_key(query, genre_ids, language)
+    partial_key     = _library_cache_key(query, genre_ids, language, partial=True)
     snapshot        = cache.get(key) or cache.get(partial_key)
 
     if snapshot is None:
         snapshot = _fetch_library_snapshot(
             query=query,
+            genre_ids=genre_ids,
             language=language,
         )
         if snapshot.get("partial"):
@@ -76,6 +78,14 @@ def library_search(
     start       = (page - 1) * PAGE_SIZE
     end         = start + PAGE_SIZE
     page_results = _enrich_publicdomain_page(all_results[start:end], language=language)
+
+    if genre_ids:
+        selected = set(genre_ids)
+        page_results = [
+            m for m in page_results
+            if m.get("source") != "publicdomain"
+            or selected.intersection(m.get("genre_ids") or [])
+        ]
 
     result = {
         "results":          page_results,
@@ -155,6 +165,7 @@ def _enrich_publicdomain_page(movies: list, language: str = "en") -> list:
 
 def _fetch_library_snapshot(
     query: str = "",
+    genre_ids: list = None,
     language: str = "en",
 ) -> dict:
     tmdb_results = []
@@ -183,7 +194,7 @@ def _fetch_library_snapshot(
             timeout=ARCHIVE_WAIT,
         )
 
-        tmdb_results = _fetch_tmdb_library_rows(pool, query=query, language=language)
+        tmdb_results = _fetch_tmdb_library_rows(pool, query=query, genre_ids=genre_ids, language=language)
 
         try:
             archive_data = archive_f.result(timeout=ARCHIVE_WAIT)
@@ -213,7 +224,7 @@ def _fetch_library_snapshot(
     }
 
 
-def _fetch_tmdb_library_rows(pool: ThreadPoolExecutor, query: str = "", language: str = "en") -> list:
+def _fetch_tmdb_library_rows(pool: ThreadPoolExecutor, query: str = "", genre_ids: list = None, language: str = "en") -> list:
     results = []
     seen = set()
     next_page = 1
@@ -222,7 +233,7 @@ def _fetch_tmdb_library_rows(pool: ThreadPoolExecutor, query: str = "", language
     while next_page <= TMDB_MAX_PAGES and len(results) < TMDB_TARGET_ROWS:
         last_page = min(next_page + batch_size - 1, TMDB_MAX_PAGES)
         futures = [
-            pool.submit(_fetch_tmdb_library_page, query, page, language)
+            pool.submit(_fetch_tmdb_library_page, query, page, genre_ids, language)
             for page in range(next_page, last_page + 1)
         ]
         batch_added = 0
@@ -246,10 +257,10 @@ def _fetch_tmdb_library_rows(pool: ThreadPoolExecutor, query: str = "", language
     return results[:TMDB_TARGET_ROWS]
 
 
-def _fetch_tmdb_library_page(query: str, page: int, language: str = "en") -> dict:
+def _fetch_tmdb_library_page(query: str, page: int, genre_ids: list = None, language: str = "en") -> dict:
     if query:
-        return tmdb.search(query=query, sort_by="name", page=page, language=language)
-    return tmdb.search(sort_by="popularity", page=page, language=language)
+        return tmdb.search(query=query, genre_ids=genre_ids, sort_by="name", page=page, language=language)
+    return tmdb.search(genre_ids=genre_ids, sort_by="popularity", page=page, language=language)
 
 
 def _should_blend_sources(
@@ -317,7 +328,8 @@ def _apply_library_filters(
         selected = set(genre_ids)
         filtered = [
             m for m in filtered
-            if selected.intersection(m.get("genre_ids") or [])
+            if m.get("source") == "publicdomain"  # genre_ids populated after enrichment
+            or selected.intersection(m.get("genre_ids") or [])
         ]
 
     if year_from is not None:

@@ -10,13 +10,21 @@ BASE_URL = "https://archive.org/advancedsearch.php"
 
 GENRE_SUBJECTS = {
     28:    "action",
+    12:    "adventure",
     16:    "animation",
-    27:    "horror",
-    878:   "science fiction",
-    10752: "war",
     35:    "comedy",
-    9648:  "mystery",
     80:    "crime",
+    99:    "documentary",
+    18:    "drama",
+    10751: "family",
+    14:    "fantasy",
+    27:    "horror",
+    9648:  "mystery",
+    878:   "science fiction",
+    53:    "thriller",
+    10752: "war",
+    37:    "western",
+    10402: "musical",
 }
 
 BLOCKED_TERMS = [

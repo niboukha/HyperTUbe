@@ -1,6 +1,5 @@
 "use client";
 
-import { InfiniteScroll } from "@/components/ui/infinite-scroll";
 import { Movie, MovieCard, normaliseTMDB } from "@/components/watchlist/watchlist-card";
 import { useMemo, useState, useCallback, useEffect } from "react";
 import { syncCacheRemove } from "@/hooks/use-watchlist-toggle";

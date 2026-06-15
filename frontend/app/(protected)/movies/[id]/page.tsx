@@ -27,6 +27,7 @@ import { useMovieDetail } from "@/hooks/use-movie-details";
 import { useWatchlistToggle } from "@/hooks/use-watchlist-toggle";
 import Overview from "@/components/ui/Overview";
 import { useTranslations } from "next-intl";
+import { proxyImageUrl } from "@/lib/utils/movie";
 import { PremiumModal } from "@/components/premium-modal";
 
 export function stripHtml(html: string) {
@@ -199,7 +200,7 @@ export default function VedioDetails()
       <div
         className="relative  min-h-[100dvh]  bg-cover bg-center mb-4! "
           style={{
-            backgroundImage: `url(${movie.backdrop_path ?? movie.poster_path})` }}
+            backgroundImage: `url(${proxyImageUrl(movie.backdrop_path ?? movie.poster_path) ?? ""})` }}
       >
         <div className="absolute inset-0  bg-gradient-to-r from-[#0E0E10]/88 via-[#000000]/50 to-transparent h-full"/>
         

@@ -1,7 +1,9 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import urlparse
 
 import requests
+from django.http import HttpResponse
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
@@ -386,3 +388,61 @@ def watchlist_toggle(request):
     state.is_saved = True
     state.save(update_fields=["is_saved"])
     return Response({"in_watchlist": True})
+
+
+_PROXY_ALLOWED_HOSTS = {"archive.org"}
+
+_PROXY_FALLBACK_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="300" viewBox="0 0 200 300">'
+    '<rect width="200" height="300" fill="#111827"/>'
+    '<g transform="translate(88,138)" stroke="#6b7280" stroke-width="2" fill="none"'
+    ' stroke-linecap="round" stroke-linejoin="round">'
+    '<rect width="24" height="24" x="0" y="0" rx="2"/>'
+    '<line x1="5" x2="5" y1="0" y2="24"/>'
+    '<line x1="19" x2="19" y1="0" y2="24"/>'
+    '<line x1="0" x2="24" y1="12" y2="12"/>'
+    '<line x1="0" x2="5" y1="5" y2="5"/>'
+    '<line x1="19" x2="24" y1="5" y2="5"/>'
+    '<line x1="19" x2="24" y1="19" y2="19"/>'
+    '<line x1="0" x2="5" y1="19" y2="19"/>'
+    "</g>"
+    "</svg>"
+)
+
+def _proxy_fallback():
+    response = HttpResponse(_PROXY_FALLBACK_SVG, content_type="image/svg+xml")
+    response["Cache-Control"] = "public, max-age=60"
+    return response
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def proxy_image(request):
+    url = request.query_params.get("url", "").strip()
+    if not url:
+        return _proxy_fallback()
+
+    try:
+        hostname = urlparse(url).hostname or ""
+    except Exception:
+        return _proxy_fallback()
+
+    if not any(hostname == h or hostname.endswith(f".{h}") for h in _PROXY_ALLOWED_HOSTS):
+        return _proxy_fallback()
+
+    try:
+        upstream = requests.get(
+            url,
+            timeout=6,
+            headers={"User-Agent": "Mozilla/5.0"},
+            stream=True,
+        )
+        if not upstream.ok:
+            return _proxy_fallback()
+
+        content_type = upstream.headers.get("Content-Type", "image/jpeg")
+        response = HttpResponse(upstream.content, content_type=content_type)
+        response["Cache-Control"] = "public, max-age=86400"
+        return response
+    except Exception:
+        return _proxy_fallback()

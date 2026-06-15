@@ -2,38 +2,35 @@
 
 import { useState } from "react"
 import Image, { ImageProps } from "next/image"
+import { Film } from "lucide-react"
+import { proxyImageUrl } from "@/lib/utils/movie"
 
-// Hostnames whose images must bypass Next.js optimization.
-// The optimizer proxies external URLs through the Next.js server — if the
-// upstream host is slow or unreliable (Archive.org routinely times out),
-// the optimizer returns 500/504 to the browser. `unoptimized` makes Next.js
-// emit the URL directly so the browser fetches it without a server round-trip.
-const UNOPTIMIZED_HOSTNAMES = ["archive.org"]
-
-function needsUnoptimized(src: ImageProps["src"]): boolean {
-  if (typeof src !== "string") return false
-  return UNOPTIMIZED_HOSTNAMES.some(host => src.includes(host))
+function resolveImageSrc(src: ImageProps["src"]): ImageProps["src"] {
+  if (typeof src !== "string") return src
+  return proxyImageUrl(src) ?? src
 }
 
 type MovieImageProps = Omit<ImageProps, "onError">
 
 export function MovieImage({ src, alt, className, ...props }: MovieImageProps) {
   const [errored, setErrored] = useState(false)
+  const resolved = resolveImageSrc(src)
+  const isProxied = typeof resolved === "string" && resolved.includes("/proxy-image")
 
   if (errored || !src) {
     return (
       <div className={`w-full h-full flex items-center justify-center bg-white/5 ${className ?? ""}`}>
-        <span className="text-white/15 text-4xl">🎬</span>
+        <Film className="h-8 w-8 text-white/20" />
       </div>
     )
   }
 
   return (
     <Image
-      src={src}
+      src={resolved}
       alt={alt}
       className={className}
-      unoptimized={needsUnoptimized(src)}
+      unoptimized={isProxied}
       onError={() => setErrored(true)}
       {...props}
     />

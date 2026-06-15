@@ -1,3 +1,13 @@
+const PROXIED_HOSTNAMES = ["archive.org"]
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+
+export function proxyImageUrl(src: string | null | undefined): string | null {
+  if (!src) return null
+  if (PROXIED_HOSTNAMES.some(host => src.includes(host))) {
+    return `${API_BASE}/proxy-image/?url=${encodeURIComponent(src)}`
+  }
+  return src
+}
 
 export function formatVotes(count: number): string {
   if (count >= 1000) {

@@ -10,4 +10,5 @@ urlpatterns = [
     path("search/",                                views.movie_search),
     path("watchlist/",                             views.watchlist_list),
     path("watchlist/toggle/",                      views.watchlist_toggle),
+    path("proxy-image/",                           views.proxy_image),
 ]
