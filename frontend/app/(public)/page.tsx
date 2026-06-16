@@ -263,7 +263,9 @@ export default function Landing() {
                     </div>
 
                     <div className="">
-                      <Button className="bg-[#FFFFFF]/5! border-[#FFFFFF]/20 rounded-md! p-6! text-xl md:text-xl hover:scale-105">{t("getStarted")} <ChevronRight color="#F6C700"  strokeWidth={5}  /></Button>
+                      <Link href="/login">
+                        <Button className="bg-[#FFFFFF]/5! border-[#FFFFFF]/20 rounded-md! p-6! text-xl md:text-xl hover:scale-105">{t("getStarted")} <ChevronRight color="#F6C700"  strokeWidth={5}  /></Button>
+                      </Link>
                     </div>
 
                   </motion.div> 

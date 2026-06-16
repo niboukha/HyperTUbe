@@ -10,5 +10,8 @@ urlpatterns = [
     path("search/",                                views.movie_search),
     path("watchlist/",                             views.watchlist_list),
     path("watchlist/toggle/",                      views.watchlist_toggle),
+    path("history/",                               views.history_list),
+    path("history/<str:movie_id>/",                views.history_delete),
+    path("history/<str:movie_id>/progress/",       views.history_progress),
     path("proxy-image/",                           views.proxy_image),
 ]

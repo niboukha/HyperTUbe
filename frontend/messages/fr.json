@@ -91,6 +91,22 @@
     "addToList": "Ajouter à la liste",
     "left": "restant"
   },
+  "Hero": {
+    "watchNow": "Regarder",
+    "startWatching": "Regarder {title}",
+    "moreInfo": "Plus d'informations",
+    "moreDetails": "Plus de détails sur {title}"
+  },
+  "History": {
+    "today": "Aujourd'hui",
+    "yesterday": "Hier",
+    "last7Days": "7 derniers jours",
+    "last30Days": "30 derniers jours",
+    "older": "Plus ancien",
+    "empty": "Aucun historique de visionnage.",
+    "hint": "Les films que vous commencez à regarder apparaîtront ici.",
+    "failed": "Impossible de charger l'historique."
+  },
   "Badges": {
     "free": "GRATUIT",
     "premium": "PREMIUM"

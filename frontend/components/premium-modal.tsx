@@ -68,7 +68,7 @@ export function PremiumModal({ isOpen, onClose, movieTitle = 'This Movie' }: Pre
               {/* Close button */}
               <button
                 onClick={onClose}
-                className="absolute top-4 right-4 z-10 p-2! hover:bg-slate-700/50 rounded-lg transition-colors duration-200"
+                className="absolute top-4 right-4 z-20 p-2! hover:bg-slate-700/50 rounded-lg transition-colors duration-200"
                 aria-label="Close modal"
               >
                 <X className="w-5 h-5 text-slate-300 hover:text-white" />

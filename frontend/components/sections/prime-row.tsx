@@ -17,6 +17,7 @@ import { CarouselSkeleton } from "../carousel/CarouselSkeleton"
 import HeaderTitle from '../ui/header-title';
 import { TMDB_GENRE_LABELS } from "@/lib/tmdb-genres"
 import { AvailabilityBadge } from "../ui/AvailabilityBadge"
+import { useTranslations } from "next-intl"
 import Link from "next/link"
 import { useRuntimes } from "@/hooks/use-runtimes"
 
@@ -52,6 +53,7 @@ function WatchlistButton({ movie }: { movie: MovieResult }) {
 }
 
 export default function PrimeRow({ title, movies }: MovieRowProps) {
+  const t = useTranslations("Hero")
   const [activeIndex, setActiveIndex] = useState<number | null>(0)
   const { scrollRef, canScrollLeft, canScrollRight, checkScroll, scroll, startAutoScroll, stopAutoScroll } = useCarousel()
   const { runtimes, loading: runtimesLoading } = useRuntimes(
@@ -252,7 +254,7 @@ export default function PrimeRow({ title, movies }: MovieRowProps) {
                               variant="outline"
                               className="border-white/30 bg-white/10 hover:bg-white/20 text-white px-3! py-1.5! rounded-md shadow-md hover:text-white hover:shadow-lg transition-all duration-200 hover:scale-110"
                             >
-                              More Informations
+                              {t("moreInfo")}
                             </Button>
                           </Link>
                           </TooltipTrigger>
@@ -262,7 +264,7 @@ export default function PrimeRow({ title, movies }: MovieRowProps) {
                                 px-2! py-2! rounded-lg border border-white/10
                                 pointer-events-none z-50 shadow-lg"
                             >
-                              More details about {movie.title}
+                              {t("moreDetails", { title: movie.title })}
                             </p>
                           </TooltipContent>
                         </Tooltip>

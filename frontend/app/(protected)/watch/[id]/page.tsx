@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
 import { useLanguage } from "@/hooks/use-language";
+import { useMovieDetail } from "@/hooks/use-movie-details";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
@@ -68,17 +69,30 @@ function preferredSubtitleLanguage(): string {
 export default function Watch() {
   const params   = useParams();
   const movieId  = params.id as string;
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const hlsRef   = useRef<Hls | null>(null);
+  const videoRef           = useRef<HTMLVideoElement>(null);
+  const hlsRef             = useRef<Hls | null>(null);
+  const resumeProgressRef  = useRef<number>(0);
 
   const { langCode } = useLanguage();
+  const { data: movieDetail } = useMovieDetail(movieId);
 
   const [subtitles,        setSubtitles]        = useState<SubtitleTrack[]>([]);
   const [streamingMovieId, setStreamingMovieId] = useState<number | null>(null);
   const [hlsUrl,           setHlsUrl]           = useState<string | null>(null);
   const [streamStatus,     setStreamStatus]     = useState<StreamStatus["status"]>("idle");
   const [streamError,      setStreamError]      = useState<string | null>(null);
-  const [movieTitle,       setMovieTitle]       = useState("Loading movie...");
+
+  // ── Step 0: fetch saved progress for resume ──────────────────────────────
+  useEffect(() => {
+    fetch(`${API}/history/${movieId}/progress/`, { credentials: "include" })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data && data.progress > 0 && data.progress < 95) {
+          resumeProgressRef.current = data.progress;
+        }
+      })
+      .catch(() => {});
+  }, [movieId]);
 
   // ── Step 1: resolve movie ID ──────────────────────────────────────────────
   // Archive movies return 202 while their metadata is still being fetched from
@@ -113,7 +127,6 @@ export default function Watch() {
         const data: StreamingResolve = await res.json();
         if (!cancelled) {
           setStreamingMovieId(data.movie_id);
-          setMovieTitle(data.title);
         }
       } catch {
         if (!cancelled) setStreamError("Could not connect to the streaming server.");
@@ -229,7 +242,64 @@ export default function Watch() {
     };
   }, [streamingMovieId, hlsUrl, langCode]);
 
-  // ── Step 4: attach HLS to <video> ────────────────────────────────────────
+  // ── Step 4: track and persist watch progress ─────────────────────────────
+  // Saves to POST /history/<movieId>/progress/ every 15 s, on pause, and on unload.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !hlsUrl) return;
+
+    let lastSaved = -1;
+
+    function computeProgress(): number {
+      if (!video || !video.duration || video.duration === Infinity) return 0;
+      return Math.min(100, (video.currentTime / video.duration) * 100);
+    }
+
+    function saveProgress(progress: number) {
+      const rounded = Math.round(progress);
+      if (rounded === lastSaved) return;
+      lastSaved = rounded;
+      console.log("Saving watch progress for movie", streamingMovieId, ":", rounded + "%");
+      fetch(`${API}/history/${movieId}/progress/`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ progress: rounded }),
+      }).catch(() => {});
+    }
+
+    let throttleTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function onTimeUpdate() {
+      if (throttleTimer) return;
+      throttleTimer = setTimeout(() => {
+        throttleTimer = null;
+        saveProgress(computeProgress());
+      }, 15_000);
+    }
+
+    function onPause() {
+      if (throttleTimer) { clearTimeout(throttleTimer); throttleTimer = null; }
+      saveProgress(computeProgress());
+    }
+
+    function onUnload() {
+      saveProgress(computeProgress());
+    }
+
+    video.addEventListener("timeupdate", onTimeUpdate);
+    video.addEventListener("pause", onPause);
+    window.addEventListener("beforeunload", onUnload);
+
+    return () => {
+      if (throttleTimer) clearTimeout(throttleTimer);
+      video.removeEventListener("timeupdate", onTimeUpdate);
+      video.removeEventListener("pause", onPause);
+      window.removeEventListener("beforeunload", onUnload);
+    };
+  }, [hlsUrl, movieId]);
+
+  // ── Step 5: attach HLS to <video> ────────────────────────────────────────
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !hlsUrl) return;
@@ -244,6 +314,14 @@ export default function Watch() {
       hls.attachMedia(video);
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         video.play().catch(e => console.warn("[Watch] autoplay blocked:", e));
+        const seekTo = () => {
+          const p = resumeProgressRef.current;
+          if (p > 0 && video.duration > 0) {
+            video.currentTime = (p / 100) * video.duration;
+          }
+        };
+        if (video.readyState >= 1) seekTo();
+        else video.addEventListener("loadedmetadata", seekTo, { once: true });
       });
       hls.on(Hls.Events.ERROR, (_, data) => {
         if (data.fatal) {
@@ -255,6 +333,10 @@ export default function Watch() {
       // Safari native HLS
       video.src = hlsUrl;
       video.addEventListener("loadedmetadata", () => {
+        const p = resumeProgressRef.current;
+        if (p > 0 && video.duration > 0) {
+          video.currentTime = (p / 100) * video.duration;
+        }
         video.play().catch(() => {});
       }, { once: true });
     }
@@ -265,7 +347,7 @@ export default function Watch() {
     };
   }, [hlsUrl]);
 
-  // ── Step 5: activate the preferred-language subtitle track ──────────────────
+  // ── Step 6: activate the preferred-language subtitle track ──────────────────
   // Priority: user's langCode → English fallback → first available track.
   // Depends on both `subtitles` (new tracks may have been added) and `langCode`
   // (user switched language — re-activate the right track without a page refresh).
@@ -376,7 +458,7 @@ export default function Watch() {
             <div className="flex flex-col md:flex-row md:items-start gap-4 md:gap-8">
               <div className="flex-1 min-w-0 !space-y-3">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                  <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{movieTitle}</h1>
+                  <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{movieDetail?.title ?? "..."}</h1>
                   <span className="text-text-muted/50 hidden md:inline">|</span>
                   <div className="flex items-center gap-2 text-white/40 text-sm">
                     <Calendar className="w-3.5 h-3.5" />-

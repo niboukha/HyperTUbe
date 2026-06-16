@@ -91,6 +91,22 @@
     "addToList": "Add to List",
     "left": "left"
   },
+  "Hero": {
+    "watchNow": "Watch Now",
+    "startWatching": "Start watching {title}",
+    "moreInfo": "more informations",
+    "moreDetails": "More details about {title}"
+  },
+  "History": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "last7Days": "Last 7 Days",
+    "last30Days": "Last 30 Days",
+    "older": "Older",
+    "empty": "No watch history yet.",
+    "hint": "Movies you start watching will appear here.",
+    "failed": "Failed to load watch history."
+  },
   "Badges": {
     "free": "FREE",
     "premium": "PREMIUM"

@@ -38,8 +38,7 @@ def format_runtime(runtime) -> str:
             h, mins, _ = map(int, parts)
             return f"{h}h {mins}m"
         if len(parts) == 2:
-            total, _ = map(int, parts)
-            h, mins  = divmod(total, 60)
+            h, mins = map(int, parts)
             return f"{h}h {mins}m"
     except ValueError:
         pass

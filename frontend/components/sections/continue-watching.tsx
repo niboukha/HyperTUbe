@@ -1,76 +1,40 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
+import { useRouter } from "next/navigation"
 import { MovieImage } from "@/components/ui/movie-image"
 import { Play, Plus } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { cardVariants } from "@/lib/annimations/continue-watching-variants"
-import { mapTrendingToContinueWatching } from "@/lib/mock-data"
 import CarouselPortal from "@/components/carousel/carousel-portal"
 import { useHoverPortal } from "@/components/carousel/use-hover-portal"
 import Carousel from "../carousel/carousel"
 import { CarouselSkeleton } from "../carousel/CarouselSkeleton"
 import { TooltipButton } from "../ui/tool-tip-button"
-import { Movie, MovieResult } from "@/types/search"
-import { getMovieDetails } from "@/lib/utils/fetchMovies"
 import { useTranslations } from "next-intl"
-
-type ContinueWatchingMovie = {
-  id: number
-  title: string
-  progress: number
-  poster_path?: string | null
-  backdrop_path?: string | null
-  duration?: string
-  remainingTime?: string
-  year?: string
-  rating?: number
-  availability: "free" | "premium"
-}
+import { useContinueWatching } from "@/hooks/use-continue-watching"
 
 export default function ContinueWatching() {
   const t = useTranslations("Sections")
   const tCommon = useTranslations("Common")
   const title = t("continueWatching")
+  const router = useRouter()
 
-  const [movies, setMovies] = useState<ContinueWatchingMovie[]>([])
-  const [loading, setLoading] = useState(true)
+  const { items, loading } = useContinueWatching()
   const { hover, clearHoverTimeout, handleMouseEnter, handleMouseLeave, getPortalStyle } = useHoverPortal()
 
-  useEffect(() => {
-    const fetch_ = async () => {
-      try {
-        const res = await fetch("/api/movies?type=trending")
-        const data = await res.json()
-        const results: Movie[] = Array.isArray(data) ? data : data?.results ?? []
-        setMovies(mapTrendingToContinueWatching(results))
-      } catch {
-        setMovies([])
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetch_()
-  }, [])
-
-  const hoveredMovie = hover !== null ? movies[hover.index] : null
-  const hoveredimagepath = hoveredMovie?.backdrop_path || hoveredMovie?.poster_path || null
-  const [duration, setDuration] = useState<string>("")
-
   if (loading) return <CarouselSkeleton title={title} />
+  if (items.length === 0) return null
+
+  const hoveredMovie = hover !== null ? items[hover.index] : null
 
   return (
     <>
       <Carousel title={title}>
-        {movies.map((movie, index) => {
+        {items.map((movie, index) => {
           const isHovered = hover?.index === index
           const imagePath = movie.backdrop_path ?? movie.poster_path ?? null
 
-          const image = imagePath
-            ? `https://image.tmdb.org/t/p/w780${imagePath}`
-            : null
           return (
             <motion.div
               key={movie.id}
@@ -80,6 +44,7 @@ export default function ContinueWatching() {
               style={{ zIndex: isHovered ? 50 : 1 }}
               onMouseEnter={(e) => handleMouseEnter(e, index)}
               onMouseLeave={handleMouseLeave}
+              onClick={() => router.push(`/watch/${movie.id}`)}
               animate={
                 hover && !isHovered
                   ? { filter: "brightness(0.8)" }
@@ -87,20 +52,18 @@ export default function ContinueWatching() {
               }
               transition={{ type: "spring", stiffness: 300, damping: 24, mass: 0.8 }}
             >
-              <div
-                className="relative w-60 md:w-65 aspect-video rounded-md overflow-hidden cursor-pointer"
-              >
-                {image ? (
+              <div className="relative w-60 md:w-65 aspect-video rounded-md overflow-hidden cursor-pointer">
+                {imagePath ? (
                   <MovieImage
-                    src={image}
-                    alt={title}
+                    src={imagePath}
+                    alt={movie.title}
                     fill
                     priority
                     sizes="360px"
                     className="object-cover transition-transform duration-500 group-hover:scale-105"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-background object-cover transition-transform duration-500 group-hover:scale-105">
+                  <div className="w-full h-full flex items-center justify-center bg-background">
                     <span className="text-white/15 text-4xl">🎬</span>
                   </div>
                 )}
@@ -120,34 +83,30 @@ export default function ContinueWatching() {
       {hoveredMovie && (
         <CarouselPortal
           hover={hover}
-          image={ hoveredimagepath ? `https://image.tmdb.org/t/p/w342${hoveredimagepath}` : null }
+          image={hoveredMovie.backdrop_path ?? hoveredMovie.poster_path ?? null}
           title={hoveredMovie.title}
-          year={hoveredMovie.year}
-          rating={hoveredMovie.rating}
-          availability={hoveredMovie.availability}
+          year={hoveredMovie.release_date?.slice(0, 4) ?? undefined}
+          rating={hoveredMovie.vote_average ?? undefined}
+          availability="free"
           getPortalStyle={getPortalStyle}
           onMouseEnter={clearHoverTimeout}
           onMouseLeave={handleMouseLeave}
           progress={hoveredMovie.progress}
           infoPanel={
             <div className="flex flex-col gap-1">
-              <div className="flex items-center gap-2 text-text-primary/50 text-xs">
-                <span>{hoveredMovie.remainingTime} {tCommon("left")}</span>
-              </div>
+              {hoveredMovie.runtimeLeft && (
+                <div className="flex items-center gap-2 text-text-primary/50 text-xs">
+                  <span>{hoveredMovie.runtimeLeft} {tCommon("left")}</span>
+                </div>
+              )}
               <div className="flex items-center gap-2 mt-1">
                 <TooltipButton
                   className="w-8 h-8 rounded-full bg-text-primary flex items-center justify-center hover:bg-text-primary/80 transition"
                   label={tCommon("play")}
+                  onClick={() => router.push(`/watch/${hoveredMovie.id}`)}
                 >
                   <Play className="h-4 w-4 text-background fill-background ml-0.5" />
                 </TooltipButton>
-                <TooltipButton
-                  className="w-8 h-8 rounded-full border border-text-primary/30 flex items-center justify-center hover:border-text-primary transition"
-                  label={tCommon("addToList")}
-                >
-                  <Plus className="h-4 w-4 text-text-primary" />
-                </TooltipButton>
-
                 <TooltipButton
                   className="ml-auto w-8 h-8 rounded-full border border-text-primary/30 flex items-center justify-center hover:border-text-primary text-text-muted transition bg-transparent text-[10px]!"
                   label={`${hoveredMovie.progress}% watched`}

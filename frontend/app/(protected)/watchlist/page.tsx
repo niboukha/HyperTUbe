@@ -30,40 +30,65 @@ function getGroupLabel(iso: string, t: ReturnType<typeof useTranslations<"Watchl
 export default function WatchlistPage() {
   const [movies,  setMovies]  = useState<(Movie & { _savedAt: string })[]>([]);
   const [loading, setLoading] = useState(true);
-  const { langCode } = useLanguage();
+  const { langCode, langReady } = useLanguage();
   const t = useTranslations("Watchlist");
 
   useEffect(() => {
+    if (!langReady) return;
     setLoading(true);
     setMovies([]);
+
     apiFetch("/watchlist/", { lang: langCode })
       .then(r => r.ok ? r.json() : { items: [] })
-      .then(data => {
-        const items = (data.items ?? []).map((entry: any) =>
-          ({
+      .then(async (data) => {
+        const entries: any[] = data.items ?? [];
+
+        // Enrich all movies with localized title/overview/images in parallel
+        const detailResults = await Promise.all(
+          entries.map((e: any) =>
+            apiFetch(`/movies/${e.movie_id}/`, { lang: langCode })
+              .then(r => r.ok ? r.json() : null)
+              .catch(() => null)
+          )
+        );
+        const detailMap = new Map(
+          entries.map((e: any, i: number) => [e.movie_id, detailResults[i]])
+        );
+
+        return entries.map(entry => {
+          const d = detailMap.get(entry.movie_id);
+          const e = d ? {
+            ...entry,
+            title:         d.title         || entry.title,
+            overview:      d.overview      || entry.overview,
+            poster_path:   d.poster_path   ?? entry.poster_path,
+            backdrop_path: d.backdrop_path ?? entry.backdrop_path,
+          } : entry;
+
+          return {
             ...normaliseTMDB(
               {
-                id:           entry.movie_id.replace(/^tmdb-/, ""),
-                title:        entry.title,
-                poster_path:  entry.poster_path,
-                release_date: entry.year ? `${entry.year}-01-01` : undefined,
-                vote_average: entry.rating ?? 0,
-                overview:     entry.overview ?? "",
-                backdrop_path: entry.backdrop_path ?? "",
-                availability: entry.movie_id.startsWith("tmdb-") ? "premium" : "free",
+                id:            e.movie_id.replace(/^tmdb-/, ""),
+                title:         e.title,
+                poster_path:   e.poster_path,
+                release_date:  e.year ? `${e.year}-01-01` : undefined,
+                vote_average:  e.rating ?? 0,
+                overview:      e.overview ?? "",
+                backdrop_path: e.backdrop_path ?? "",
+                availability:  e.movie_id.startsWith("tmdb-") ? "premium" : "free",
               },
               GENRE_MAP,
             ),
-            id:       entry.movie_id,
+            id:       e.movie_id,
             isSaved:  true,
-            _savedAt: entry.added_at ?? new Date().toISOString(),
-          })
-        );
-        setMovies(items);
+            _savedAt: e.added_at ?? new Date().toISOString(),
+          };
+        });
       })
+      .then(items => { if (!items) return; setMovies(items); })
       .catch(() => setMovies([]))
       .finally(() => setLoading(false));
-  }, [langCode]);
+  }, [langCode, langReady]);
 
   const toggleSave = useCallback((id: string) => {
     setMovies(prev => prev.filter(m => m.id !== id));

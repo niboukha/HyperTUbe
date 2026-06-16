@@ -27,9 +27,7 @@ function currentLangCode(): string {
 }
 
 export interface ApiFetchInit extends Omit<RequestInit, "headers"> {
-  /** Extra headers merged on top of Accept-Language. */
   headers?: Record<string, string>
-  /** Explicit language override; defaults to cookie / localStorage value. */
   lang?: string
 }
 

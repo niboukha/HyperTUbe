@@ -66,20 +66,21 @@ class _ArchivePending(Exception):
 def resolve_streaming_movie(movie_ref):
     movie_ref = str(movie_ref)
 
-    if str(movie_ref).isdigit():
+    # Numeric: DB pk lookup only — never create from a bare integer.
+    if movie_ref.isdigit():
         return (
             Movie.objects.filter(id=int(movie_ref)).first()
             or Movie.objects.filter(tmdb_id=movie_ref).first()
-            or create_streaming_movie_from_publicdomain(movie_ref)
-            or create_streaming_movie_from_archive(movie_ref)
         )
 
+    # Prefixed canonical lookup first, then create with canonical ID.
     local_movie = Movie.objects.filter(tmdb_id=movie_ref).first()
     if local_movie:
         return local_movie
 
     if movie_ref.startswith('archive-'):
         archive_id = movie_ref.removeprefix('archive-')
+        # Migration compat: find rows created before prefix enforcement.
         return (
             Movie.objects.filter(tmdb_id=archive_id).first()
             or create_streaming_movie_from_archive(archive_id)
@@ -92,6 +93,7 @@ def resolve_streaming_movie(movie_ref):
             or create_streaming_movie_from_publicdomain(publicdomain_id)
         )
 
+    # Bare string without a known prefix — assume archive.
     return (
         create_streaming_movie_from_archive(movie_ref)
         or create_streaming_movie_from_publicdomain(movie_ref)
@@ -128,7 +130,7 @@ def create_streaming_movie_from_archive(archive_id):
     release_date = _parse_release_year(detail.get('year') or detail.get('release_date'))
 
     movie, _ = Movie.objects.get_or_create(
-        tmdb_id=archive_id,
+        tmdb_id=f"archive-{archive_id}",
         defaults={
             'title': detail.get('title') or archive_id,
             'overview': detail.get('overview') or '',
@@ -158,7 +160,7 @@ def create_streaming_movie_from_publicdomain(publicdomain_id):
         return None
 
     movie, _ = Movie.objects.get_or_create(
-        tmdb_id=publicdomain_id,
+        tmdb_id=f"publicdomain-{publicdomain_id}",
         defaults={
             'title': detail.get('title') or publicdomain_id,
             'overview': detail.get('overview') or '',
@@ -187,8 +189,30 @@ def _parse_release_year(value):
 def _runtime_to_minutes(value):
     if not value:
         return None
-    digits = ''.join(ch for ch in str(value) if ch.isdigit())
-    return int(digits) if digits else None
+    s = str(value).strip()
+    # Plain integer — already in minutes (e.g. "74")
+    if s.isdigit():
+        return int(s)
+    # HH:MM:SS  or  H:MM:SS  or  H:MM
+    parts = s.split(":")
+    try:
+        if len(parts) == 3:
+            h, m, _ = map(int, parts)
+            return h * 60 + m
+        if len(parts) == 2:
+            h, m = map(int, parts)
+            return h * 60 + m
+    except ValueError:
+        pass
+    # "Xh Ym" / "Xh" / "Ym"  (e.g. from format_runtime output)
+    import re
+    hm = re.search(r"(\d+)\s*h", s, re.IGNORECASE)
+    mm = re.search(r"(\d+)\s*m", s, re.IGNORECASE)
+    hours = int(hm.group(1)) if hm else 0
+    mins  = int(mm.group(1)) if mm else 0
+    if hours or mins:
+        return hours * 60 + mins
+    return None
 
 
 class MovieStreamingResolveView(APIView):

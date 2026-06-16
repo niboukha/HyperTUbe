@@ -390,11 +390,138 @@ def watchlist_toggle(request):
     return Response({"in_watchlist": True})
 
 
+# ── History ────────────────────────────────────────────────────────────────────
+
+def _runtime_left(duration_mins, progress: float) -> str | None:
+    if duration_mins is None:
+        return None
+    remaining   = max(0, int(duration_mins * (1 - progress / 100)))
+    h, m        = divmod(remaining, 60)
+    return f"{h}h {m:02d}m"
+
+
+def _date_group(last_watched_at) -> str:
+    from django.utils import timezone
+    from datetime import timedelta
+    if last_watched_at is None:
+        return "Older"
+    today = timezone.now().date()
+    days_ago = (today - last_watched_at.date()).days
+    if days_ago == 0:
+        return "Today"
+    if days_ago == 1:
+        return "Yesterday"
+    if days_ago <= 7:
+        return "Last 7 Days"
+    if days_ago <= 30:
+        return "Last 30 Days"
+    return "Older"
+
+
+def _serialize_history_item(state) -> dict:
+    movie  = state.movie
+    genres = [mg.genre.name for mg in movie.moviegenre_set.all()]
+    return {
+        "id":            movie.tmdb_id,
+        "title":         movie.title,
+        "overview":      movie.overview or "",
+        "backdrop_path": movie.backdrop_url or movie.poster_url or None,
+        "poster_path":   movie.poster_url or None,
+        "genres":        genres,
+        "release_date":  str(movie.release_date) if movie.release_date else None,
+        "vote_average":  movie.rating,
+        "progress":      round(state.progress),
+        "runtimeLeft":   _runtime_left(movie.duration, state.progress),
+        "status":        state.status,
+    }
+
+
+@api_view(["GET"])
+def history_list(request):
+    """GET /history/ — authenticated user's watch history grouped by recency."""
+    from .models import UserMovieState
+
+    states = (
+        UserMovieState.objects
+        .filter(user=request.user, status__in=["watching", "completed"])
+        .select_related("movie")
+        .prefetch_related("movie__moviegenre_set__genre")
+        .order_by("-last_watched_at")
+    )
+
+    GROUP_ORDER = ["Today", "Yesterday", "Last 7 Days", "Last 30 Days", "Older"]
+    buckets: dict[str, list] = {g: [] for g in GROUP_ORDER}
+
+    for state in states:
+        group = _date_group(state.last_watched_at)
+        buckets[group].append(_serialize_history_item(state))
+
+    return Response([
+        {"group": g, "items": buckets[g]}
+        for g in GROUP_ORDER
+        if buckets[g]
+    ])
+
+
+@api_view(["DELETE"])
+def history_delete(request, movie_id: str):
+    """DELETE /history/<movie_id>/ — remove movie from history (preserves watchlist)."""
+    from .models import UserMovieState, Movie as MovieModel
+    try:
+        movie = MovieModel.objects.get(tmdb_id=movie_id)
+    except MovieModel.DoesNotExist:
+        return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    updated = (
+        UserMovieState.objects
+        .filter(user=request.user, movie=movie)
+        .update(status=None, progress=0, last_watched_at=None)
+    )
+    if not updated:
+        return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(["GET", "POST"])
+def history_progress(request, movie_id: str):
+    """GET/POST /history/<movie_id>/progress/ — fetch or update watch progress."""
+    from django.utils import timezone
+    from .models import UserMovieState, Movie as MovieModel
+
+    try:
+        movie = MovieModel.objects.get(tmdb_id=movie_id)
+    except MovieModel.DoesNotExist:
+        return Response({"error": "Movie not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == "GET":
+        try:
+            state = UserMovieState.objects.get(user=request.user, movie=movie)
+            return Response({"progress": round(state.progress or 0), "status": state.status})
+        except UserMovieState.DoesNotExist:
+            return Response({"progress": 0, "status": None})
+
+    try:
+        progress = float(request.data.get("progress", 0))
+    except (TypeError, ValueError):
+        return Response({"error": "progress must be a number"}, status=status.HTTP_400_BAD_REQUEST)
+
+    progress = max(0.0, min(100.0, progress))
+    watch_status = "completed" if progress >= 95 else "watching"
+
+    state, _ = UserMovieState.objects.get_or_create(user=request.user, movie=movie)
+    state.progress = progress
+    state.status = watch_status
+    state.last_watched_at = timezone.now()
+    state.save(update_fields=["progress", "status", "last_watched_at"])
+
+    return Response({"progress": round(progress), "status": watch_status})
+
+
 _PROXY_ALLOWED_HOSTS = {"archive.org"}
 
 _PROXY_FALLBACK_SVG = (
     '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="300" viewBox="0 0 200 300">'
-    '<rect width="200" height="300" fill="#111827"/>'
+    '<rect width="200" height="300" fill="#0E0E10"/>'
     '<g transform="translate(88,138)" stroke="#6b7280" stroke-width="2" fill="none"'
     ' stroke-linecap="round" stroke-linejoin="round">'
     '<rect width="24" height="24" x="0" y="0" rx="2"/>'

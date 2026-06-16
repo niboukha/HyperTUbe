@@ -94,18 +94,15 @@ async function init() {
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useLanguage() {
-  // Always start with "English" so the server-rendered HTML and the client's
-  // first render match.  The real cookie/localStorage value is applied in the
-  // first useEffect tick (after hydration), avoiding the mismatch entirely.
-  const [lang, setLangState] = useState<Language>("English")
+  const [lang,      setLangState] = useState<Language>("English")
+  const [langReady, setLangReady] = useState(false)
 
   useEffect(() => {
     let mounted = true
     const refresh = () => { if (mounted) setLangState(_lang) }
     _subs.add(refresh)
-    // Sync to whatever readInitial() resolved (cookie / localStorage) and
-    // then let init() update again once the /api/auth/me response arrives.
     setLangState(_lang)
+    setLangReady(true)
     init().then(() => { if (mounted) setLangState(_lang) })
     return () => { _subs.delete(refresh); mounted = false }
   }, [])
@@ -128,5 +125,5 @@ export function useLanguage() {
     } catch {}
   }
 
-  return { lang, setLang, langCode: LANG_CODE[lang] }
+  return { lang, setLang, langCode: LANG_CODE[lang], langReady }
 }

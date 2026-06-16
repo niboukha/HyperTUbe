@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "framer-motion"
 import { containerVariants, itemVariants } from "@/lib/annimations/hero-variants"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Play, Plus, Check, Flame, Star } from "lucide-react"
+import { Info, Plus, Check, Flame, Star } from "lucide-react"
 import { MovieResult } from "@/types/search"
 import { useWatchlistToggle } from "@/hooks/use-watchlist-toggle"
 import { truncateOverview } from "@/lib/utils/movie"
@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip"
 import { TMDB_GENRE_LABELS } from "@/lib/tmdb-genres"
 import { AvailabilityBadge } from "../ui/AvailabilityBadge"
 import Link from "next/link"
+import { useTranslations } from "next-intl"
 
 type HeroContentProps = {
   movie:          MovieResult
@@ -27,6 +28,7 @@ export function getGenreNames(ids?: number[]) {
 }
 
 export function HeroContent({ movie, activeSlide, runtime, runtimeLoading }: HeroContentProps) {
+  const t = useTranslations("Hero")
   const truncatedOverview = truncateOverview(movie.overview ?? "", 180)
   const { inWatchlist, toggle, loading } = useWatchlistToggle(movie)
 
@@ -101,14 +103,14 @@ export function HeroContent({ movie, activeSlide, runtime, runtimeLoading }: Her
                   size="lg"
                   className="bg-text-primary hover:bg-text-primary text-foreground font-semibold px-2! gap-2 rounded-md shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-110"
                 >
-                  <Play className="w-5 h-5 fill-current" />
-                  Watch Now
+                  <Info className="w-5 h-5" />
+                  {t("moreInfo")}
                 </Button>
               </Link>
             </TooltipTrigger>
             <TooltipContent>
               <p className="whitespace-nowrap text-sm font-medium text-background bg-white px-2! py-2! rounded-lg border border-white/10 pointer-events-none z-50 shadow-lg">
-                Start watching {movie.title}
+                {t("moreDetails", { title: movie.title })}
               </p>
             </TooltipContent>
           </Tooltip>

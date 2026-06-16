@@ -295,7 +295,7 @@ CORS_ALLOW_CREDENTIALS = True
 PYTHONUNBUFFERED=1
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME':  timedelta(hours=1),
+    'ACCESS_TOKEN_LIFETIME':  timedelta(hours=24),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     # 'AUTH_HEADER_TYPES':      ('Bearer',),
 }

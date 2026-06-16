@@ -62,12 +62,12 @@ class UserMovieState(models.Model):
         ("completed", "Completed"),
     )
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user  = models.ForeignKey(User, on_delete=models.CASCADE)
     movie = models.ForeignKey("Movie", on_delete=models.CASCADE)
 
-    is_saved = models.BooleanField(default=False)
+    is_saved    = models.BooleanField(default=False)
 
-    status = models.CharField(
+    status  = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
         null=True,
@@ -76,6 +76,7 @@ class UserMovieState(models.Model):
 
     progress        = models.FloatField(default=0)
     last_watched_at = models.DateTimeField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 

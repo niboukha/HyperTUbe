@@ -14,6 +14,7 @@ import {
   Zap,
 } from "lucide-react";
 import { AvailabilityBadge } from "../ui/AvailabilityBadge";
+import { PremiumModal } from "@/components/premium-modal";
 
 //tmp
 export type Movie = {
@@ -79,13 +80,18 @@ export function MovieCard({
 }: CardProps) {
   const router  = useRouter();
   const [imgErr, setImgErr] = useState(false);
+  const [premiumOpen, setPremiumOpen] = useState(false);
 
   const goWatch = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      router.push(`/watch/${movie.id}`);
+      if (movie.availability === "premium") {
+        setPremiumOpen(true);
+      } else {
+        router.push(`/watch/${movie.id}`);
+      }
     },
-    [movie.id, router],
+    [movie.id, movie.availability, router],
   );
 
   const toggleSave = useCallback(
@@ -101,6 +107,7 @@ export function MovieCard({
     : movie.backdrop || movie.poster || null;
 
   return (
+    <>
     <motion.div
       {...motionProps}
       style={portalStyle}
@@ -245,5 +252,11 @@ export function MovieCard({
             group-hover:ring-white/13 transition-all duration-300
         " /> */}
     </motion.div>
+    <PremiumModal
+      isOpen={premiumOpen}
+      onClose={() => setPremiumOpen(false)}
+      movieTitle={movie.title}
+    />
+          </>
   );
 }
