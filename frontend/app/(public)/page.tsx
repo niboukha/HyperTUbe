@@ -203,7 +203,7 @@ export default function Landing() {
                     drop-shadow-[0_3px_8px_rgba(0,0,0,0.5)]  "
                   >
                     <h2 className="title  text-4xl md:text-5xl lg:text-6xl font-meduim text-white uppercase leading-none tracking-tight  max-w-full font-[anton]!">
-                      {item.title}
+                      {item.title || "No title available"}
                     </h2>
                     
                     
@@ -256,7 +256,7 @@ export default function Landing() {
                       <motion.p 
                         variants={itemVariants} className=" text-text-muted text-sm! md:text-base max-w-140 line-clamp-3  md:line-clamp-4 max-h-70 ">
 
-                        {item.overview}
+                        {item.overview || "No description available"}
                         
                       </motion.p>
 

@@ -40,12 +40,12 @@ export default function History() {
 
   if (isEmpty) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-[#0E0E10]">
-        <p className="text-white/15 text-5xl mb-4!">🎬</p>
-        <p className="text-white/40 text-base font-medium">{t("empty")}</p>
-        <p className="text-white/20 text-sm mt-1!">{t("hint")}</p>
+      <div className="flex flex-col items-center justify-center min-h-screen flex-1 gap-3 py-32">
+        <span className="text-white/40 text-4xl">🎬</span>
+        <p className="text-white/40 text-sm">{t("empty")}</p>
+        <p className="text-white/25 text-xs">{t("hint")}</p>
       </div>
-    )
+  )
   }
 
   return (

@@ -30,7 +30,7 @@ export default function SettingsLayout({
 
       <div className="fixed inset-0 flex items-center justify-center">
 
-        <div className="w-full max-w-4xl mx-4 flex overflow-hidden">
+        <div className="w-full max-w-4xl  mx-4! flex overflow-hidden">
 
           {/* SIDEBAR CARD */}
           <Card className="w-[114px] h-[536px] bg-[#151515] border-r border-[#333333] rounded-none bg-[#151515]/70">
@@ -50,7 +50,7 @@ export default function SettingsLayout({
                     onClick={() => router.push("/settings/security")}
                     className={`relative inline-block w-full py-1.5! text-sm font-medium transition ${
                         activeTab === "security"
-                            ? "text-white font-bold after:content-[''] after:absolute after:left-1/2 after:-translate-x-1/2 after:bottom-1 after:w-6 after:h-[2px] after:bg-[#BD0404]"
+                            ? "text-white font-bold after:content-[''] after:absolute after:left-1/2 after:-translate-x-1/2 after:bottom-1 after:w-6! after:h-[2px] after:bg-[#BD0404]"
                             : "text-gray-400"
                         }`}
                 >

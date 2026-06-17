@@ -26,7 +26,7 @@ export default function FeedbackForm({ onSubmit }: FeedbackFormProps) {
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!comment.trim() || rating === 0) {
+    if (!comment.trim()) {
       alert(t('fillAllFields'))
       return
     }

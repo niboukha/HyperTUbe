@@ -17,7 +17,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
     return (
       <div>
         {label && (
-          <label className="block text-sm font-medium text-gray-300 mb-2">
+          <label className="block text-sm font-medium text-gray-300 mb-1!">
             {label}
           </label>
         )}
@@ -26,7 +26,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
             ref={ref}
             type={showPassword ? 'text' : 'password'}
             placeholder="Password"
-            className={`bg-[#333333] border-0 text-white placeholder:text-gray-400 py-5! px-4! text-base focus:ring-red-500 focus:border-red-500 ${showToggle ? 'pr-10' : ''} ${className}`}
+            className={`bg-[#333333] border-0 text-sm!  text-white placeholder:text-gray-400 py-5! px-4!  focus:ring-red-500 focus:border-red-500 ${showToggle ? 'pr-10!' : ''} ${className}`}
             {...props}
           />
           {showToggle && (
@@ -36,9 +36,9 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
               className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300 px-2!"
             >
               {showPassword ? (
-                <EyeOff className="w-5 h-5" />
+                <EyeOff className=" w-4! h-4!  md:w-5! md:h-5!" />
               ) : (
-                <Eye className="w-5 h-5" />
+                <Eye className="w-4! h-4! md:w-5! md:h-5!" />
               )}
             </button>
           )}

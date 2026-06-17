@@ -12,7 +12,7 @@ class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=6)
     first_name = serializers.CharField(required=True)
     last_name = serializers.CharField(required=True, allow_blank=False,min_length=3)
-    email = serializers.EmailField(required=True,allow_blank=False,min_length=3)
+    email = serializers.EmailField(required=True,allow_blank=False)
 
     class Meta:
         model = User
@@ -30,7 +30,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         try:
             validate_password(value)
         except ValidationError as e:
-            raise serializers.ValidationError(list(e.messages))
+            raise serializers.ValidationError("The password is not stong")
 
         return value
     def create(self, validated_data):
@@ -70,7 +70,7 @@ class PasswordSerializer(serializers.Serializer):
             validate_password(data["password"])
         except ValidationError as e:
             raise serializers.ValidationError(
-                {"new_password": list(e.messages)}
+                {"error":"The password is not stong"}
             )
 
         return data

@@ -41,7 +41,11 @@
     "changeImage": "Cambiar imagen",
     "oldPassword": "Contraseña antigua",
     "newPassword": "Nueva contraseña",
-    "confirmNewPassword": "Confirmar contraseña"
+    "confirmNewPassword": "Confirmar contraseña",
+    "firstname_placeholder": "Ingresa el nombre",
+    "lastname_placeholder": "Ingresa el apellido",
+    "username_placeholder": "Ingresa el nombre de usuario",
+    "email_placeholder": "Ingresa el correo electrónico"
   },
   "Auth": {
     "signIn": "Iniciar sesión",

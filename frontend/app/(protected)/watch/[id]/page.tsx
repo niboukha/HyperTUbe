@@ -405,7 +405,7 @@ export default function Watch() {
   }, [subtitles, langCode]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center !px-4 lg:!px-16 !space-y-4 !mt-15 !mb-15">
+    <div className="min-h-screen flex flex-col items-center !px-4 lg:!px-16 !space-y-4 !mt-15 !mb-15 ">
       <div className="!mt-10 w-full h-full flex flex-col items-center justify-center">
         <div className="h-[70vh] max-h-[70vh]">
           <div className="relative h-full w-full rounded-md border border-white/[0.07] bg-black">
@@ -418,7 +418,7 @@ export default function Watch() {
               crossOrigin="anonymous"
               width="100%"
               height="100%"
-              className="rounded-md h-full w-full"
+              className="rounded-md h-full w-full md:w-4xl   "
             >
               {subtitles.map((subtitle, index) => {
                 const hasPreferredLang = subtitles.some(s => s.language === langCode);

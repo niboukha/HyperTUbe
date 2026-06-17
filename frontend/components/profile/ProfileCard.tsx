@@ -156,7 +156,7 @@ export function ProfileCard({ userId }: Props) {
 
   return (
     <Card className="flex-1 bg-[#151515] rounded-md border-0 bg-[#151515]/70">
-      <CardContent className="p-8! sm:p-12!">
+      <CardContent className="p-8! md:p-7!">
 
         {/* Avatar */}
         <div className="flex justify-center mb-10!">
@@ -173,10 +173,10 @@ export function ProfileCard({ userId }: Props) {
             htmlFor={isReadOnly ? undefined : "avatarUpload"}
             className={isReadOnly ? "cursor-default" : "cursor-pointer"}
           >
-            <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#2a2a2a] relative group">
+            <div className="w-32! h-32! rounded-full overflow-hidden border-4 border-[#2a2a2a] relative group">
               {loading ? (
                 <div className="w-full h-full flex items-center justify-center bg-[#2a2a2a]">
-                  <Loader2 className="w-6 h-6 text-white/40 animate-spin" />
+                  <Loader2 className="w-6! h-6! text-white/40 animate-spin" />
                 </div>
               ) : (
                 <img src={avatarSrc} alt="Profile avatar" className="w-full h-full object-cover" />
@@ -192,11 +192,12 @@ export function ProfileCard({ userId }: Props) {
         </div>
 
         {/* Form */}
-        <form className="space-y-4! px-35!" onSubmit={handleSave}>
+        <form className="space-y-3! md:space-y-4! md:px-35! " onSubmit={handleSave}>
           <div className="flex gap-2 justify-center">
             <div className="flex-1">
               <InputField
                 label={t("firstName")}
+                placeholder={t("firstname_placeholder")}
                 name="firstName"
                 value={formData.firstName}
                 onChange={handleChange}
@@ -207,6 +208,7 @@ export function ProfileCard({ userId }: Props) {
             <div className="flex-1">
               <InputField
                 label={t("lastName")}
+                placeholder={t("lastname_placeholder")}
                 name="lastName"
                 value={formData.lastName}
                 onChange={handleChange}
@@ -217,9 +219,10 @@ export function ProfileCard({ userId }: Props) {
           </div>
 
           <div className="flex justify-center">
-            <div className="w-full">
+            <div className="w-full ">
               <InputField
                 label={t("username")}
+                placeholder={t("username_placeholder")}
                 name="username"
                 value={formData.username}
                 onChange={handleChange}
@@ -234,6 +237,7 @@ export function ProfileCard({ userId }: Props) {
               <div className="w-full">
                 <InputField
                   label={t("email")}
+                  placeholder={t("email_placeholder")}
                   name="email"
                   type="email"
                   value={formData.email}
@@ -252,27 +256,27 @@ export function ProfileCard({ userId }: Props) {
               )}
               {success && (
                 <div className="flex items-center gap-2 text-green-400 text-sm">
-                  <Check className="w-4 h-4" />
+                  <Check className="w-4! h-4!" />
                   <span>Profile updated successfully</span>
                 </div>
               )}
 
-              <div className="flex justify-center gap-4 pt-4! px-35!">
+              <div className="flex justify-center gap-4 pt-6!">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={handleCancel}
                   disabled={!isDirty || saving}
-                  className="border-[#444444] bg-transparent text-white hover:bg-[#1f1f1f] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed min-w-[130px] rounded-sm transition-colors"
+                  className="border-[#444444] px-4! bg-transparent text-white hover:bg-[#1f1f1f] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed md:w-[130px] rounded-sm transition-colors"
                 >
                   {t("cancel")}
                 </Button>
                 <Button
                   type="submit"
                   disabled={!isDirty || saving}
-                  className="bg-[#BD0404] hover:bg-[#9c0303] text-white border-0 rounded-sm min-w-[130px] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="bg-[#BD0404] px-4! hover:bg-[#9c0303] text-white border-0 rounded-sm md:w-[130px] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : t("saveChanges")}
+                  {saving ? <Loader2 className="w-4! h-4! animate-spin" /> : t("saveChanges")}
                 </Button>
               </div>
             </>

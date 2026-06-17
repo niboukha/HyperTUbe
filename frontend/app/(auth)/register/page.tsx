@@ -102,7 +102,7 @@ export default function SignUpPage() {
                   placeholder={t("emailPlaceholder")}
                   value={email}
                   onChange={(e: any) => setEmail(e.target.value)}
-                  type='email'
+                  type='text'
                   className="w-full rounded-md bg-[#333333] text-white placeholder:text-gray-500 border-0 py-5.5! px-4!"
                 />
 

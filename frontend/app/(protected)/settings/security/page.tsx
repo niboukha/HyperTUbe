@@ -88,17 +88,17 @@ export default function SecurityPage() {
 
   return (
     <Card className="flex-1 bg-[#151515] rounded-md border-0 bg-[#151515]/70">
-      <CardContent className="p-8! sm:p-12!">
+      <CardContent className="p-8! md:p-7!">
 
         {/* Avatar */}
-        <div className="flex justify-center mb-10">
-          <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#2a2a2a]">
+        <div className="flex justify-center mb-10!">
+          <div className="w-32! h-32! rounded-full overflow-hidden border-4 border-[#2a2a2a]">
             <img src={avatar} alt="Profile avatar" className="w-full h-full object-cover" />
           </div>
         </div>
 
         {/* Form */}
-        <form className="space-y-4! mt-4! px-50!" onSubmit={handleSave}>
+        <form className="space-y-3! md:space-y-4! mt-4!  md:px-35! lg:px-55!" onSubmit={handleSave}>
           <div className="flex justify-center">
             <div className="w-full">
               <PasswordInput
@@ -143,27 +143,27 @@ export default function SecurityPage() {
           )}
           {success && (
             <div className="flex items-center gap-2 text-green-400 text-sm">
-              <Check className="w-4 h-4" />
+              <Check className="w-4! h-4!" />
               <span>Password updated successfully.</span>
             </div>
           )}
 
-          <div className="flex justify-center gap-8 mt-6!">
+          <div className="flex justify-center gap-4 md:gap-8 mt-6!">
             <Button
               type="button"
               variant="outline"
               onClick={handleCancel}
               disabled={!isDirty || saving}
-              className="border-[#444444] bg-transparent text-white hover:bg-[#1f1f1f] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed min-w-[130px] rounded-sm transition-colors"
+              className="border-[#444444] px-4! bg-transparent text-white hover:bg-[#1f1f1f] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed md:w-[130px] rounded-sm transition-colors"
             >
               {t("cancel")}
             </Button>
             <Button
               type="submit"
               disabled={!isDirty || saving}
-              className="bg-[#BD0404] hover:bg-[#9c0303] text-white border-0 rounded-sm min-w-[130px] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="bg-[#BD0404] px-4! hover:bg-[#9c0303] text-white border-0 rounded-sm md:w-[130px] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : t("saveChanges")}
+              {saving ? <Loader2 className="w-4! h-4! animate-spin" /> : t("saveChanges")}
             </Button>
           </div>
         </form>

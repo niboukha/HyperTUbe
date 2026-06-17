@@ -310,3 +310,20 @@ REST_AUTH = {
 # Celery Configuration Options
 # CELERY_BROKER_URL = 'redis://redis:6379/0'
 # CELERY_RESULT_BACKEND = 'redis://redis:6379/0'
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'SCOPE': [
+            'profile',
+            'email',  # <-- this is missing
+        ],
+        'AUTH_PARAMS': {
+            'access_type': 'online',
+        }
+    },
+    'github': {
+        'SCOPE': [
+            'user',        # basic profile
+            'user:email',  # <-- gives access to email even if private
+        ],
+    }
+}

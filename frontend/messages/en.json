@@ -41,7 +41,11 @@
     "changeImage": "Change image",
     "oldPassword": "Old Password",
     "newPassword": "New Password",
-    "confirmNewPassword": "Confirm New Password"
+    "confirmNewPassword": "Confirm New Password",
+    "firstname_placeholder": "Enter firstname",
+    "lastname_placeholder": "Enter lastname",
+    "username_placeholder": "Enter username",
+    "email_placeholder": "Enter email"
   },
   "Auth": {
     "signIn": "Sign In",

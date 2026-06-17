@@ -181,7 +181,6 @@ export default function VedioDetails()
   useEffect(() => {
     if (!movie || !["archive", "publicdomain"].includes(movie.source)) return;
 
-    console.log("--------> Resolving streaming for movie", movie.id)
     
     fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/streaming/resolve/${movie.id}/`, {
       credentials: "include",
@@ -472,13 +471,9 @@ export default function VedioDetails()
                   :
                   (
                       <div className="flex flex-col h-full items-center  justify-center py-16 px-8 gap-3 ">
-                        <p className="text-4xl">🎬</p>
-                        <p className="text-white/60 text-sm font-medium font-[poppins]">
-                          {t("noReviewsYet")}
-                        </p>
-                        <p className="text-white/20 text-xs text-center">
-                          {t("noReviewsHint")}
-                        </p>
+                          <span className="text-white/40 text-4xl">🎬</span>
+                          <p className="text-white/40 text-sm"> {t("noReviewsYet")}</p>
+                          <p className="text-white/25 text-xs">{t("noReviewsHint")}</p>
                       </div>
                   )
                 }
