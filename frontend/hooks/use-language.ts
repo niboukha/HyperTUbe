@@ -34,7 +34,7 @@ function persist(lang: Language) {
 }
 
 // Read initial language synchronously from cookie → localStorage → default.
-// This eliminates the English "flash" before the /auth/me response arrives.
+// This eliminates the English "flash" before the /auth/profile response arrives.
 function readInitial(): Language {
   const code = readCookie() || readStorage()
   return CODE_LANG[code] ?? "English"
@@ -50,7 +50,7 @@ function notify() { _subs.forEach(fn => fn()) }
 
 /**
  * Reset the initialisation flag so the next useLanguage mount re-fetches
- * the user's language preference from /auth/me.
+ * the user's language preference from /auth/profile.
  * Call this after a successful login (SPA flow) or after OAuth redirect.
  */
 export function resetLanguageState() {
@@ -74,7 +74,7 @@ async function init() {
   if (readCookie() || readStorage()) return
 
   try {
-    const res = await fetch(`${API}/auth/me`, {
+    const res = await fetch(`${API}/auth/profile`, {
       credentials: "include",
       cache:       "no-store",
       headers:     { "Accept-Language": LANG_CODE[_lang] },
@@ -112,7 +112,7 @@ export function useLanguage() {
     persist(next)
     notify()
     try {
-      await fetch(`${API}/auth/me/language`, {
+      await fetch(`${API}/users/profile/language`, {
         method:       "PATCH",
         credentials:  "include",
         cache:        "no-store",

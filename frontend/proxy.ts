@@ -13,7 +13,7 @@ export async function proxy(request: NextRequest) {
 
   if (token) {
     try {
-      const res = await fetch('http://localhost:8000/auth/me', {
+      const res = await fetch('http://localhost:8000/auth/profile', {
         method: 'GET',
         headers: {
           Cookie: request.headers.get('cookie') || '',

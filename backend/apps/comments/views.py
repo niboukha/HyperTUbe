@@ -1,82 +1,85 @@
-from urllib import request
-
-from django.shortcuts import render
 from rest_framework.response import Response
-from apps.users.models import UserProfile
-from apps.movies.models import Movie
-from rest_framework.decorators import api_view,permission_classes
-from rest_framework.response import Response
-from django.views.decorators.csrf import csrf_exempt
+from rest_framework.decorators import api_view
 from rest_framework import status
-from django.shortcuts import redirect
-from rest_framework.permissions import AllowAny
+from rest_framework.views import APIView
 from django.db.models import F
 
-from django.contrib.auth.models import User
-from rest_framework.views import APIView
-from .models import Comment
-from .models import CommentLike
-
-from rest_framework.permissions import IsAuthenticated  # ← change this
+from apps.users.models import UserProfile
+from .models import Comment, CommentLike
 
 
-
-
-# @api_view(["GET", "POST", "PATCH", "DELETE"])
 class CommentsView(APIView):
-    
-    def get(self, request,id):
-        
-        comments = Comment.objects.filter(movieId=id).order_by("-created_at")
-        liked_comment_ids = set(
+
+    def get(self, request, id=None):
+        liked_ids = set(
             CommentLike.objects
             .filter(user=request.user.userprofile)
-            .values_list('comment_id', flat=True)
+            .values_list("comment_id", flat=True)
         )
 
-        data = [
-            {
-                "id": c.id,
-                "username": c.user.user.username if hasattr(c.user, "user") else c.user.username,
-                "userId": c.user.id,
-                "content": c.content,
+        # GET /comments/:id — single comment
+        if id is not None:
+            try:
+                c = Comment.objects.get(id=id)
+            except Comment.DoesNotExist:
+                return Response({"error": "Comment not found"}, status=404)
+            return Response({
+                "id":         c.id,
+                "username":   c.user.username,
+                "userId":     c.user.id,
+                "comment":    c.content,
                 "created_at": c.created_at,
-                "stars" :c.stars,
-                "likes" :c.likes,
-                "isLiked":c.id in liked_comment_ids, 
+                "stars":      c.stars,
+                "likes":      c.likes,
+                "isLiked":    c.id in liked_ids,
+            })
 
+        # GET /comments/?movie_id=... — comments for a movie
+        # GET /comments/              — latest 20 globally
+        movie_id = request.query_params.get("movie_id")
+        qs = Comment.objects.filter(movieId=movie_id) if movie_id else Comment.objects.all()
+        comments = qs.order_by("-created_at")[:20]
+
+        return Response([
+            {
+                "id":         c.id,
+                "username":   c.user.username,
+                "userId":     c.user.id,
+                "comment":    c.content,
+                "created_at": c.created_at,
+                "stars":      c.stars,
+                "likes":      c.likes,
+                "isLiked":    c.id in liked_ids,
             }
             for c in comments
-        ]
-
-        return Response(data)
+        ])
 
     def post(self, request):
         movie_id = request.data.get("movie_id")
-        content = request.data.get("content")
+        content = request.data.get("comment")
         stars = request.data.get("stars", 0)
         user = UserProfile.objects.get(id=request.user.id)
         if not movie_id or not content:
-                return Response({"error": "there is missing data"}, status=400)
-        
+                return Response({"error": "movie_id and comment are required"}, status=400)
+
         comment = Comment.objects.create(
                 movieId=movie_id,
-                user=user,   # or UserProfile if you use that
+                user=user,
                 content=content,
-                stars=stars
-               
-        ) 
+                stars=stars   
+        )
+
         return Response({
                 "id": comment.id,
                 "username": comment.user.username,
-                "content": comment.content,
+                "comment": comment.content,
                 "stars": comment.stars,
                 "likes": 0,
                 "userId": user.id,
                 "isLiked": False,
                 "created_at": comment.created_at,
             }, status=201
-            )
+        )
     
     def delete(self, request, id):
         try:
@@ -109,22 +112,21 @@ class CommentsView(APIView):
                     {"error": "Not allowed"},
                     status=status.HTTP_403_FORBIDDEN
                 )
-            new_content = request.data.get("content")
-            new_stars = request.data.get("stars")
-            new_username = request.data.get("username")
+            new_content = request.data.get("comment")
+            new_stars   = request.data.get("stars")
 
             if new_content:
                 comment.content = new_content
-            if new_stars:
+            if new_stars is not None:
                 comment.stars = new_stars
-        
-            comment.save()   # ✅ was missing — content and stars never saved
-            
+
+            comment.save()
+
             return Response({
-                "message": "Comment updated successfully",
-                "content": comment.content,
-                "stars": comment.stars,
-                "username": comment.user.userprofile.username,
+                "id":       comment.id,
+                "comment":  comment.content,
+                "stars":    comment.stars,
+                "username": comment.user.username,
             }, status=status.HTTP_200_OK)
 
             

@@ -31,17 +31,19 @@ export function ProfileCard({ userId }: Props) {
   const [error,      setError]       = useState<string | null>(null);
   const [success,    setSuccess]     = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [ownId,      setOwnId]       = useState<string | null>(null);
   const successTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const url = userId
-      ? `${API}/api/users/${userId}/`
-      : `${API}/auth/me`;
+      ? `${API}/users/${userId}/`
+      : `${API}/auth/profile`;
 
     fetch(url, { credentials: "include" })
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (!data) return;
+        if (!userId && data.id) setOwnId(String(data.id));
         setFormData({
           avatar:    data.avatar ?? "",
           firstName: data.first_name ?? "",
@@ -92,7 +94,7 @@ export function ProfileCard({ userId }: Props) {
       if (pendingFile) {
         const form = new FormData();
         form.append("avatar", pendingFile);
-        const res = await fetch(`${API}/auth/me/avatar`, {
+        const res = await fetch(`${API}/users/profile/avatar`, {
           method: "POST",
           credentials: "include",
           body: form,
@@ -115,7 +117,7 @@ export function ProfileCard({ userId }: Props) {
       if (formData.email     !== original.email)     payload.email      = formData.email;
 
       if (Object.keys(payload).length > 0) {
-        const res = await fetch(`${API}/auth/me`, {
+        const res = await fetch(`${API}/users/${ownId}/`, {
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },

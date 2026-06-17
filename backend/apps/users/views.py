@@ -109,26 +109,14 @@ def _profile_response(profile, request_user, request=None):
     }
 
 
-@api_view(["GET", "PATCH"])
-def me(request):
+@api_view(["GET"])
+def profile(request):
     from .models import UserProfile
     try:
-        profile = UserProfile.objects.get(pk=request.user.pk)
+        user_profile = UserProfile.objects.get(pk=request.user.pk)
     except UserProfile.DoesNotExist:
-        profile = None
-
-    if request.method == "GET":
-        return Response(_profile_response(profile, request.user, request))
-
-    # PATCH — update profile fields
-    if profile is None:
-        return Response({"error": "Profile not found"}, status=404)
-
-    serializer = ProfileUpdateSerializer(profile, data=request.data, partial=True)
-    if serializer.is_valid():
-        updated = serializer.save()
-        return Response(_profile_response(updated, request.user, request))
-    return Response(serializer.errors, status=400)
+        user_profile = None
+    return Response(_profile_response(user_profile, request.user, request))
 
 
 @api_view(["POST"])
@@ -260,7 +248,6 @@ def settings_change_password(request):
         return Response({"message": "Password updated successfully."})
     return Response(serializer.errors, status=400)
 
-
 # logout
 @api_view(["POST"])
 @permission_classes([AllowAny])
@@ -273,24 +260,37 @@ def logout_view(request):
     return response
 
 
-@api_view(["GET"])
+@api_view(["GET", "PATCH"])
 def user_profile(request, pk):
     from .models import UserProfile
     try:
         profile = UserProfile.objects.get(pk=pk)
     except UserProfile.DoesNotExist:
         return Response({"error": "User not found"}, status=404)
+
+    if request.method == "PATCH":
+        if request.user.pk != pk:
+            return Response({"error": "You can only edit your own profile"}, status=403)
+        serializer = ProfileUpdateSerializer(profile, data=request.data, partial=True)
+        if serializer.is_valid():
+            updated = serializer.save()
+            return Response(_profile_response(updated, request.user, request))
+        return Response(serializer.errors, status=400)
+
     pic = profile.profile_picture or None
     if pic and not pic.startswith("http"):
         pic = request.build_absolute_uri(f"/media/{pic.lstrip('/')}")
-    return Response({
+    data = {
         "id":         str(profile.pk),
         "username":   profile.username,
         "first_name": profile.first_name,
         "last_name":  profile.last_name,
         "avatar":     pic,
         "language":   profile.language,
-    })
+    }
+    if request.user.pk == pk:
+        data["email"] = profile.email
+    return Response(data)
 
 
 from rest_framework.pagination import PageNumberPagination

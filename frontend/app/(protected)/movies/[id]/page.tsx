@@ -87,7 +87,7 @@ export default function VedioDetails()
 
   const handleEdit = async (
     review_id: string,
-    updated: { username: string; content: string; stars: number }
+    updated: { username: string; comment: string; stars: number }
   ) => {
     try {
       await fetch(`http://localhost:8000/comments/${review_id}/`, {
@@ -109,7 +109,7 @@ export default function VedioDetails()
   }
 
   useEffect(() => {
-    fetch('http://localhost:8000/auth/me', {
+    fetch('http://localhost:8000/auth/profile', {
       credentials: 'include',
     })
       .then(res => res.ok ? res.json() : null)
@@ -137,15 +137,15 @@ export default function VedioDetails()
     
     }
 
-  const postComment = async (content:any, stars:any) => {
+  const postComment = async (comment:any, stars:any) => {
     const response = await fetch(`http://localhost:8000/comments/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      credentials: "include", // sends session cookie
+      credentials: "include",
       body: JSON.stringify({
-        movie_id:movieId,content, stars:stars
+        movie_id: movieId, comment, stars,
       }),
     });
     const data = await response.json();
@@ -167,7 +167,7 @@ export default function VedioDetails()
 
   useEffect(()=>{
     const fetchComments = async () => {
-    const response = await fetch(`http://localhost:8000/comments/${movieId}/`, {
+    const response = await fetch(`http://localhost:8000/comments/?movie_id=${movieId}`, {
       credentials: "include",
     });
     const reviewsList = await response.json();

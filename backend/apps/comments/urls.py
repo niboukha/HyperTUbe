@@ -1,8 +1,8 @@
 from django.urls import path
-from .views import CommentsView,comments_likes
+from .views import CommentsView, comments_likes
 
 urlpatterns = [
-    path("<str:id>/like", comments_likes,name="comments_likes"),
-    path("<str:id>/", CommentsView.as_view()),
-    path("", CommentsView.as_view()),
+    path("",              CommentsView.as_view(),  name="comments-list"),
+    path("<int:id>/",     CommentsView.as_view(),  name="comment-detail"),
+    path("<int:id>/like", comments_likes,          name="comment-like"),
 ]

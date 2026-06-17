@@ -14,18 +14,18 @@ interface ReviewsListProps {
   currentUserId?: Number  | null     // add this to your props
   onLike: (review_id: string) => void
   onDelete: (review_id: string) => void
-  onEdit: (review_id: string, updated: { username: string; content: string; stars: number }) => void
+  onEdit: (review_id: string, updated: { username: string; comment: string; stars: number }) => void
 }
 
 export default function ReviewsList({ reviews, currentUserId, onLike, onDelete, onEdit }: ReviewsListProps) {
   const t = useTranslations('Reviews')
   const locale = useLocale()
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [draft, setDraft] = useState({ username: '', content: '', stars: 0 })
+  const [draft, setDraft] = useState({ username: '', comment: '', stars: 0 })
 
   const startEdit = (review: Review) => {
     setEditingId(review.id)
-    setDraft({ username: review.username, content: review.content, stars: review.stars })
+    setDraft({ username: review.username, comment: review.comment, stars: review.stars })
   }
 
   const cancelEdit = () => setEditingId(null)
@@ -102,13 +102,13 @@ export default function ReviewsList({ reviews, currentUserId, onLike, onDelete, 
                 {/* Content */}
                 {isEditing ? (
                   <textarea
-                    value={draft.content}
-                    onChange={(e) => setDraft((d) => ({ ...d, content: e.target.value }))}
+                    value={draft.comment}
+                    onChange={(e) => setDraft((d) => ({ ...d, comment: e.target.value }))}
                     rows={3}
                     className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-white/80 text-sm leading-relaxed resize-none focus:outline-none focus:border-white/30"
                   />
                 ) : (
-                  <p className="text-white/70 text-sm leading-relaxed">{review.content}</p>
+                  <p className="text-white/70 text-sm leading-relaxed">{review.comment}</p>
                 )}
 
                 <div className="flex items-center justify-between gap-2 pt-1">

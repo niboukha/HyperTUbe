@@ -23,7 +23,7 @@ export default function SecurityPage() {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    fetch(`${API}/auth/me`, { credentials: "include" })
+    fetch(`${API}/auth/profile`, { credentials: "include" })
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data?.avatar) setAvatar(data.avatar) })
       .catch(() => {});
