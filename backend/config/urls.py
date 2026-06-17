@@ -30,9 +30,9 @@ from allauth.socialaccount.providers.github.views import GitHubOAuth2Adapter
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('apps.movies.urls')),
-    path('api/streaming/', include('apps.streaming.urls')),
+    path('streaming/', include('apps.streaming.urls')),
 
-    path("api/auth/", include("apps.users.urls")),
+    path("auth/", include("apps.users.urls")),
 
     # Custom JWT callbacks — must be registered BEFORE allauth.urls
     path("accounts/google/login/callback/", JWTOAuth2CallbackView.adapter_view(GoogleOAuth2Adapter)),
@@ -47,9 +47,8 @@ urlpatterns = [
     path("users/", UserSearchView.as_view(), name="user-search"),
     path("api/users/<int:pk>/", user_profile, name="user-profile"),
 
-
     path('comments/', include("apps.comments.urls")),
-    path('api/streaming/', include("apps.streaming.urls")),
+    path('streaming/', include("apps.streaming.urls")),
 ]
 
 if settings.DEBUG:

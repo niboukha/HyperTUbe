@@ -65,7 +65,8 @@ def start_ffmpeg(video_file, hls_dir, movie_id, torrent, codec_args):
         '-err_detect', 'ignore_err',
         '-i', video_file,
         *codec_args,
-        '-avoid_negative_ts', 'make_zero',
+        '-avoid_negative_ts',
+        'make_zero',
         '-f', 'hls',
         '-hls_time', '4',
         '-hls_list_size', '0',
@@ -78,7 +79,6 @@ def start_ffmpeg(video_file, hls_dir, movie_id, torrent, codec_args):
 
         # Original version:
         # subprocess.Popen(cmd)
-        # wait_for_segments(hls_dir)
         
         # Why it is commented:
         # with torrent files, the first few HLS segments can appear while the
@@ -86,10 +86,11 @@ def start_ffmpeg(video_file, hls_dir, movie_id, torrent, codec_args):
         # was still marked "ready" and the frontend received a broken playlist.
         # The safer version waits for FFmpeg to exit successfully before marking
         # the stream ready.
-        subprocess.run(cmd, check=True)
+        subprocess.Popen(cmd)
+        wait_for_segments(hls_dir)
 
-        if not playlist_is_complete(playlist_path):
-            raise RuntimeError('FFmpeg finished but HLS playlist is incomplete')
+        # if not playlist_is_complete(playlist_path):
+        #     raise RuntimeError('FFmpeg finished but HLS playlist is incomplete')
 
         torrent.status = 'ready'
         torrent.hls_path = playlist_path

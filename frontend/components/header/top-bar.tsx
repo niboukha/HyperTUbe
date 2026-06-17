@@ -35,7 +35,7 @@ export default function TopBar() {
   const desktopControlsClass = isLibrary ? "hidden xl:flex items-center" : "hidden md:flex items-center"
   const handleLogout = async () => {
   try {
-    await fetch("http://localhost:8000/api/auth/logout", {
+    await fetch("http://localhost:8000/auth/logout", {
       method: "POST",
       credentials: "include", // send cookies
     });

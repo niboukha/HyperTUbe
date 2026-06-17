@@ -28,7 +28,7 @@ export default function ProfileMenu({ onOpen, user }: Props) {
 
   const handleLogout = async () => {
     try {
-      await fetch('http://localhost:8000/api/auth/logout', {
+      await fetch('http://localhost:8000/auth/logout', {
         method: 'POST',
         credentials: 'include', // IMPORTANT for cookies
       })

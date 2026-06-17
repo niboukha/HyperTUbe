@@ -18,7 +18,7 @@ export function useCurrentUser() {
   const [user, setUser] = useState<CurrentUser | null>(null)
 
   useEffect(() => {
-    fetch(`${API}/api/auth/me`, { credentials: "include" })
+    fetch(`${API}/auth/me`, { credentials: "include" })
       .then(r => r.ok ? r.json() : null)
       .then(data => setUser(data))
       .catch(() => setUser(null))

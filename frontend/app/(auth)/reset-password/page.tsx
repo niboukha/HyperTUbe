@@ -33,7 +33,7 @@ export default function ResetPasswordPage() {
     setError(null)
 
     try {
-      const res = await fetch("http://localhost:8000/api/auth/password-confirm", {
+      const res = await fetch("http://localhost:8000/auth/password-confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

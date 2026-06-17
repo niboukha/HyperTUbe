@@ -36,7 +36,7 @@ export function ProfileCard({ userId }: Props) {
   useEffect(() => {
     const url = userId
       ? `${API}/api/users/${userId}/`
-      : `${API}/api/auth/me`;
+      : `${API}/auth/me`;
 
     fetch(url, { credentials: "include" })
       .then(r => r.ok ? r.json() : null)
@@ -92,7 +92,7 @@ export function ProfileCard({ userId }: Props) {
       if (pendingFile) {
         const form = new FormData();
         form.append("avatar", pendingFile);
-        const res = await fetch(`${API}/api/auth/me/avatar`, {
+        const res = await fetch(`${API}/auth/me/avatar`, {
           method: "POST",
           credentials: "include",
           body: form,
@@ -115,7 +115,7 @@ export function ProfileCard({ userId }: Props) {
       if (formData.email     !== original.email)     payload.email      = formData.email;
 
       if (Object.keys(payload).length > 0) {
-        const res = await fetch(`${API}/api/auth/me`, {
+        const res = await fetch(`${API}/auth/me`, {
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },

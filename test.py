@@ -1,190 +1,87 @@
-"use client";
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { InputField } from "@/components/auth/InputField";
-import { Upload, Check } from "lucide-react";
 
-export default function ProfilePage() {
-  const [formData, setFormData] = useState({
-    avatar:
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop",
-    firstName: "Kaoutar",
-    lastName: "Ibm",
-    username: "kel-baami",
-    email: "kel-baami@gmail.com",
-  });
+class MovieStreamView(APIView):
+    """
+    HLS Streaming endpoint
 
-  const [isDirty, setIsDirty] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
+    GET /streaming/{movie_id}/stream/  → Return stream status + HLS playlist URL when ready
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    Logic:
+    1. Movie downloaded + HLS exists  → return ready + playlist URL
+    2. Movie being downloaded         → return current status
+    3. Not started                    → trigger download task + return downloading status
+    4. Stale ready state              → reset + re-trigger download
+    """
 
-    const imageUrl = URL.createObjectURL(file);
-    setFormData((prev) => ({
-      ...prev,
-      avatar: imageUrl,
-    }));
-    setIsDirty(true);
-  };
+    def get(self, request, movie_id):
+        from .tasks import download_and_segment
+        try:
+            try:
+                movie = Movie.objects.get(id=movie_id)
+            except Movie.DoesNotExist:
+                logger.warning("Movie %s does not exist", movie_id)
+                return Response({'detail': 'Movie not found'}, status=404)
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-    setIsDirty(true);
-  };
+            try:
+                torrent = Torrent.objects.get(movie=movie)
+            except Torrent.DoesNotExist:
+                torrent = Torrent.objects.create(movie=movie, status='idle')
+                print(f'[Streaming] Created torrent row for movie={movie_id}')
 
-  const handleCancel = () => {
-    setFormData({
-      avatar:
-        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop",
-      firstName: "Kaoutar",
-      lastName: "Ibm",
-      username: "kel-baami",
-      email: "kel-baami@gmail.com",
-    });
-    setIsDirty(false);
-    setSaveSuccess(false);
-  };
+            torrent.last_accessed_at = timezone.now()
+            torrent.save(update_fields=['last_accessed_at'])
 
-  const handleSave = () => {
-    console.log("Saving profile:", formData);
-    setSaveSuccess(true);
-    setIsDirty(false);
-    setTimeout(() => setSaveSuccess(false), 3000);
-  };
+            has_subs = movie.subtitles.exists()
+            print(f'[Streaming] Movie {movie_id} | torrent_status={torrent.status} | has_subtitles={has_subs}')
 
-  return (
-    <div className="flex items-center justify-center min-h-screen bg-[#0a0a0a] p-4">
-      <Card className="w-full max-w-[600px] bg-[#151515] border-0 rounded-sm">
-        <CardContent className="p-8 sm:p-12">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-2xl sm:text-3xl font-semibold text-white mb-1">
-              Profile Settings
-            </h1>
-            <p className="text-sm text-gray-400">
-              Manage your account information and preferences
-            </p>
-          </div>
+            if torrent.status == "ready":
+                hls_exists = bool(torrent.hls_path and os.path.exists(torrent.hls_path))
+                video_exists = bool(torrent.video_path and os.path.exists(torrent.video_path))
 
-          {/* Avatar Section */}
-          <div className="mb-10 flex justify-center">
-            <input
-              type="file"
-              accept="image/*"
-              id="avatarUpload"
-              className="hidden"
-              onChange={handleAvatarChange}
-            />
+                # if not hls_exists:
+                #     print(
+                #         '[Streaming] Stale ready torrent detected; media files are missing. '
+                #         f'movie_id={movie_id} hls_path={torrent.hls_path} video_path={torrent.video_path}'
+                #     )
+                #     torrent.status = 'idle'
+                #     torrent.hls_path = None
+                #     if not video_exists:
+                #         torrent.video_path = None
+                #     torrent.save(update_fields=['status', 'hls_path', 'video_path'])
+                # else:
+                    # Stream is ready — trigger subtitle preparation if not already done.
+                    # enqueue_subtitle_preparation_once has its own dedup lock so calling
+                    # it here on every status poll is safe and does not flood Celery.
+                if hls_exists:
+                    from .tasks import enqueue_subtitle_preparation_once
+                    enqueue_subtitle_preparation_once(
+                        movie_id,
+                        user_language=preferred_subtitle_language(request),
+                        video_path=torrent.video_path if video_exists else None,
+                    )
 
-            <label htmlFor="avatarUpload" className="cursor-pointer">
-              <div className="relative group">
-                <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#2a2a2a] bg-[#1f1f1f] flex items-center justify-center">
-                  <img
-                    src={formData.avatar}
-                    alt="Profile avatar"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
+                return Response({'status': 'ready', 'movie_path': os.path.exists(torrent.hls_path) and torrent.hls_path or None})
 
-                {/* Hover overlay */}
-                <div className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center text-white text-xs gap-1">
-                  <Upload className="w-5 h-5" />
-                  <span>Change photo</span>
-                </div>
-              </div>
-            </label>
-          </div>
+                # return Response({
+                #     'status': 'ready',
+                #     'movie_path': request.build_absolute_uri(
+                #         f'/streaming/{movie.id}/hls/playlist.m3u8'
+                #     ),
+                # })
+            
+                
+            if torrent.status not in ["downloading", "processing", 'error']:
+                has_subs = movie.subtitles.exists()
+                ready_subs = movie.subtitles.filter(status='ready').count()
+                
+                print(f'[Streaming] Triggering download | movie_id={movie_id} | torrent_status={torrent.status} | subtitles_exist={has_subs} | ready_subtitles={ready_subs}')
 
-          {/* Form */}
-          <form className="space-y-6">
-            {/* Name Fields */}
-            <div className="flex gap-4 justify-center">
-              <div className="flex-1">
-                <InputField
-                  label="First Name"
-                  name="firstName"
-                  value={formData.firstName}
-                  onChange={handleChange}
-                  className="w-full"
-                />
-              </div>
-              <div className="flex-1">
-                <InputField
-                  label="Last Name"
-                  name="lastName"
-                  value={formData.lastName}
-                  onChange={handleChange}
-                  className="w-full"
-                />
-              </div>
-            </div>
+                download_and_segment.delay(movie_id)
 
-            {/* Username Field */}
-            <div className="flex justify-center">
-              <div className="w-full max-w-sm">
-                <InputField
-                  label="Username"
-                  name="username"
-                  value={formData.username}
-                  onChange={handleChange}
-                  className="w-full"
-                />
-              </div>
-            </div>
+            # if torrent.status not in ["downloading", "processing", 'error']:
 
-            {/* Email Field */}
-            <div className="flex justify-center">
-              <div className="w-full max-w-sm">
-                <InputField
-                  label="Email Address"
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full"
-                />
-              </div>
-            </div>
+            return Response({'status': torrent.status, 'movie_path': None})
 
-            {/* Success Message */}
-            {saveSuccess && (
-              <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/30 rounded-sm text-green-400 text-sm">
-                <Check className="w-4 h-4" />
-                <span>Profile updated successfully</span>
-              </div>
-            )}
+        except Exception as e:
+            print(f'[Streaming] Unexpected error | movie_id={movie_id} error={e}')
+            return Response({'status': 'error', 'message': 'An error occurred'}, status=500)
 
-            {/* Buttons */}
-            <div className="flex justify-center gap-4 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleCancel}
-                disabled={!isDirty && !saveSuccess}
-                className="border-[#444444] bg-transparent text-white hover:bg-[#1f1f1f] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed min-w-[130px] h-11 rounded-sm transition-colors"
-              >
-                Cancel
-              </Button>
-
-              <Button
-                type="button"
-                onClick={handleSave}
-                disabled={!isDirty}
-                className="bg-[#BD0404] hover:bg-[#9c0303] text-white border-0 rounded-sm min-w-[130px] h-11 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Save Changes
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}

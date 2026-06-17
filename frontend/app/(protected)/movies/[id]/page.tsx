@@ -107,8 +107,9 @@ export default function VedioDetails()
       console.error('Failed to update review', err)
     }
   }
+
   useEffect(() => {
-    fetch('http://localhost:8000/api/auth/me', {
+    fetch('http://localhost:8000/auth/me', {
       credentials: 'include',
     })
       .then(res => res.ok ? res.json() : null)
@@ -116,7 +117,6 @@ export default function VedioDetails()
       .catch(() => setCurrentUserId(null))
   }, [])
  
-  
   const handleLike = async (review_id: string) => {  
     const response = await fetch(`http://localhost:8000/comments/${review_id}/like`, {
         credentials: "include",
@@ -138,22 +138,22 @@ export default function VedioDetails()
     }
 
   const postComment = async (content:any, stars:any) => {
-  const response = await fetch(`http://localhost:8000/comments/`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    credentials: "include", // sends session cookie
-    body: JSON.stringify({
-      movie_id:movieId,content, stars:stars
-    }),
-  });
-  const data = await response.json();
-  setReviews(prev => [data, ...prev])
-  return data;
-};
+    const response = await fetch(`http://localhost:8000/comments/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include", // sends session cookie
+      body: JSON.stringify({
+        movie_id:movieId,content, stars:stars
+      }),
+    });
+    const data = await response.json();
+    setReviews(prev => [data, ...prev])
+    return data;
+  };
+
   useEffect(() => {
-    
     if (!trailerOpen || !movie)
       return
     setLoading(true)
@@ -180,8 +180,10 @@ export default function VedioDetails()
 
   useEffect(() => {
     if (!movie || !["archive", "publicdomain"].includes(movie.source)) return;
+
     console.log("--------> Resolving streaming for movie", movie.id)
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/streaming/resolve/${movie.id}/`, {
+    
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/streaming/resolve/${movie.id}/`, {
       credentials: "include",
     }).catch(() => undefined);
   }, [movie])

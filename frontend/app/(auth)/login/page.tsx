@@ -24,7 +24,7 @@ export default function SignInPage() {
     setError(null)
 
     try {
-      const res = await fetch("http://localhost:8000/api/auth/login", {
+      const res = await fetch("http://localhost:8000/auth/login", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

@@ -23,7 +23,7 @@ export default function SecurityPage() {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    fetch(`${API}/api/auth/me`, { credentials: "include" })
+    fetch(`${API}/auth/me`, { credentials: "include" })
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data?.avatar) setAvatar(data.avatar) })
       .catch(() => {});
@@ -57,7 +57,7 @@ export default function SecurityPage() {
     setSuccess(false);
 
     try {
-      const res = await fetch(`${API}/api/auth/settings/change-password`, {
+      const res = await fetch(`${API}/auth/settings/change-password`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

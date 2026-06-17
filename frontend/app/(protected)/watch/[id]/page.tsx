@@ -106,7 +106,7 @@ export default function Watch() {
 
     async function resolveMovie() {
       try {
-        const res = await fetch(`${API}/api/streaming/resolve/${movieId}/`, {
+        const res = await fetch(`${API}/streaming/resolve/${movieId}/`, {
           credentials: "include",
         });
 
@@ -150,8 +150,10 @@ export default function Watch() {
     async function poll() {
       try {
         const language = encodeURIComponent(preferredSubtitleLanguage());
+        
         console.log("Polling stream status for movie", streamingMovieId, "with subtitle language", language);
-        const res  = await fetch(`${API}/api/streaming/${streamingMovieId}/stream/?language=${language}`, {
+
+        const res  = await fetch(`${API}/streaming/${streamingMovieId}/stream/?language=${language}`, {
           credentials: "include",
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -202,14 +204,14 @@ export default function Watch() {
 
     // Trigger subtitle preparation for the current language. Safe to call even
     // when stream is already ready — enqueue_subtitle_preparation_once is idempotent.
-    fetch(`${API}/api/streaming/${streamingMovieId}/stream/?language=${encodeURIComponent(langCode)}`, {
+    fetch(`${API}/streaming/${streamingMovieId}/stream/?language=${encodeURIComponent(langCode)}`, {
       credentials: "include",
     }).catch(() => {});
 
     async function fetchSubtitles(): Promise<SubtitleTrack[]> {
       try {
         const res = await fetch(
-          `${API}/api/streaming/${streamingMovieId}/subtitles/?language=${encodeURIComponent(langCode)}`,
+          `${API}/streaming/${streamingMovieId}/subtitles/?language=${encodeURIComponent(langCode)}`,
           { credentials: "include" }
         );
         if (!res.ok) return [];
@@ -487,3 +489,8 @@ export default function Watch() {
     </div>
   );
 }
+
+
+
+
+

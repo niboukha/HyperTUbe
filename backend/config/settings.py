@@ -261,7 +261,7 @@ REST_USE_JWT = True
 SITE_ID = 1
 SOCIALACCOUNT_LOGIN_ON_GET = True
 LOGIN_REDIRECT_URL = "http://localhost:3000/home"
-# LOGIN_REDIRECT_URL = "/api/auth/accounts/social/callback/"
+# LOGIN_REDIRECT_URL = "/auth/accounts/social/callback/"
 
 
 AUTHENTICATION_BACKENDS = [

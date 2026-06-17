@@ -27,6 +27,9 @@ export function useMovieDetail(movieId: string) {
         const res = await fetch(`${API}/movies/${movieId}/?lang=${langCode}`, {
           signal: controller.signal,
         })
+        
+        console.log("Fetched movie detail", { movieId, status: res.status })
+        
         if (res.status === 404) {
           if (!cancelled) {
             setData(null)
