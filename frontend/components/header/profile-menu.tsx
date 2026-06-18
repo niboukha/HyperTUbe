@@ -24,7 +24,7 @@ type Props = {
 export default function ProfileMenu({ onOpen, user }: Props) {
   const router = useRouter()
   const t = useTranslations("Header")
-  const initials = user?.username?.slice(0, 2).toUpperCase() ?? "?"
+  // const initials = user?.username?.slice(0, 2).toUpperCase() ?? "?"
 
   const handleLogout = async () => {
     try {
@@ -36,9 +36,11 @@ export default function ProfileMenu({ onOpen, user }: Props) {
       router.push('/login')
       router.refresh()
     } catch (err) {
-      console.error('Logout failed', err)
+      // console.error('Logout failed', err)
     }
   }
+
+  // console.log("ProfileMenu user:", user?.avatar)
 
   return (
     <DropdownMenu modal={false}>
@@ -50,7 +52,7 @@ export default function ProfileMenu({ onOpen, user }: Props) {
           <Avatar className="h-7 w-7 md:h-8 md:w-8 rounded-md border-0! shadow-none! ring-0! hover:ring-0! hover:border-0!">
             {/* {user?.profile_picture && ( */}
               <AvatarImage
-                src={user?.avatar || "/avatars/Name=angryman.svg"}
+                src={user?.avatar ?? "/avatars/Name=angryman.svg"}
                 className="rounded-md"
               />
             {/* )} */}
@@ -87,7 +89,7 @@ export default function ProfileMenu({ onOpen, user }: Props) {
 
         {/* SETTINGS */}
         <DropdownMenuItem asChild className="group rounded-md text-text-primary hover:text-text-primary! hover:font-bold transition-all duration-150 bg-transparent! hover:bg-text-primary/5! px-1! py-1!">
-          <Link href="/settings">
+          <Link href="/settings/security">
             <Settings className="mr-2 h-4 w-4" />
             {t("settings")}
           </Link>
@@ -103,6 +105,7 @@ export default function ProfileMenu({ onOpen, user }: Props) {
           {t("logout")}
         </DropdownMenuItem>
       </DropdownMenuContent>
+
     </DropdownMenu>
   )
 }

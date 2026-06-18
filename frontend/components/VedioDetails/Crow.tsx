@@ -17,8 +17,10 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { PlusIcon } from "lucide-react";
+import { tmdbImage } from "@/lib/utils/movie";
 import { useState } from "react";
 import { CastMember, CrewMember } from "@/types/movie";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 
 
 export default function Crow({ cast, crew }: { cast: CastMember[], crew: CrewMember[] }) {
@@ -53,7 +55,7 @@ export default function Crow({ cast, crew }: { cast: CastMember[], crew: CrewMem
             whileHover={{ y: -6, scale: 1.1 }}
           >
             <Avatar className="h-10 w-10 md:h-13 md:w-13 border border-white/10 ring-0 shadow-none">
-              <AvatarImage src={person.profile_path || undefined} alt={person.name} />
+              <AvatarImage src={tmdbImage(person.profile_path, "w185") ?? undefined} alt={person.name} />
               <AvatarFallback>{person.name.charAt(0)}</AvatarFallback>
             </Avatar>
             {/* <p className="text-white/70 text-sm mt-1 font-[poppins]">
@@ -75,7 +77,7 @@ export default function Crow({ cast, crew }: { cast: CastMember[], crew: CrewMem
           }}
           whileHover={{ y: -6, scale: 1.1 }}
         >
-          <AvatarGroupCount           onClick={() => setOpen(true)}
+          <AvatarGroupCount onClick={() => setOpen(true)}
             className="h-10 w-10 md:h-13 md:w-13 bg-tertiary backdrop-blur-lg !ring-0 !shadow-none">
             <PlusIcon className="!h-5 !w-5 md:!h-7 md:!w-7 font-bold" color="#ffffff" />
           </AvatarGroupCount>
@@ -87,7 +89,10 @@ export default function Crow({ cast, crew }: { cast: CastMember[], crew: CrewMem
           <DialogHeader className="px-2! pt-1!">
             <DialogTitle className="text-white text-base font-semibold font-[bebasNeue]!">
               Cast & Crew
-            </DialogTitle>    
+            </DialogTitle>
+            <VisuallyHidden>
+              <DialogDescription>Dialog</DialogDescription>
+            </VisuallyHidden>
           </DialogHeader>
 
           <Separator className="bg-white/10" />
@@ -103,7 +108,7 @@ export default function Crow({ cast, crew }: { cast: CastMember[], crew: CrewMem
                   className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:rounded-[100px] hover:bg-white/5 transition-colors cursor-pointer"
                 >
                   <Avatar className=" h-10 w-10 md:h-15 md:w-15 border border-white/20 shrink-0">
-                    <AvatarImage src={person.profile_path || undefined} alt={person.name} />
+                    <AvatarImage src={tmdbImage(person.profile_path, "w185") ?? undefined} alt={person.name} />
                     <AvatarFallback className="text-xs bg-white/10 text-white">
                       {person.name.charAt(0)}
                     </AvatarFallback>

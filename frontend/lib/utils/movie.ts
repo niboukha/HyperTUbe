@@ -1,4 +1,13 @@
 const PROXIED_HOSTNAMES = ["archive.org"]
+const TMDB_BASE = "https://image.tmdb.org/t/p"
+
+// Safe TMDB URL builder: handles both bare paths (/abc.jpg) and already-full URLs.
+export function tmdbImage(path: string | null | undefined, size: string): string | null {
+  if (!path) return null
+  if (path.startsWith("http")) return path   // already a full URL — don't double-prefix
+  return `${TMDB_BASE}/${size}${path}`
+}
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 export function proxyImageUrl(src: string | null | undefined): string | null {

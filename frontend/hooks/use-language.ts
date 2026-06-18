@@ -44,6 +44,7 @@ function readInitial(): Language {
 
 let _lang: Language        = readInitial()
 let _initialized           = false
+let _isAuthenticated       = false
 const _subs                = new Set<() => void>()
 
 function notify() { _subs.forEach(fn => fn()) }
@@ -54,7 +55,8 @@ function notify() { _subs.forEach(fn => fn()) }
  * Call this after a successful login (SPA flow) or after OAuth redirect.
  */
 export function resetLanguageState() {
-  _initialized = false
+  _initialized     = false
+  _isAuthenticated = false
   // Re-read from storage so the UI is at least consistent before the API call.
   const stored = readCookie() || readStorage()
   const lang   = CODE_LANG[stored] ?? "English"
@@ -80,6 +82,7 @@ async function init() {
       headers:     { "Accept-Language": LANG_CODE[_lang] },
     })
     if (res.ok) {
+      _isAuthenticated = true
       const data = await res.json()
       const lang = CODE_LANG[data.language] ?? "English"
       if (lang !== _lang) {
@@ -111,6 +114,7 @@ export function useLanguage() {
     _lang = next
     persist(next)
     notify()
+    if (!_isAuthenticated) return
     try {
       await fetch(`${API}/users/profile/language`, {
         method:       "PATCH",

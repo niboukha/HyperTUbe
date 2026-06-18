@@ -67,7 +67,6 @@ export default function CarouselPortal({
                 src={image}
                 alt={title}
                 fill
-                priority
                 sizes="360px"
                 className="object-cover transition-transform duration-500 group-hover:scale-105"
               />

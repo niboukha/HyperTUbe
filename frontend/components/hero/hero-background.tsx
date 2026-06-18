@@ -37,7 +37,7 @@ export default function HeroBackground({ movies }: HeroBackgroundProps) {
   // Track page navigation
   useEffect(() => {
     isOffPageRef.current = pathname !== "/home"
-    console.log("[hero] pathname:", pathname, "isOffPage:", isOffPageRef.current)
+    // console.log("[hero] pathname:", pathname, "isOffPage:", isOffPageRef.current)
   }, [pathname])
 
   // Track visibility — only pause when HIDDEN, not on initial fire
@@ -49,7 +49,7 @@ export default function HeroBackground({ movies }: HeroBackgroundProps) {
       ([entry]) => {
         // Only mark hidden when completely out of view
         isHiddenRef.current = !entry.isIntersecting
-        console.log("[hero] intersection:", entry.isIntersecting, "paused:", isPaused())
+        // console.log("[hero] intersection:", entry.isIntersecting, "paused:", isPaused())
       },
       { threshold: 0 }   // fires when element enters/leaves viewport at all
     )
@@ -62,7 +62,7 @@ export default function HeroBackground({ movies }: HeroBackgroundProps) {
   useEffect(() => {
     if (movies.length === 0) return
 
-    console.log("[hero] starting interval, movies:", movies.length)
+    // console.log("[hero] starting interval, movies:", movies.length)
 
     const interval = setInterval(() => {
       if (isPaused()) {
@@ -82,14 +82,14 @@ export default function HeroBackground({ movies }: HeroBackgroundProps) {
         elapsedRef.current = 0
         setActiveSlide(c => {
           const next = (c + 1) % movies.length
-          console.log("[hero] slide →", next)
+          // console.log("[hero] slide →", next)
           return next
         })
       }
     }, TICK)
 
     return () => {
-      console.log("[hero] clearing interval")
+      // console.log("[hero] clearing interval")
       clearInterval(interval)
     }
   }, [movies.length])
@@ -122,11 +122,11 @@ export default function HeroBackground({ movies }: HeroBackgroundProps) {
         className="relative h-screen overflow-hidden bg-background border-0 rounded-none"
         onMouseEnter={() => {
           isHoveredRef.current = true
-          console.log("[hero] mouse enter — paused")
+          // console.log("[hero] mouse enter — paused")
         }}
         onMouseLeave={() => {
           isHoveredRef.current = false
-          console.log("[hero] mouse leave — resumed")
+          // console.log("[hero] mouse leave — resumed")
         }}
       >
         <HeroImage movie={currentMovie} />

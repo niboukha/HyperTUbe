@@ -43,7 +43,7 @@ export default function TopBar() {
     // Optional: redirect user after logout
     window.location.href = "/login";
   } catch (error) {
-    console.error("Logout failed:", error);
+    // console.error("Logout failed:", error);
   }
 };
   useEffect(() => {

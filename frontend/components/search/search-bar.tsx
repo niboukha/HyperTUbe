@@ -66,7 +66,7 @@ export default function SearchBar({
         )
         const data = await res.json()
 
-        console.log("User search results:", data)
+        // console.log("User search results:", data)
         if (!ignore)
           setMatchedUsers(
             (data?.results ?? []).slice(0, 3).map((u: { id: number; username: string; avatar: string | null }) => ({
@@ -107,10 +107,10 @@ export default function SearchBar({
     const run = async () => {
       try {
         setLoading(true)
-        console.log("Searching for:", debouncedQuery)
+        // console.log("Searching for:", debouncedQuery)
         const res  = await fetch(`${API}/search/?q=${encodeURIComponent(debouncedQuery)}`)
         const data = await res.json()
-        console.log("Search results:", data)
+        // console.log("Search results:", data)
         if (!ignore)
           // setMovies((data ?? []).filter((r: MovieResult) => r.type === "movie"))
           setMovies(

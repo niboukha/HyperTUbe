@@ -96,9 +96,9 @@ export default function MovieCard({ index, movie, runtime, runtimeLoading }: Mov
               src={image}
               alt={movie.title}
               fill
-              priority
               sizes="360px"
               className="object-cover transition-transform duration-500 group-hover:scale-105"
+              priority={index < 60}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
@@ -108,6 +108,16 @@ export default function MovieCard({ index, movie, runtime, runtimeLoading }: Mov
           <div className="absolute top-0.5! right-1!">
             <AvailabilityBadge type={movie.availability} />
           </div>
+          {movie.watched && (movie.progress ?? 0) > 0 && (
+            <div className="absolute bottom-0 left-0 right-0 mx-2! pb-0.5!">
+              <div className="relative h-1 rounded-full bg-black overflow-hidden">
+                <div
+                  className="absolute top-0 left-0 h-full bg-accent-red rounded-full"
+                  style={{ width: `${movie.progress}%` }}
+                />
+              </div>
+            </div>
+          )}
         </div> 
       </motion.div>
 

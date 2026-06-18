@@ -58,7 +58,7 @@ function preferredSubtitleLanguage(): string {
   // Fall back to localStorage (use-language.ts key "ht_lang")
   try {
     const stored = localStorage.getItem("ht_lang");
-    console.log("preferredSubtitleLanguage() read from localStorage:", stored);
+    // console.log("preferredSubtitleLanguage() read from localStorage:", stored);
     if (stored) return stored;
   } catch {}
   // Last resort: browser navigator language
@@ -169,7 +169,7 @@ export default function Watch() {
       try {
         const language = encodeURIComponent(preferredSubtitleLanguage());
         
-        console.log("Polling stream status for movie", streamingMovieId, "with subtitle language", language);
+        // console.log("Polling stream status for movie", streamingMovieId, "with subtitle language", language);
 
         const res  = await fetch(`${API}/streaming/${streamingMovieId}/stream/?language=${language}`, {
           credentials: "include",
@@ -279,7 +279,7 @@ export default function Watch() {
       const rounded = Math.round(progress);
       if (rounded === lastSaved) return;
       lastSaved = rounded;
-      console.log("Saving watch progress for movie", streamingMovieId, ":", rounded + "%");
+      // console.log("Saving watch progress for movie", streamingMovieId, ":", rounded + "%");
       fetch(`${API}/history/${movieId}/progress/`, {
         method: "POST",
         credentials: "include",
@@ -458,7 +458,7 @@ export default function Watch() {
 
             {!hlsUrl && (
               <div className="absolute inset-0 flex items-center justify-center rounded-md bg-black/80 backdrop-blur-sm text-center">
-                {streamError ? (
+                {streamStatus === "error" ? (
                   <div className="flex flex-col items-center gap-3 px-8">
                     <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10 ring-1 ring-red-500/30">
                       <svg className="h-5 w-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -480,9 +480,9 @@ export default function Watch() {
                     {/* Title */}
                     {streamStatus === "downloading" && isSlowConnection ? (
                       <div className="flex flex-col items-center gap-3 max-w-xs">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/10 ring-1 ring-amber-500/25">
+                        {/* <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/10 ring-1 ring-amber-500/25">
                           <AlertTriangle className="h-5 w-5 text-amber-400" />
-                        </div>
+                        </div> */}
                         <p className="text-xs leading-relaxed text-amber-200/70">
                           This public domain movie currently has very few seeders. Finding peers is taking longer than usual. You can continue waiting, or try watching another movie.
                         </p>

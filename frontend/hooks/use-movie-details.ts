@@ -28,7 +28,7 @@ export function useMovieDetail(movieId: string) {
           signal: controller.signal,
         })
         
-        console.log("Fetched movie detail", { movieId, status: res.status })
+        // console.log("Fetched movie detail", { movieId, status: res.status })
         
         if (res.status === 404) {
           if (!cancelled) {

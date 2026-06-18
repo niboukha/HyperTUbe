@@ -11,7 +11,7 @@ type Props = {
 }
 
 export function UsersSection({ users, query, onSelect }: Props) {
-  console.log("Rendering UsersSection with users:", users, "and query:", query)
+  // console.log("Rendering UsersSection with users:", users, "and query:", query)
   if (users.length === 0) return null
   return (
     <div className="mb-4!">

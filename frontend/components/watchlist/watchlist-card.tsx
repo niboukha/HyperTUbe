@@ -31,7 +31,7 @@ export type Movie = {
   availability: "free" | "premium";
 };
 
-const IMG = "https://image.tmdb.org/t/p";
+import { tmdbImage } from "@/lib/utils/movie";
 
 function formatRuntime(min: number | undefined): string {
   if (!min) return "";
@@ -104,7 +104,7 @@ export function MovieCard({
 
   const imageSrc = imgErr
     ? null
-    : movie.backdrop || movie.poster || null;
+    : tmdbImage(movie.backdrop || movie.poster, "w780");
 
   return (
     <>
@@ -130,7 +130,6 @@ export function MovieCard({
                 className="object-cover transition-transform duration-700 group-hover:scale-[1.04]"
                 unoptimized
                 onError={() => setImgErr(true)}
-                priority
             />
             ) : (
                 <div className="w-full h-full bg-[#333333] flex items-center justify-center">

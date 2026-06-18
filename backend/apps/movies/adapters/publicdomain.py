@@ -429,10 +429,10 @@ def fetch_detail(publicdomain_id: str, language: str = "en") -> dict | None:
 
     movie = _enrich_with_tmdb(movie, html, include_credits=True, language=language)
 
-    print("PUBLICDOMAIN_TORRENT_FILES:")
-    print(json.dumps(torrent_files, indent=2, ensure_ascii=False))
-    print("PUBLICDOMAIN_MOVIE_OBJECT:")
-    print(json.dumps(movie, indent=2, ensure_ascii=False))
+    # print("PUBLICDOMAIN_TORRENT_FILES:")
+    # print(json.dumps(torrent_files, indent=2, ensure_ascii=False))
+    # print("PUBLICDOMAIN_MOVIE_OBJECT:")
+    # print(json.dumps(movie, indent=2, ensure_ascii=False))
 
     return movie
 

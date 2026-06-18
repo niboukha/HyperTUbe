@@ -49,6 +49,8 @@ export type MovieResult = {
   genre?: number[]
   genre_ids?: number[]
   runtime?: string
+  watched?: boolean
+  progress?: number
 }
 
 export type UserResult = {

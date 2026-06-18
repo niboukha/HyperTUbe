@@ -79,10 +79,23 @@ CACHES = {
 CELERY_BROKER_URL    = "redis://redis:6379/0"
 CELERY_RESULT_BACKEND = "redis://redis:6379/0"
 CELERY_TASK_SERIALIZER = "json"
+
+# CELERY_BEAT_SCHEDULE = {
+#     "cleanup-inactive-streaming-media-daily": {
+#         "task": "apps.streaming.tasks.cleanup_old_movies",
+#         "schedule": crontab(hour=3, minute=0),
+#     },
+# }
+
+from celery.schedules import crontab
+
 CELERY_BEAT_SCHEDULE = {
-    "cleanup-inactive-streaming-media-daily": {
-        "task": "apps.streaming.tasks.cleanup_old_movies",
-        "schedule": crontab(hour=3, minute=0),
+    'delete-stale-movies-every-night': {
+        'task': 'apps.streaming.tasks.download.cleanup_unused_movies', # <-- Update path if needed
+        # Runs every day at 3:00 AM
+        'schedule': crontab(hour=3, minute=0), 
+
+        # 'schedule': crontab(minute='*/2'), 
     },
 }
 
@@ -327,3 +340,5 @@ SOCIALACCOUNT_PROVIDERS = {
         ],
     }
 }
+
+

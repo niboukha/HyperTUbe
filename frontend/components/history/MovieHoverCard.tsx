@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Star } from "lucide-react";
+import { tmdbImage, proxyImageUrl } from "@/lib/utils/movie";
 import { useEffect } from "react";
 import StarRating from "./ui/star-rating";
 
@@ -36,9 +37,11 @@ export default function MovieHoverCard({ item }) {
         {/* IMAGE */}
         <img
           src={
-            hovered
-              ? `https://image.tmdb.org/t/p/w780${item.backdrop_path}`
-              : `https://image.tmdb.org/t/p/w500${item.poster_path}`
+            proxyImageUrl(
+              hovered
+                ? tmdbImage(item.backdrop_path, "w780")
+                : tmdbImage(item.poster_path, "w500")
+            ) ?? undefined
           }
           className="w-full h-full object-cover  !rounded-lg"
         />

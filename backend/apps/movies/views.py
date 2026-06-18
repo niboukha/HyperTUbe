@@ -112,6 +112,23 @@ def _movies_list_response(request):
             page       = page,
             language   = language,
         )
+
+        if request.user.is_authenticated:
+            from .models import UserMovieState, Movie as MovieModel
+            page_ids = [m.get('id', '') for m in data.get('results', [])]
+            movies_on_page = MovieModel.objects.filter(tmdb_id__in=page_ids)
+            states = (
+                UserMovieState.objects
+                .filter(user=request.user, movie__in=movies_on_page, progress__gt=0)
+                .select_related('movie')
+            )
+            progress_map = {state.movie.tmdb_id: state.progress for state in states}
+            for movie in data.get('results', []):
+                movie_id = movie.get('id', '')
+                prog = progress_map.get(movie_id)
+                movie['watched'] = prog is not None
+                movie['progress'] = prog if prog is not None else 0
+
         return Response(data, status=status.HTTP_200_OK)
 
     except Exception as exc:

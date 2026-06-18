@@ -12,6 +12,7 @@ import ReviewsList from "@/components/VedioDetails/ReviewsList";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
 import FeedbackForm from "@/components/VedioDetails/FeedbackForm";
@@ -29,6 +30,8 @@ import Overview from "@/components/ui/Overview";
 import { useTranslations } from "next-intl";
 import { proxyImageUrl } from "@/lib/utils/movie";
 import { PremiumModal } from "@/components/premium-modal";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
+import { MovieImage } from "@/components/ui/movie-image";
 
 export function stripHtml(html: string) {
   return html
@@ -81,7 +84,7 @@ export default function VedioDetails()
       // Update local state instantly
       setReviews((prev) => prev.filter(r => r.id !== review_id))
     } catch (err) {
-      console.error('Failed to delete review', err)
+      // console.error('Failed to delete review', err)
     }
   }
 
@@ -104,7 +107,7 @@ export default function VedioDetails()
         )
       )
     } catch (err) {
-      console.error('Failed to update review', err)
+      // console.error('Failed to update review', err)
     }
   }
 
@@ -134,7 +137,6 @@ export default function VedioDetails()
           : r
       )
     );
-    
     }
 
   const postComment = async (comment:any, stars:any) => {
@@ -203,6 +205,16 @@ export default function VedioDetails()
           style={{
             backgroundImage: `url(${proxyImageUrl(movie.backdrop_path ?? movie.poster_path) ?? ""})` }}
       >
+
+        {/* <MovieImage
+            src={proxyImageUrl(movie.backdrop_path ?? movie.poster_path) ?? ""}
+            alt={`${movie.title} background`}
+            fill
+            priority={true} // Crucial for LCP!
+            sizes="100vw"
+            className="object-cover z-0"
+          /> */}
+
         <div className="absolute inset-0  bg-gradient-to-r from-[#0E0E10]/88 via-[#000000]/50 to-transparent h-full"/>
         
         <motion.div 
@@ -210,17 +222,17 @@ export default function VedioDetails()
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5 }}
           className="z-20
-                    px-4!
-                    w-full!
-                    [@media(max-height:500px)]:w-[min(50vw,500px)]
-                    [@media(min-width:768px)_and_(min-height:500px)]:w-[min(60vw,500px)]
-                    
-                    relative
-                    pt-50!
-                    [@media(min-width:768px)_and_(min-height:500px)]:pt-100!
-                    [@media(max-height:500px)]:pt-20!
-                    [@media(min-height:900px)]:pt-90!
-                    left-4 md:left-10 lg:left-16"
+            px-4!
+            w-full!
+            [@media(max-height:500px)]:w-[min(50vw,500px)]
+            [@media(min-width:768px)_and_(min-height:500px)]:w-[min(60vw,500px)]
+            
+            relative
+            pt-50!
+            [@media(min-width:768px)_and_(min-height:500px)]:pt-100!
+            [@media(max-height:500px)]:pt-20!
+            [@media(min-height:900px)]:pt-90!
+            left-4 md:left-10 lg:left-16"
         >
           {/* Title */}
           <motion.h1
@@ -390,9 +402,12 @@ export default function VedioDetails()
           onOpenChange={(val) => {
             setTrailerOpen(val);
             if (!val) setTrailer(null);
-          }}           
+          }}          
         >
           <DialogTitle className="sr-only hidden">Trailer</DialogTitle>
+          <VisuallyHidden>
+            <DialogDescription>Dialog</DialogDescription>
+          </VisuallyHidden>
           <DialogContent
               style={{ maxWidth: "min(90vw, 900px)", width: "min(90vw, 900px)", }}
               className="p-0 bg-[#0E0E10] border border-white/10 rounded-2xl overflow-hidden">

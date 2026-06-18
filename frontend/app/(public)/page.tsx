@@ -13,6 +13,7 @@ import { MovieResult } from "@/types/search"
 import { useIsMobile } from "@/hooks/useMobile";
 import { TMDB_GENRE_LABELS } from "@/lib/tmdb-genres";
 import { useLanguage } from "@/hooks/use-language";
+import { tmdbImage } from "@/lib/utils/movie";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 
@@ -52,7 +53,7 @@ export default function Landing() {
           return prev.map(m => byId.get(m.id) ?? m)
         })
       } catch (err) {
-        console.error('Error fetching movie details:', err)
+        // console.error('Error fetching movie details:', err)
       }
     }
     fetchMovieDetails()
@@ -149,7 +150,7 @@ export default function Landing() {
                     <motion.div
                       className="absolute inset-0 bg-center bg-cover bg-no-repeat"
                       style={{
-                        backgroundImage: `url(https://image.tmdb.org/t/p/original${item.backdrop_path})`,
+                        backgroundImage: `url(${tmdbImage(item.backdrop_path, "original") ?? ""})`,
                       }}
                       animate={
                         isFullscreen && !isMobile

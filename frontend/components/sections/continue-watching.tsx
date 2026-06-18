@@ -58,7 +58,6 @@ export default function ContinueWatching() {
                     src={imagePath}
                     alt={movie.title}
                     fill
-                    priority
                     sizes="360px"
                     className="object-cover transition-transform duration-500 group-hover:scale-105"
                   />

@@ -13,6 +13,11 @@ from apps.streaming.models import Torrent
 from apps.streaming.torrent_engine import download_torrent, ACTIVE_TORRENTS
 from apps.streaming.hls import start_ffmpeg
 from .subtitles import enqueue_subtitle_preparation_once
+import shutil
+from datetime import timedelta
+from django.utils import timezone
+
+# (Make sure to import your models and settings at the top of the file if not already there)
 
 logger = logging.getLogger(__name__)
 
@@ -256,3 +261,54 @@ def get_ffmpeg_args(video_codec, audio_codec):
         return ['-c:v', 'libx264', '-c:a', 'copy']
     else:
         return ['-c:v', 'libx264', '-c:a', 'aac']
+    
+
+@shared_task
+def cleanup_unused_movies():
+    """
+    Runs daily to delete movies that haven't been watched in 30 days.
+    """
+    # Calculate the exact date 30 days ago
+    thirty_days_ago = timezone.now() - timedelta(days=30)
+
+    # five_minutes_ago = timezone.now() - timedelta(minutes=2)
+
+    
+    # Find all torrents older than 30 days that are currently taking up space
+    stale_torrents = Torrent.objects.filter(
+        last_accessed_at__lt=thirty_days_ago
+    ).exclude(status='idle')
+
+    # stale_torrents = Torrent.objects.filter(
+    #     last_accessed_at__lt=five_minutes_ago
+    # ).exclude(status='idle')
+
+    count = 0
+    for torrent in stale_torrents:
+        movie_id = str(torrent.movie.id)
+        
+        # 1. Define the folder paths
+        movie_dir = os.path.join(DOWNLOAD_DIR, movie_id)
+        hls_dir   = os.path.join(HLS_DIR, movie_id)
+
+        # 2. Delete the massive original video files
+        if os.path.exists(movie_dir):
+            shutil.rmtree(movie_dir)
+            logger.info('[Cleanup] Deleted heavy video files | movie_id=%s', movie_id)
+            
+        # 3. Delete the thousands of .ts HLS segments
+        if os.path.exists(hls_dir):
+            shutil.rmtree(hls_dir)
+            logger.info('[Cleanup] Deleted HLS segments | movie_id=%s', movie_id)
+
+        # 4. Reset the database
+        # By setting it to 'idle', the next user who clicks it will trigger
+        # the download_and_segment task exactly as if it was a brand new movie!
+        torrent.status = 'idle'
+        torrent.hls_path = None
+        torrent.video_path = None
+        torrent.save(update_fields=['status', 'hls_path', 'video_path'])
+        
+        count += 1
+
+    logger.info('[Cleanup] Routine complete. Deleted %d stale movies.', count)

@@ -157,10 +157,8 @@ export default function PrimeRow({ title, movies }: MovieRowProps) {
                           src={backdropSrc}
                           alt={movie.title}
                           fill
-                          priority
                           sizes="500px"
                           className="object-cover"
-                          quality={100}
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-black/40">
@@ -182,9 +180,7 @@ export default function PrimeRow({ title, movies }: MovieRowProps) {
                           src={posterSrc}
                           alt={movie.title}
                           fill
-                          priority
                           sizes="160px"
-                          quality={100}
                           className="object-cover"
                         />
                       ) : (

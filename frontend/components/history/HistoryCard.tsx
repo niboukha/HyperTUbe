@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion"
 import { X, Star, Trash2 } from "lucide-react";
+import { proxyImageUrl } from "@/lib/utils/movie";
 import { Badge } from "../ui/badge";
 import { Progress } from "../ui/progress";
 import { itemVariants } from "@/lib/annimations/hero-variants";
@@ -84,7 +85,7 @@ export default function HistoryCard({
       <div className="w-full relative sm:w-[200px] md:w-[280px] h-50 md:h-[180px] flex-shrink-0 !p-2">
         {(backdrop_path || poster_path) ? (
           <img
-            src={(backdrop_path || poster_path)!}
+            src={proxyImageUrl(backdrop_path || poster_path)!}
             alt={title}
             className="w-full h-full object-cover opacity-85 rounded-md!"
           />

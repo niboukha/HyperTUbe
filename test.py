@@ -142,3 +142,60 @@ def download_torrent(movie_dir, torrent):
         torrent.status = 'error'
         torrent.save()
         return None
+    
+
+
+
+import shutil
+import os
+from datetime import timedelta
+from django.utils import timezone
+from celery import shared_task
+import logging
+
+# Make sure to import your Torrent model!
+from apps.streaming.models import Torrent
+from django.conf import settings
+
+logger = logging.getLogger(__name__)
+
+DOWNLOAD_DIR = settings.TORRENT_DOWNLOAD_ROOT
+HLS_DIR      = settings.HLS_ROOT
+
+@shared_task
+def cleanup_unused_movies():
+    """
+    TESTING MODE: Deletes movies that haven't been watched in 5 MINUTES.
+    """
+    # Calculate the exact time 5 minutes ago
+    five_minutes_ago = timezone.now() - timedelta(minutes=5)
+    
+    # Find all torrents older than 5 minutes
+    stale_torrents = Torrent.objects.filter(
+        last_accessed_at__lt=five_minutes_ago
+    ).exclude(status='idle')
+
+    count = 0
+    for torrent in stale_torrents:
+        movie_id = str(torrent.movie.id)
+        
+        movie_dir = os.path.join(DOWNLOAD_DIR, movie_id)
+        hls_dir   = os.path.join(HLS_DIR, movie_id)
+
+        if os.path.exists(movie_dir):
+            shutil.rmtree(movie_dir)
+            logger.info('[Cleanup] Deleted heavy video files | movie_id=%s', movie_id)
+            
+        if os.path.exists(hls_dir):
+            shutil.rmtree(hls_dir)
+            logger.info('[Cleanup] Deleted HLS segments | movie_id=%s', movie_id)
+
+        # Reset the database
+        torrent.status = 'idle'
+        torrent.hls_path = None
+        torrent.video_path = None
+        torrent.save(update_fields=['status', 'hls_path', 'video_path'])
+        
+        count += 1
+
+    logger.info('[Cleanup] Routine complete. Deleted %d stale movies.', count)

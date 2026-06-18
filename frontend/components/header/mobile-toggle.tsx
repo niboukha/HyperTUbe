@@ -115,7 +115,7 @@ export default function MobileToggle({
             </p>
             <div className="space-y-1!">
               <Link
-                href="/profile"
+                href="/settings/profile"
                 className="flex items-center gap-3 px-1! py-2! bg-transparent!
                 transition-all duration-150 rounded-md text-text-muted
                 hover:bg-text-primary/5! hover:text-text-primary! hover:font-bold"
@@ -125,7 +125,7 @@ export default function MobileToggle({
               </Link>
 
               <Link
-                href="/settings"
+                href="/settings/security"
                 className="flex items-center gap-1! px-1! py-2! bg-transparent!
                 transition-all duration-150 rounded-md text-text-muted
                 hover:bg-text-primary/5! hover:text-text-primary! hover:font-bold"

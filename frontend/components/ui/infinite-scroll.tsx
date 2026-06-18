@@ -41,13 +41,24 @@ export function InfiniteScroll({
   useEffect(() => {
     const sentinel = sentinelRef.current
     if (!sentinel) return
+    // const observer = new IntersectionObserver(
+    //   ([entry]) => { if (entry.isIntersecting) onLoadMore() },
+    //   { rootMargin }
+    // )
+
     const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) onLoadMore() },
+      ([entry]) => { 
+        // STRICT GUARD: Only fetch if visible, not loading, and has more data!
+        if (entry.isIntersecting && !loading && !loadingMore && hasMore) {
+          onLoadMore() 
+        }
+      },
       { rootMargin }
-    )
+    )   
+
     observer.observe(sentinel)
     return () => observer.disconnect()
-  }, [onLoadMore, rootMargin])
+  },[onLoadMore, rootMargin, loading, loadingMore, hasMore])
 
   return (
     <>

@@ -16,10 +16,12 @@ export const anton = Anton({
   subsets: ["latin"],
   weight: ["400"],
   variable: "--font-anton",
+  preload: false,
 });
 
 export const bebasNeue = Bebas_Neue({
   subsets: ["latin"],
   weight: "400",
   variable: "--font-bebasNeue",
+  preload: false,
 })

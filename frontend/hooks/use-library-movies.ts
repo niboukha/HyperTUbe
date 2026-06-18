@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { Filters, MIN_YEAR, CURRENT_YEAR } from "@/components/library/filter-bar"
 import { MovieResult } from "@/types/search"
 import { useLanguage } from "@/hooks/use-language"
+import { apiFetch } from "@/lib/api"
 
 const API = process.env.NEXT_PUBLIC_API_URL || ""
 
@@ -82,7 +83,7 @@ export function useLibraryMovies(urlQuery: string, filters: Filters) {
       setError(false)
 
       try {
-        const res  = await fetch(buildUrl(urlQuery, 1, f, langCode), { signal: ctrl.signal })
+        const res  = await apiFetch(buildUrl(urlQuery, 1, f, langCode), { signal: ctrl.signal })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const data = await res.json()
         setMovies(data.results ?? [])
@@ -112,7 +113,7 @@ export function useLibraryMovies(urlQuery: string, filters: Filters) {
       minRating: 0,
       yearRange: [MIN_YEAR, CURRENT_YEAR],
     }
-    const res = await fetch(buildUrl("", nextPage, suggestionFilters, langCode))
+    const res = await apiFetch(buildUrl("", nextPage, suggestionFilters, langCode))
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     return res.json()
   }, [langCode])
@@ -154,7 +155,7 @@ export function useLibraryMovies(urlQuery: string, filters: Filters) {
     const next = page + 1
     setLoadingMore(true)
     try {
-      const res  = await fetch(buildUrl(urlQuery, next, f, langCode))
+      const res  = await apiFetch(buildUrl(urlQuery, next, f, langCode))
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setMovies(prev => {

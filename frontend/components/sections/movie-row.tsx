@@ -17,6 +17,7 @@ import { AvailabilityBadge } from "../ui/AvailabilityBadge"
 import Link from "next/link"
 import { useRuntimes } from "@/hooks/use-runtimes"
 import { useLanguage } from "@/hooks/use-language"
+import { apiFetch } from "@/lib/api"
 
 type MovieRowProps = {
   title: string
@@ -77,11 +78,11 @@ export default function MovieRow({ title, endpoint, priority }: MovieRowProps) {
 
     const run = async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${effectiveEndpoint}`)
+        const res = await apiFetch(effectiveEndpoint)
 
         if (!res.ok) {
           const body = await res.json()
-          console.error(`MovieRow ${effectiveEndpoint} → HTTP ${res.status}:`, body)
+          // console.error(`MovieRow ${effectiveEndpoint} → HTTP ${res.status}:`, body)
           throw new Error(`${res.status}`)
         }
 
@@ -89,7 +90,7 @@ export default function MovieRow({ title, endpoint, priority }: MovieRowProps) {
         const raw: MovieResult[] = Array.isArray(data) ? data : data?.results ?? []
         if (!cancelled) setMovies(raw)
       } catch (err) {
-        if (!cancelled) console.error("MovieRow fetch error:", err)
+        // console.error("MovieRow fetch error:", err)
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -148,7 +149,7 @@ export default function MovieRow({ title, endpoint, priority }: MovieRowProps) {
                     src={movie.backdrop_path ? `${movie.backdrop_path}` : `${movie.poster_path}`}
                     alt={movie.title}
                     fill
-                    priority={priority && index < 4}
+                    priority={index < 8}
                     sizes="(max-width: 768px) 240px, 260px"
                     className="object-cover"
                   />

@@ -55,7 +55,7 @@ export function useWatchlist() {
           setHasMore(1 < totalPages)
         }
       } catch (err) {
-        console.error(err)
+        // console.error(err)
         if (!cancelled) setMovies([])
       } finally {
         if (!cancelled) setLoading(false)
@@ -89,7 +89,7 @@ export function useWatchlist() {
       setPage(nextPage)
       setHasMore(nextPage < totalPages)
     } catch (err) {
-      console.error(err)
+      // console.error(err)
     } finally {
       setLoadingMore(false)
     }
@@ -98,7 +98,7 @@ export function useWatchlist() {
   // --------------------------
   // REMOVE FROM WATCHLIST
   // --------------------------
-  const removeMovie = useCallback((id: number) => {
+  const removeMovie = useCallback((id: string) => {
     setMovies((prev) => prev.filter((m) => m.id !== id))
   }, [])
 

@@ -12,6 +12,8 @@ export function MovieGrid({ movies }: Props) {
     movies.map(m => m.id)
   )
 
+  // console.log("movies length:", movies.length, "runtimes:", runtimes, "loading:", runtimesLoading)
+
   return (
     <motion.div layout className="grid gap-2! grid-cols-[repeat(auto-fill,minmax(230px,1fr))]">
       {/* grid gap-2! grid-cols-[repeat(auto-fit,minmax(230px,1fr))] */}
