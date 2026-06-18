@@ -436,7 +436,7 @@ export default function Watch() {
               crossOrigin="anonymous"
               width="100%"
               height="100%"
-              className="rounded-md h-full w-full md:w-4xl   "
+              className="rounded-md h-full w-full md:w-6xl"
             >
               {subtitles.map((subtitle, index) => {
                 const hasPreferredLang = subtitles.some(s => s.language === langCode);
@@ -518,19 +518,19 @@ export default function Watch() {
             )}
           </div>
 
-          <div className="!mt-3 w-full rounded-xl border border-white/[0.07] bg-white/[0.03] !p-2 md:!p-6">
+          <div className="!mt-3 w-full rounded-md border border-white/[0.07] bg-white/[0.03] !p-2 md:!p-6">
             <div className="flex flex-col md:flex-row md:items-start gap-4 md:gap-8">
               <div className="flex-1 min-w-0 !space-y-3">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                   <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{movieDetail?.title ?? "..."}</h1>
-                  <span className="text-text-muted/50 hidden md:inline">|</span>
-                  <div className="flex items-center gap-2 text-white/40 text-sm">
+                  {/* <span className="text-text-muted/50 hidden md:inline">|</span> */}
+                  {/* <div className="flex items-center gap-2 text-white/40 text-sm">
                     <Calendar className="w-3.5 h-3.5" />-
                   </div>
                   <span className="text-text-muted/50 hidden md:inline">|</span>
                   <div className="flex items-center gap-2 text-white/40 text-sm">
                     <Clock className="w-3.5 h-3.5" />-
-                  </div>
+                  </div> */}
                 </div>
 
                 {/* Debug: show subtitle state (dev only) */}

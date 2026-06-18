@@ -17,7 +17,7 @@ export default function IntlProvider({ children }: { children: React.ReactNode }
   const { lang } = useLanguage()
   const locale = langToLocale[lang] ?? "en"
   return (
-    <NextIntlClientProvider locale={locale} messages={messages[locale as keyof typeof messages]}>
+    <NextIntlClientProvider locale={locale} messages={messages[locale as keyof typeof messages]} timeZone="UTC">
       {children}
     </NextIntlClientProvider>
   )
