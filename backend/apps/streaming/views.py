@@ -101,8 +101,10 @@ class MovieStreamView(APIView):
                 })
 
             # if torrent.status not in ("downloading", "processing", "error"):
-            if torrent.status == "idle":
+            if torrent.status in ("idle", "error"):
                 logger.info("[Streaming] Triggering download | movie_id=%s", movie_id)
+                torrent.status = "downloading"
+                torrent.save(update_fields=["status"])
                 download_and_segment.delay(movie_id)
 
             return Response({"status": torrent.status, "movie_path": None})

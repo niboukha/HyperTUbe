@@ -81,6 +81,24 @@ export default function Watch() {
   const [hlsUrl,           setHlsUrl]           = useState<string | null>(null);
   const [streamStatus,     setStreamStatus]     = useState<StreamStatus["status"]>("idle");
   const [streamError,      setStreamError]      = useState<string | null>(null);
+  const [retryCount,       setRetryCount]       = useState(0);
+  const [isSlowConnection, setIsSlowConnection] = useState(false);
+
+  // ── Slow-connection warning (45 s into "downloading" with no progress) ──────
+  useEffect(() => {
+    if (streamStatus !== "downloading") {
+      setIsSlowConnection(false);
+      return;
+    }
+    const timer = setTimeout(() => setIsSlowConnection(true), 45_000);
+    return () => clearTimeout(timer);
+  }, [streamStatus]);
+
+  function handleRetry() {
+    setStreamStatus("idle");
+    setStreamError(null);
+    setRetryCount((c) => c + 1);
+  }
 
   // ── Step 0: fetch saved progress for resume ──────────────────────────────
   useEffect(() => {
@@ -184,7 +202,7 @@ export default function Watch() {
       cancelled = true;
       clearTimeout(pollTimer);
     };
-  }, [streamingMovieId]);
+  }, [streamingMovieId, retryCount]);
 
   // ── Step 3: load subtitles once stream URL is known ───────────────────────
   // Depends on langCode so it re-runs when the user switches UI language.
@@ -460,18 +478,29 @@ export default function Watch() {
                     </div>
 
                     {/* Title */}
-                    <div className="space-y-1.5">
-                      <p className="text-sm font-semibold tracking-wide text-white animate-pulse">
-                        {streamStatus === "processing"
-                          ? "Optimizing video for streaming…"
-                          : "Connecting to peers and downloading movie data…"}
-                      </p>
-                      <p className="text-xs text-white/40">
-                        {streamStatus === "processing"
-                          ? "Converting video into HLS segments, almost ready"
-                          : "Waiting for enough data before playback can begin"}
-                      </p>
-                    </div>
+                    {streamStatus === "downloading" && isSlowConnection ? (
+                      <div className="flex flex-col items-center gap-3 max-w-xs">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/10 ring-1 ring-amber-500/25">
+                          <AlertTriangle className="h-5 w-5 text-amber-400" />
+                        </div>
+                        <p className="text-xs leading-relaxed text-amber-200/70">
+                          This public domain movie currently has very few seeders. Finding peers is taking longer than usual. You can continue waiting, or try watching another movie.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        <p className="text-sm font-semibold tracking-wide text-white animate-pulse">
+                          {streamStatus === "processing"
+                            ? "Optimizing video for streaming…"
+                            : "Connecting to peers and downloading movie data…"}
+                        </p>
+                        <p className="text-xs text-white/40">
+                          {streamStatus === "processing"
+                            ? "Converting video into HLS segments, almost ready"
+                            : "Waiting for enough data before playback can begin"}
+                        </p>
+                      </div>
+                    )}
 
                     {/* Progress dots */}
                     <div className="flex items-center gap-1.5">
