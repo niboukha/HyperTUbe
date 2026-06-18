@@ -21,8 +21,9 @@ def playlist_is_complete(playlist_path, min_segments=3):
 
 def start_ffmpeg(video_file, hls_dir, movie_id, torrent, codec_args):
     """Start FFmpeg with pre-determined codec settings."""
-    torrent.status = 'processing'
-    torrent.hls_path = None
+    torrent.status      = 'processing'
+    torrent.hls_path    = None
+
     torrent.save(update_fields=['status', 'hls_path'])
 
     os.makedirs(hls_dir, exist_ok=True)
@@ -59,14 +60,28 @@ def start_ffmpeg(video_file, hls_dir, movie_id, torrent, codec_args):
     # `-fflags +igndts` replaces the old +ignidx (renamed in FFmpeg 5+) and
     # tells FFmpeg to reconstruct DTS from PTS when DTS is missing or invalid,
     # preventing PTS<DTS warnings that cause some segments to be dropped.
+    # cmd = [
+    #     'ffmpeg',
+    #     '-fflags', '+genpts+igndts',
+    #     '-err_detect', 'ignore_err',
+    #     '-i', video_file,
+    #     *codec_args,
+    #     '-avoid_negative_ts',
+    #     'make_zero',
+    #     '-f', 'hls',
+    #     '-hls_time', '4',
+    #     '-hls_list_size', '0',
+    #     '-hls_flags', 'independent_segments+discont_start',
+    #     playlist_path
+    # ]
+
     cmd = [
         'ffmpeg',
         '-fflags', '+genpts+igndts',
         '-err_detect', 'ignore_err',
         '-i', video_file,
         *codec_args,
-        '-avoid_negative_ts',
-        'make_zero',
+        '-avoid_negative_ts', 'make_zero',
         '-f', 'hls',
         '-hls_time', '4',
         '-hls_list_size', '0',
@@ -87,10 +102,10 @@ def start_ffmpeg(video_file, hls_dir, movie_id, torrent, codec_args):
         # The safer version waits for FFmpeg to exit successfully before marking
         # the stream ready.
         subprocess.Popen(cmd)
+        # if not wait_for_segments(hls_dir, timeout=60):
+        #     proc.kill()
+        #     raise RuntimeError('FFmpeg did not produce segments within 60s')
         wait_for_segments(hls_dir)
-
-        # if not playlist_is_complete(playlist_path):
-        #     raise RuntimeError('FFmpeg finished but HLS playlist is incomplete')
 
         torrent.status = 'ready'
         torrent.hls_path = playlist_path
