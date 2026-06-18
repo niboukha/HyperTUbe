@@ -1,6 +1,6 @@
 'use client'
 
-import { Calendar, Clock } from "lucide-react";
+import { AlertTriangle, Calendar, Clock, Loader2 } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
@@ -439,19 +439,52 @@ export default function Watch() {
             </video>
 
             {!hlsUrl && (
-              <div className="absolute inset-0 flex items-center justify-center rounded-md bg-black/80 text-center">
-                <div className="!space-y-2 !px-6">
-                  <p className="text-sm font-medium text-white">
-                    {streamError ?? "Preparing your stream"}
-                  </p>
-                  {!streamError && (
-                    <p className="text-xs text-white/50">
-                      {streamStatus === "processing"
-                        ? "Converting video to HLS segments..."
-                        : "Starting backend download and waiting for stream segments..."}
-                    </p>
-                  )}
-                </div>
+              <div className="absolute inset-0 flex items-center justify-center rounded-md bg-black/80 backdrop-blur-sm text-center">
+                {streamError ? (
+                  <div className="flex flex-col items-center gap-3 px-8">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10 ring-1 ring-red-500/30">
+                      <svg className="h-5 w-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                      </svg>
+                    </div>
+                    <p className="text-sm font-medium text-red-300">{streamError}</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-5 px-8">
+                    {/* Spinner ring */}
+                    <div className="relative flex items-center justify-center">
+                      <div className="absolute h-16 w-16 rounded-full bg-white/5 animate-ping [animation-duration:2s]" />
+                      <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-white/[0.06] ring-1 ring-white/10">
+                        <Loader2 className="h-6 w-6 text-white/80 animate-spin" />
+                      </div>
+                    </div>
+
+                    {/* Title */}
+                    <div className="space-y-1.5">
+                      <p className="text-sm font-semibold tracking-wide text-white animate-pulse">
+                        {streamStatus === "processing"
+                          ? "Optimizing video for streaming…"
+                          : "Connecting to peers and downloading movie data…"}
+                      </p>
+                      <p className="text-xs text-white/40">
+                        {streamStatus === "processing"
+                          ? "Converting video into HLS segments, almost ready"
+                          : "Waiting for enough data before playback can begin"}
+                      </p>
+                    </div>
+
+                    {/* Progress dots */}
+                    <div className="flex items-center gap-1.5">
+                      {[0, 1, 2].map((i) => (
+                        <span
+                          key={i}
+                          className="h-1 w-1 rounded-full bg-white/30 animate-pulse"
+                          style={{ animationDelay: `${i * 300}ms` }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

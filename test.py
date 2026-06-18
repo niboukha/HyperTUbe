@@ -1,155 +1,144 @@
-import json
-import logging
-import os
-import subprocess
+import time
 
-from celery import shared_task
-from django.conf import settings
+import requests
+# from .tasks import ACTIVE_TORRENTS, SESSION
+import libtorrent as lt
 
-from apps.movies.models import Movie
-from apps.streaming.models import Torrent
-from apps.streaming.torrent_engine import download_torrent, ACTIVE_TORRENTS
-from apps.streaming.hls import start_ffmpeg
-from .subtitles import enqueue_subtitle_preparation_once
+SESSION = lt.session({
+    'listen_interfaces': '0.0.0.0:6881',
+    'enable_dht': True,
+    'enable_lsd': True,
+    'enable_upnp': True,
+    'enable_natpmp': True,
+    # 'allow_multiple_connections_per_ip': True,
+})
 
-logger = logging.getLogger(__name__)
-
-DOWNLOAD_DIR = settings.TORRENT_DOWNLOAD_ROOT
-HLS_DIR      = settings.HLS_ROOT
+ACTIVE_TORRENTS = {}
 
 
-@shared_task(bind=True)
-def download_and_segment(self, movie_id):
+def select_and_prioritize_video_download(handle, info):
+    """
+    Prioritize the best video file + LAST PIECES for moov atom.
+    """
+    VIDEO_FORMATS = [('.mp4', 100), ('.mkv', 90), ('.webm', 80), 
+                     ('.avi', 70), ('.divx', 60), ('.mov', 50)]
+    
+    files = info.files()
+    best_file = None
+    best_score = -1
+    
+    for i in range(files.num_files()):
+        path    = files.file_path(i).lower()
+        score   = next((s for ext, s in VIDEO_FORMATS if path.endswith(ext)), -1)
+        
+        if score > -1:
+            print(f'[TORRENT FILE] {i} → {path} | score={score}')
+            if score > best_score:
+                best_score  = score
+                best_file   = (i, path)
+    
+    if not best_file:
+        print('[Torrent] No valid video file found ❌')
+        return None
+    
+    idx, path = best_file
+    
+    # Set file priority
+    priorities = [0] * files.num_files()
+    priorities[idx] = 7
+    handle.prioritize_files(priorities)
+    
     try:
-        movie   = Movie.objects.get(id=movie_id)
-        torrent = Torrent.objects.get(movie=movie)
+        torrent_info = handle.get_torrent_info()
+        piece_length = torrent_info.piece_length()
+    except:
+        print('[Torrent] Selected ✅ (piece-level priority unavailable)')
+        return path
+    
+    # Calculate pieces
+    file_offset = files.file_offset(idx)
+    file_size   = files.file_size(idx)
+    
+    first_piece = file_offset // piece_length
+    last_piece  = (file_offset + file_size - 1) // piece_length
+    
+    # ✅ Prioritize moov (last 10% of file)
+    moov_start_piece = int(first_piece + (last_piece - first_piece) * 0.80)  # Larger region
+    
+    for piece in range(moov_start_piece, last_piece + 1):
+        handle.piece_priority(piece, 6)
+    
+    handle.piece_priority(first_piece, 7)
+    
+    print(f'[Torrent] Selected ✅ {path} ({file_size / (1024**2):.1f}MB)')
+    print(f'[Torrent] Prioritized: Start={first_piece} | Moov={moov_start_piece}→{last_piece}')
+    
+    return path
 
-        movie_dir = f'{DOWNLOAD_DIR}/{movie_id}'
-        hls_dir   = f'{HLS_DIR}/{movie_id}'
+def _create_session():
+    """Create fresh session for each download"""
+    session = lt.session({
+        'listen_interfaces': '0.0.0.0:6881',
+        'enable_dht':    True,
+        'enable_lsd':    True,
+        'enable_upnp':   True,
+        'enable_natpmp': True,
+        # 'allow_multiple_connections_per_ip': True,
+    })
+    session.add_dht_router('router.bittorrent.com',  6881)
+    session.add_dht_router('router.utorrent.com',    6881)
+    session.add_dht_router('dht.transmissionbt.com', 6881)
+    session.add_dht_router('dht.libtorrent.org',     25401)
+    return session
 
-        os.makedirs(movie_dir, exist_ok=True)
-        os.makedirs(hls_dir,   exist_ok=True)
-
-        if movie_id not in ACTIVE_TORRENTS:
-            # if torrent.status == 'ready' and torrent.hls_path and os.path.exists(torrent.hls_path):
-            #     logger.info('[Download] Already ready | movie_id=%s hls=%s', movie_id, torrent.hls_path)
-            #     # enqueue_subtitle_preparation_once(movie_id, video_path=torrent.video_path)
-            #     return
-
-            logger.info('[Download] Starting torrent | movie_id=%s previous_status=%s', movie_id, torrent.status)
-            torrent.status   = 'downloading'
-            torrent.hls_path = None
-            if torrent.video_path and not os.path.exists(torrent.video_path):
-                torrent.video_path = None
-            torrent.save(update_fields=['status', 'hls_path', 'video_path'])
-            download_torrent(movie_dir, torrent)
-
-        if movie_id not in ACTIVE_TORRENTS:
-            logger.warning('[Download] download_torrent did not register torrent | movie_id=%s', movie_id)
-            return
-
-        handle   = ACTIVE_TORRENTS[movie_id]['handle']
-        status   = handle.status()
-        progress = status.progress * 100
-        logger.info('[Download] Progress | movie_id=%s progress=%.1f%% peers=%d', movie_id, progress, status.num_peers)
-
-
-
-
-
-        torrent.refresh_from_db()
-        ffmpeg_started = torrent.status in ('processing', 'ready')
-
-        if not ffmpeg_started:
-            video_file = _find_video_file(movie_dir)
-            if video_file:
-                torrent.video_path = video_file
-                torrent.save(update_fields=['video_path'])
-
-                # updated 99.5 
-                if progress >= 99.5 or status.is_seeding:
-                    moov_ok, v_codec, a_codec = pre_check_video(video_file)
-                    if moov_ok:
-                        logger.info('[Download] Starting FFmpeg | movie_id=%s codecs=%s/%s', movie_id, v_codec, a_codec)
-
-                        start_ffmpeg(video_file, hls_dir, movie_id, torrent, get_ffmpeg_args(v_codec, a_codec))
-                    else:
-                        logger.info('[Download] Video metadata not readable yet | movie_id=%s', movie_id)
-                else:
-                    logger.info('[Download] Waiting for full download | movie_id=%s progress=%.1f%%', movie_id, progress)
-            else:
-                logger.info('[Download] Video file not found yet | movie_id=%s', movie_id)
-
-        torrent.refresh_from_db()
-        if status.is_seeding or progress >= 100.0:
-        # if torrent.status == 'ready':
-            logger.info('[Download] Complete | movie_id=%s', movie_id)
-            # enqueue_subtitle_preparation_once(movie_id, video_path=torrent.video_path)
-            return
-
-        self.apply_async(args=[movie_id], countdown=3)
-
-    except Movie.DoesNotExist:
-        logger.error('[Download] Movie not found | movie_id=%s', movie_id)
-    except Torrent.DoesNotExist:
-        logger.error('[Download] Torrent not found | movie_id=%s', movie_id)
-    except Exception:
-        logger.exception('[Download] Unexpected error | movie_id=%s', movie_id)
-
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-def _find_video_file(directory):
-    VIDEO_EXTENSIONS = (
-        '.mkv', '.mp4', '.avi', '.webm',
-        '.divx', '.mov', '.flv', '.wmv',
-        '.m4v', '.mpg', '.mpeg',
-    )
-    for root, _, files in os.walk(directory):
-        for f in files:
-            if f.lower().endswith(VIDEO_EXTENSIONS):
-                full_path = os.path.join(root, f)
-                print(f'[find_video] Found: {full_path}')
-                return full_path
-    return None
-
-
-def pre_check_video(file_path):
-    moov_available = False
+def download_torrent(movie_dir, torrent):
+    """
+    Download torrent using libtorrent
+    """
     try:
-        result = subprocess.run(
-            ['ffprobe', '-v', 'error', '-show_entries', 'format=duration', file_path],
-            capture_output=True,
-            timeout=2,
-        )
-        moov_available = result.returncode == 0
-    except Exception:
-        pass
+        # ─────────────────────────────────────────
+        # Start torrent download
+        # ─────────────────────────────────────────
+        torrent.status = 'downloading'
+        torrent.save()
+        session = _create_session()
+        torrent_url = torrent.movie.torrent_url
 
-    video_codec = None
-    audio_codec = None
-    try:
-        result = subprocess.run(
-            ['ffprobe', '-v', 'error', '-show_entries', 'stream=codec_name,codec_type',
-             '-of', 'json', file_path],
-            capture_output=True, text=True, timeout=2,
-        )
-        data = json.loads(result.stdout)
-        for stream in data.get('streams', []):
-            if stream.get('codec_type') == 'video':
-                video_codec = stream.get('codec_name')
-            elif stream.get('codec_type') == 'audio':
-                audio_codec = stream.get('codec_name')
-    except Exception:
-        pass
+        print(f'[{torrent.movie.title}] Starting torrent download...')
+        print(f'[{torrent.movie.title}] Torrent URL: {torrent_url}')
+        
+        params = {
+            'save_path': movie_dir,
+            'storage_mode': lt.storage_mode_t.storage_mode_sparse
+        }
 
-    return moov_available, video_codec, audio_codec
+        # Add torrent — magnet or .torrent file
+        if torrent_url.startswith('magnet:'):
+            handle = lt.add_magnet_uri(session, torrent_url, params)
 
+            print(f'[{torrent.movie.title}] Waiting for metadata...')
+            
+            start = time.time()
+            while not handle.has_metadata():
+                if time.time() - start > 60:
+                    raise Exception('Metadata timeout')
+                time.sleep(1)
+            info = handle.get_torrent_info()
+        else:
+            response = requests.get(torrent_url, timeout=30)
+            response.raise_for_status()
+            info   = lt.torrent_info(lt.bdecode(response.content))
+            handle = session.add_torrent({**params, 'ti': info})
+        handle.set_sequential_download(True)
+        select_and_prioritize_video_download(handle, info)
+        ACTIVE_TORRENTS[torrent.movie.id] = {
+            'handle': handle,
+            'session': session,
+        }
 
-def get_ffmpeg_args(video_codec, audio_codec):
-    if video_codec == 'h264' and audio_codec == 'aac':
-        return ['-c:v', 'copy', '-c:a', 'copy']
-    elif video_codec in ('h264', 'h265'):
-        return ['-c:v', 'libx264', '-c:a', 'copy']
-    else:
-        return ['-c:v', 'libx264', '-c:a', 'aac']
+        return handle
+    except Exception as e:
+        print(f'Error downloading torrent: {e}')
+        torrent.status = 'error'
+        torrent.save()
+        return None

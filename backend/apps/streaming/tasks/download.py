@@ -115,7 +115,18 @@ def download_and_segment(self, movie_id, stuck_ticks=0):
                     # ─────────────────────────────────────────────────────────
                     if moov_ok:
                         logger.info('[Download] Starting FFmpeg | movie_id=%s codecs=%s/%s', movie_id, v_codec, a_codec)
-                        start_ffmpeg(video_file, hls_dir, movie_id, torrent, get_ffmpeg_args(v_codec, a_codec))
+                        # Check if the torrent is fully downloaded or seeding
+                        is_fully_downloaded = status.is_seeding or progress >= 99.5
+                        
+                        start_ffmpeg(
+                            video_file, 
+                            hls_dir, 
+                            movie_id, 
+                            torrent, 
+                            get_ffmpeg_args(v_codec, a_codec), 
+                            is_complete=is_fully_downloaded
+                        )
+                        # start_ffmpeg(video_file, hls_dir, movie_id, torrent, get_ffmpeg_args(v_codec, a_codec))
                     else:
                         logger.info('[Download] Video metadata not readable yet | movie_id=%s', movie_id)
                 else:
