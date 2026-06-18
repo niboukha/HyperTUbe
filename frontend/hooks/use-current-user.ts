@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { markAuthenticated } from "@/hooks/use-language"
 
 export type CurrentUser = {
   id: string
@@ -20,7 +21,10 @@ export function useCurrentUser() {
   useEffect(() => {
     fetch(`${API}/auth/profile`, { credentials: "include" })
       .then(r => r.ok ? r.json() : null)
-      .then(data => setUser(data))
+      .then(data => {
+        setUser(data)
+        if (data) markAuthenticated(data.language)
+      })
       .catch(() => setUser(null))
   }, [])
 

@@ -66,32 +66,24 @@ export function resetLanguageState() {
   }
 }
 
-async function init() {
+function init() {
   if (_initialized) return
   _initialized = true
+  // Language is read from cookie/localStorage in readInitial() — no API call needed.
+  // Authentication state is set externally via markAuthenticated().
+}
 
-  // Local cookie / localStorage is the user's explicit choice — never override it.
-  // Only fall back to the profile when the user has no stored preference at all
-  // (e.g. first visit on a new device after setting a language on another device).
-  if (readCookie() || readStorage()) return
-
-  try {
-    const res = await fetch(`${API}/auth/profile`, {
-      credentials: "include",
-      cache:       "no-store",
-      headers:     { "Accept-Language": LANG_CODE[_lang] },
-    })
-    if (res.ok) {
-      _isAuthenticated = true
-      const data = await res.json()
-      const lang = CODE_LANG[data.language] ?? "English"
-      if (lang !== _lang) {
-        _lang = lang
-        persist(_lang)
-        notify()
-      }
+/** Call this when /auth/profile returns 200 (e.g. from useCurrentUser). */
+export function markAuthenticated(serverLanguage?: string) {
+  _isAuthenticated = true
+  if (serverLanguage && !readCookie() && !readStorage()) {
+    const lang = CODE_LANG[serverLanguage] ?? "English"
+    if (lang !== _lang) {
+      _lang = lang
+      persist(_lang)
+      notify()
     }
-  } catch {}
+  }
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -106,7 +98,7 @@ export function useLanguage() {
     _subs.add(refresh)
     setLangState(_lang)
     setLangReady(true)
-    init().then(() => { if (mounted) setLangState(_lang) })
+    init()
     return () => { _subs.delete(refresh); mounted = false }
   }, [])
 
