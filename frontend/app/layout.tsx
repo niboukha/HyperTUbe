@@ -26,7 +26,7 @@ export default function RootLayout({
       lang="en"
       className={cn(poppins.variable, inter.variable, anton.variable, bebasNeue.variable, "font-sans", figtree.variable)}
     >
-        <body className="min-h-screen bg-background">
+        <body className="min-h-screen bg-background" suppressHydrationWarning>
           <TooltipProvider>
             <IntlProvider>
               {children}

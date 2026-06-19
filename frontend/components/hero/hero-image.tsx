@@ -27,7 +27,8 @@ export default function HeroImage({ movie }: HeroImageProps) {
               fill
               sizes="100vw"
               className="object-cover transform-gpu will-change-transform"
-              priority={true}
+              loading="eager"
+              fetchPriority="high"
           />
         </motion.div>
       )}
