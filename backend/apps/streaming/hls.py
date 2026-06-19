@@ -154,7 +154,7 @@ def start_ffmpeg(video_file, hls_dir, movie_id, torrent, codec_args, is_complete
     ])
 
     try:
-        print(f'✅ FFmpeg started ({codec_args[1]}) | Throttled: {not is_complete}')
+        # print(f'✅ FFmpeg started ({codec_args[1]}) | Throttled: {not is_complete}')
 
         subprocess.Popen(cmd)
         wait_for_segments(hls_dir)
@@ -162,9 +162,9 @@ def start_ffmpeg(video_file, hls_dir, movie_id, torrent, codec_args, is_complete
         torrent.status = 'ready'
         torrent.hls_path = playlist_path
         torrent.save(update_fields=['status', 'hls_path'])
-        print(f'✅ HLS ready: {playlist_path}')
+        # print(f'✅ HLS ready: {playlist_path}')
     except Exception as e:
-        print(f'❌ Error: {e}')
+        # print(f'❌ Error: {e}')
         torrent.status = 'error'
         torrent.hls_path = None
         torrent.save(update_fields=['status', 'hls_path'])

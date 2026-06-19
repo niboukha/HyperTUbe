@@ -534,14 +534,14 @@ export default function Watch() {
                 </div>
 
                 {/* Debug: show subtitle state (dev only) */}
-                {process.env.NODE_ENV === "development" && (
+                {/* {process.env.NODE_ENV === "development" && (
                   <div className="text-xs text-white/30 font-mono">
                     subtitles: {subtitles.length} track(s)
                     {subtitles.map(s => (
                       <div key={s.id}>→ [{s.language}] {s.label} | {s.src}</div>
                     ))}
                   </div>
-                )}
+                )} */}
               </div>
               <div className="flex flex-wrap md:flex-col gap-3 md:gap-2.5 shrink-0 md:items-end" />
             </div>

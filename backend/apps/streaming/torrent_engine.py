@@ -32,13 +32,13 @@ def select_and_prioritize_video_download(handle, info):
         score   = next((s for ext, s in VIDEO_FORMATS if path.endswith(ext)), -1)
         
         if score > -1:
-            print(f'[TORRENT FILE] {i} → {path} | score={score}')
+            # print(f'[TORRENT FILE] {i} → {path} | score={score}')
             if score > best_score:
                 best_score  = score
                 best_file   = (i, path)
     
     if not best_file:
-        print('[Torrent] No valid video file found ❌')
+        # print('[Torrent] No valid video file found ❌')
         return None
     
     idx, path = best_file
@@ -52,7 +52,7 @@ def select_and_prioritize_video_download(handle, info):
         torrent_info = handle.get_torrent_info()
         piece_length = torrent_info.piece_length()
     except:
-        print('[Torrent] Selected ✅ (piece-level priority unavailable)')
+        # print('[Torrent] Selected ✅ (piece-level priority unavailable)')
         return path
     
     # Calculate pieces
@@ -70,8 +70,8 @@ def select_and_prioritize_video_download(handle, info):
     
     handle.piece_priority(first_piece, 7)
     
-    print(f'[Torrent] Selected ✅ {path} ({file_size / (1024**2):.1f}MB)')
-    print(f'[Torrent] Prioritized: Start={first_piece} | Moov={moov_start_piece}→{last_piece}')
+    # print(f'[Torrent] Selected ✅ {path} ({file_size / (1024**2):.1f}MB)')
+    # print(f'[Torrent] Prioritized: Start={first_piece} | Moov={moov_start_piece}→{last_piece}')
     
     return path
 
@@ -104,8 +104,8 @@ def download_torrent(movie_dir, torrent):
         session = _create_session()
         torrent_url = torrent.movie.torrent_url
 
-        print(f'[{torrent.movie.title}] Starting torrent download...')
-        print(f'[{torrent.movie.title}] Torrent URL: {torrent_url}')
+        # print(f'[{torrent.movie.title}] Starting torrent download...')
+        # print(f'[{torrent.movie.title}] Torrent URL: {torrent_url}')
         
         params = {
             'save_path': movie_dir,
@@ -116,7 +116,7 @@ def download_torrent(movie_dir, torrent):
         if torrent_url.startswith('magnet:'):
             handle = lt.add_magnet_uri(session, torrent_url, params)
 
-            print(f'[{torrent.movie.title}] Waiting for metadata...')
+            # print(f'[{torrent.movie.title}] Waiting for metadata...')
             
             start = time.time()
             while not handle.has_metadata():
@@ -138,7 +138,7 @@ def download_torrent(movie_dir, torrent):
 
         return handle
     except Exception as e:
-        print(f'Error downloading torrent: {e}')
+        # print(f'Error downloading torrent: {e}')
         torrent.status = 'error'
         torrent.save()
         return None

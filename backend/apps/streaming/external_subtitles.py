@@ -61,7 +61,7 @@ class OpenSubtitlesClient:
                 "OpenSubtitles download requires OPENSUBTITLES_USERNAME and OPENSUBTITLES_PASSWORD"
             )
 
-        print("[Subtitles] OpenSubtitles login started")
+        # print("[Subtitles] OpenSubtitles login started")
         response = requests.post(
             f"{self.base_url}/login",
             headers=self._headers(authenticated=False),
@@ -72,7 +72,7 @@ class OpenSubtitlesClient:
         token = response.json().get("token")
         if not token:
             raise SubtitleProviderError("OpenSubtitles login did not return a token")
-        print("[Subtitles] OpenSubtitles login succeeded")
+        # print("[Subtitles] OpenSubtitles login succeeded")
         return token
 
     def search_movie_subtitles(self, movie: Movie, language: str) -> list[OpenSubtitlesResult]:
@@ -87,7 +87,7 @@ class OpenSubtitlesClient:
             if results:
                 break
 
-        print(f"[Subtitles] OpenSubtitles search finished | movie_id={movie.id} language={language} result_count={len(results)}")
+        # print(f"[Subtitles] OpenSubtitles search finished | movie_id={movie.id} language={language} result_count={len(results)}")
         return results
 
     def _search_movie_subtitles_query(self, movie: Movie, language: str, query: str) -> list[OpenSubtitlesResult]:
@@ -100,14 +100,14 @@ class OpenSubtitlesClient:
 
         import urllib.parse
         full_url = f"{self.base_url}/subtitles?{urllib.parse.urlencode(params)}"
-        print(f"[Subtitles] >>> REQUEST  GET {full_url}")
+        # print(f"[Subtitles] >>> REQUEST  GET {full_url}")
         response = requests.get(
             f"{self.base_url}/subtitles",
             headers=self._headers(authenticated=False),
             params=params,
             timeout=15,
         )
-        print(f"[Subtitles] <<< RESPONSE status={response.status_code} result_count={len(response.json().get('data', []))}")
+        # print(f"[Subtitles] <<< RESPONSE status={response.status_code} result_count={len(response.json().get('data', []))}")
         response.raise_for_status()
 
         results = []
@@ -134,7 +134,7 @@ class OpenSubtitlesClient:
         return results
 
     def download_subtitle_file(self, result: OpenSubtitlesResult) -> tuple[str, bytes]:
-        print(f"[Subtitles] OpenSubtitles download request started | provider_id={result.provider_id} file_id={result.file_id}")
+        # print(f"[Subtitles] OpenSubtitles download request started | provider_id={result.provider_id} file_id={result.file_id}")
         response = requests.post(
             f"{self.base_url}/download",
             headers=self._headers(authenticated=True),
@@ -154,7 +154,7 @@ class OpenSubtitlesClient:
 
         file_response = requests.get(download_url, timeout=30)
         file_response.raise_for_status()
-        print(f"[Subtitles] OpenSubtitles file downloaded | file_name={result.file_name} size={len(file_response.content)}")
+        # print(f"[Subtitles] OpenSubtitles file downloaded | file_name={result.file_name} size={len(file_response.content)}")
         return result.file_name, file_response.content
 
 
@@ -164,7 +164,7 @@ def download_external_subtitle_fallback(movie_id: int, language: str, validator=
     """
     movie = Movie.objects.get(id=movie_id)
     normalized_language = normalize_subtitle_language(language)
-    print(f"[Subtitles] External fallback started | movie_id={movie_id} language={normalized_language}")
+    # print(f"[Subtitles] External fallback started | movie_id={movie_id} language={normalized_language}")
 
     for existing in Subtitle.objects.filter(movie=movie, status=Subtitle.Status.READY):
         if normalize_subtitle_language(existing.language) != normalized_language:
@@ -172,21 +172,21 @@ def download_external_subtitle_fallback(movie_id: int, language: str, validator=
 
         has_file = bool(existing.file and existing.file.storage.exists(existing.file.name))
         if has_file or existing.subtitle_link:
-            print(f"[Subtitles] External fallback skipped; ready subtitle already exists | movie_id={movie_id} language={normalized_language} subtitle_id={existing.id}")
+            # print(f"[Subtitles] External fallback skipped; ready subtitle already exists | movie_id={movie_id} language={normalized_language} subtitle_id={existing.id}")
             return existing
 
         existing.status = Subtitle.Status.FAILED
         existing.save(update_fields=["status"])
-        print(f"[Subtitles] External fallback ignored stale ready subtitle; file missing | movie_id={movie_id} language={normalized_language} subtitle_id={existing.id}")
+        # print(f"[Subtitles] External fallback ignored stale ready subtitle; file missing | movie_id={movie_id} language={normalized_language} subtitle_id={existing.id}")
 
     client = OpenSubtitlesClient()
     results = client.search_movie_subtitles(movie=movie, language=normalized_language)
     if not results:
-        print(f"[Subtitles] External fallback found no results | movie_id={movie_id} language={normalized_language}")
+        # print(f"[Subtitles] External fallback found no results | movie_id={movie_id} language={normalized_language}")
         return None
 
     for selected in results:
-        print(f"[Subtitles] External fallback selected result | movie_id={movie_id} language={normalized_language} provider_id={selected.provider_id} file_id={selected.file_id}")
+        # print(f"[Subtitles] External fallback selected result | movie_id={movie_id} language={normalized_language} provider_id={selected.provider_id} file_id={selected.file_id}")
         try:
             file_name, content = client.download_subtitle_file(selected)
             subtitle_text = _decode_subtitle_payload(file_name=file_name, content=content)
@@ -202,7 +202,7 @@ def download_external_subtitle_fallback(movie_id: int, language: str, validator=
                     convert_srt_to_vtt(str(srt_path), str(vtt_path))
 
                 if validator and not validator(str(vtt_path), selected):
-                    print(f"[Subtitles] External fallback rejected result | movie_id={movie_id} language={normalized_language} provider_id={selected.provider_id}")
+                    # print(f"[Subtitles] External fallback rejected result | movie_id={movie_id} language={normalized_language} provider_id={selected.provider_id}")
                     continue
 
                 vtt_bytes = vtt_path.read_bytes()
@@ -221,7 +221,7 @@ def download_external_subtitle_fallback(movie_id: int, language: str, validator=
                             language=normalized_language,
                             status=Subtitle.Status.READY,
                         ).first()
-                        print(f"[Subtitles] External fallback race: another worker already saved | movie_id={movie.id} language={normalized_language} subtitle_id={winner.id}")
+                        # print(f"[Subtitles] External fallback race: another worker already saved | movie_id={movie.id} language={normalized_language} subtitle_id={winner.id}")
                         return winner
 
                     subtitle = Subtitle(
@@ -238,16 +238,16 @@ def download_external_subtitle_fallback(movie_id: int, language: str, validator=
                         save=True,
                     )
         except SubtitleQuotaExceeded as exc:
-            print(f"[Subtitles] External fallback aborted; quota exhausted | movie_id={movie_id} language={normalized_language} error={exc}")
+            # print(f"[Subtitles] External fallback aborted; quota exhausted | movie_id={movie_id} language={normalized_language} error={exc}")
             return None
         except Exception as exc:
-            print(f"[Subtitles] External fallback result failed | movie_id={movie_id} language={normalized_language} provider_id={selected.provider_id} error={exc}")
+            # print(f"[Subtitles] External fallback result failed | movie_id={movie_id} language={normalized_language} provider_id={selected.provider_id} error={exc}")
             continue
 
-        print(f"[Subtitles] External fallback saved WebVTT | movie_id={movie_id} language={normalized_language} subtitle_id={subtitle.id} file={subtitle.file.name}")
+        # print(f"[Subtitles] External fallback saved WebVTT | movie_id={movie_id} language={normalized_language} subtitle_id={subtitle.id} file={subtitle.file.name}")
         return subtitle
 
-    print(f"[Subtitles] External fallback found no valid subtitle | movie_id={movie_id} language={normalized_language}")
+    # print(f"[Subtitles] External fallback found no valid subtitle | movie_id={movie_id} language={normalized_language}")
     return None
 
 
@@ -269,7 +269,7 @@ def _subtitle_search_queries(movie: Movie) -> list[str]:
 
     add(re.sub(r"^(?:d\s*w|dw|d\.?\s*w\.?)\s+griffith[:\s]+", "", movie.title or "", flags=re.IGNORECASE))
 
-    print(f"[Subtitles] Generated search queries | movie_id={movie.id} queries={candidates}")
+    # print(f"[Subtitles] Generated search queries | movie_id={movie.id} queries={candidates}")
     return candidates
 
 
@@ -277,11 +277,11 @@ def _decode_subtitle_payload(file_name: str, content: bytes) -> str:
     lower_name = file_name.lower()
 
     if lower_name.endswith(".gz"):
-        print(f"[Subtitles] Decoding gzip subtitle payload | file_name={file_name}")
+        # print(f"[Subtitles] Decoding gzip subtitle payload | file_name={file_name}")
         content = gzip.decompress(content)
 
     if lower_name.endswith(".zip"):
-        print(f"[Subtitles] Decoding zip subtitle payload | file_name={file_name}")
+        # print(f"[Subtitles] Decoding zip subtitle payload | file_name={file_name}")
         with zipfile.ZipFile(BytesIO(content)) as archive:
             subtitle_names = [
                 name for name in archive.namelist()
