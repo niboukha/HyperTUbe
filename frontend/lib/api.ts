@@ -17,7 +17,7 @@
  *   const res = await apiFetch("/movies/tmdb-550/", { lang: "fr" })
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+const API_BASE = process.env.BACKEND_INTERNAL_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 function currentLangCode(): string {
   if (typeof document === "undefined") return "en"

@@ -51,7 +51,7 @@ export default function History() {
   return (
     <div className="relative flex flex-col items-center px-4! lg:px-16! space-y-4! mt-15! mb-15! bg-[#0E0E10] min-h-screen">
       {groups.map((group) => (
-        <div key={group.group} className="flex flex-col gap-3">
+        <div key={group.group} className="flex flex-col gap-3  md:w-4xl!">
           <div className="px-4!">
             <HeaderTitle title={t(GROUP_KEYS[group.group] as any ?? group.group)} />
           </div>

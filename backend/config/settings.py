@@ -21,8 +21,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 env = environ.Env()
 
-# load .env file
-environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
+# load .env file from project root (one level above backend/)
+_env_path = os.path.join(BASE_DIR, "..", ".env")
+if os.path.exists(_env_path):
+    environ.Env.read_env(_env_path)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
@@ -256,6 +258,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
+    "backend",
 ]
 
 CORS_ALLOWED_ORIGINS = [

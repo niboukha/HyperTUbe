@@ -28,7 +28,6 @@ class MovieStreamingResolveView(APIView):
     Resolve a frontend movie ID into the local Django Movie ID used by streaming.
     Returns 202 while archive metadata is still being fetched.
     """
-
     def get(self, request, movie_ref):
         try:
             movie = resolve_streaming_movie(movie_ref)

@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PasswordInput } from "@/components/auth/PasswordInput";
@@ -11,6 +12,7 @@ const FALLBACK_AVATAR = "/avatars/Name=angryman.svg";
 
 export default function SecurityPage() {
   const t = useTranslations("Settings");
+  const router = useRouter();
 
   const [avatar, setAvatar] = useState<string>(FALLBACK_AVATAR);
   const [formData, setFormData] = useState({
@@ -76,7 +78,11 @@ export default function SecurityPage() {
 
       setFormData({ oldPassword: "", newPassword: "", confirmPassword: "" });
       setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
+      setTimeout(async () => {
+        await fetch(`${API}/auth/logout`, { method: "POST", credentials: "include" });
+        router.push("/login");
+        router.refresh();
+      }, 1500);
     } catch (err: any) {
       setError(err.message);
     } finally {

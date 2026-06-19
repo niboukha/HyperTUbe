@@ -227,6 +227,9 @@ def fetch_detail(tmdb_id: int, language: str = "en") -> dict | None:
                     timeout=TMDB_TIMEOUT, retries=TMDB_RETRIES, fallback=None)
     data = _normalize_detail(body) if body and body.get("id") else None
     if data:
+        credits = fetch_credits(tmdb_id)
+        data["cast"] = credits.get("cast", [])
+        data["crew"] = credits.get("crew", {})
         set_detail(cache_key, data)
     return data
 

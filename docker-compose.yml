@@ -1,9 +1,28 @@
 # version: "3.9"
 
 services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      # - /app/node_modules
+    env_file:
+      - .env
+    environment:
+      - WATCHPACK_POLLING=true
+      - BACKEND_INTERNAL_URL=http://backend:8000
+    depends_on:
+      - backend
+
   backend:
     build:
       context: .
+      dockerfile: backend/Dockerfile
     container_name: backend
     command: >
       sh -c "
@@ -55,7 +74,9 @@ services:
     restart: unless-stopped
 
   celery:
-    build: .
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     command: >
       celery -A config worker
       --pool=gevent
@@ -74,7 +95,9 @@ services:
       - .env
 
   celery-beat:
-    build: .
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     command: celery -A config beat --loglevel=info
     working_dir: /app
     volumes:
