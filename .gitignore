@@ -10,3 +10,6 @@ data/
 
 .venv
 todo
+
+.DS_Store
+**/.DS_Store
