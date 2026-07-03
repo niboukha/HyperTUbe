@@ -1,135 +1,402 @@
-Project Setup
+# Hypertube
 
-This repository contains a Django backend and a Next.js frontend. The following instructions describe how to set up local development environments for both parts.
+Hypertube is a full-stack movie discovery and streaming platform inspired by modern VOD experiences. It combines a polished Next.js interface with a Django REST backend that aggregates movie metadata, manages authenticated user activity, resolves playable public-domain sources, prepares HLS streams, and serves subtitles.
 
-## Prerequisites
+The project was built as a complete web application: users can browse curated rows, search and filter a movie library, open rich movie detail pages, save titles to a watchlist, resume viewing from history, leave reviews, choose a preferred language, and watch available films through an in-browser HLS player.
 
-- Git
-- Python 3.10+ and virtual environment tool (`venv` or similar)
-- Node.js 16+ and a package manager (`npm`, `yarn`, or `pnpm`)
-- (Optional) Docker & Docker Compose if you prefer containers
+## Table of Contents
 
----
+- [Features](#features)
+- [Architecture](#architecture)
+- [Technology Stack](#technology-stack)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+- [Environment Variables](#environment-variables)
+- [Useful Commands](#useful-commands)
+- [API Overview](#api-overview)
+- [Key Implementation Details](#key-implementation-details)
+- [Testing and Quality](#testing-and-quality)
 
-## Backend (Django)
+## Features
 
-Path: [backend](backend)
+### Movie Discovery
 
-1. Create and activate a virtual environment:
+- Home page with hero content, continue-watching, upcoming movies, and genre-based rows.
+- Library page with search, genre filters, rating filters, year range filters, sorting, infinite scrolling, and fallback suggestions.
+- Movie detail pages with posters, backdrops, overview, runtime, ratings, trailer support, collection rows, and availability badges.
+- Metadata aggregation from TMDB and public-domain providers such as Archive.org.
+- Content quality and safety filtering on imported catalog results.
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
+### Streaming Experience
+
+- Watch page with an HTML5 video player powered by `hls.js`.
+- Streaming resolver that maps frontend movie references to backend movie records.
+- Torrent-backed download pipeline using `libtorrent`.
+- FFmpeg-based HLS segmentation for browser playback.
+- Stream status tracking: idle, downloading, processing, ready, and error.
+- Resume support through watch history progress updates.
+- Media cleanup task for stale downloads.
+
+### Subtitles
+
+- Subtitle discovery and preparation pipeline.
+- Embedded and external subtitle support.
+- Subtitle file serving through backend endpoints.
+- Language-aware subtitle preference based on the user-selected app language.
+- OpenSubtitles integration hooks for external subtitles.
+
+### Users and Authentication
+
+- Email/password registration and login.
+- JWT authentication with cookie support.
+- Logout, password reset, password confirmation, and password change flows.
+- Social authentication support for Google, GitHub, and 42 Intra via Django Allauth.
+- Profile page, public user profile page, avatar handling, and language preference updates.
+
+### Personalization
+
+- Watchlist management with add/remove toggling.
+- Watch history grouped by recency.
+- Continue-watching row based on user progress.
+- Per-user movie progress persistence.
+- Multilingual UI support for English, French, and Spanish.
+
+### Community
+
+- Movie comments and reviews.
+- Star ratings on comments.
+- Comment editing and deletion by owners.
+- Like/unlike support for comments.
+
+## Architecture
+
+Hypertube is organized as a Dockerized full-stack application.
+
+```text
+Browser
+  |
+  | Next.js App Router UI
+  v
+Frontend container :3000
+  |
+  | REST requests / cookies / language headers
+  v
+Django REST API :8000
+  |
+  |---------------- PostgreSQL
+  |---------------- Redis
+  |---------------- Celery worker / Celery beat
+  |---------------- FFmpeg + libtorrent media pipeline
+  |
+  v
+Shared media volume for torrents, HLS segments, and subtitles
 ```
 
-2. Install dependencies:
+The frontend focuses on the user experience, routing, UI state, localization, and video playback. The backend owns authentication, provider adapters, movie state, comments, streaming resolution, subtitle preparation, asynchronous jobs, and media file serving.
 
-```bash
-pip install -r backend/requirements.txt
+## Technology Stack
+
+### Frontend
+
+- Next.js 16 with App Router
+- React 19
+- TypeScript
+- Tailwind CSS
+- next-intl for localization
+- hls.js for adaptive stream playback
+- Framer Motion for interface animation
+- Radix UI / shadcn-style primitives
+- Lucide, Heroicons, and Hugeicons for icons
+
+### Backend
+
+- Python 3.12
+- Django 5
+- Django REST Framework
+- Simple JWT and dj-rest-auth
+- Django Allauth for social login
+- PostgreSQL
+- Redis
+- Celery and Celery Beat
+- libtorrent
+- FFmpeg / FFprobe
+- django-cors-headers
+- django-redis
+
+### Infrastructure
+
+- Docker and Docker Compose
+- Adminer for database inspection
+- Shared Docker volume for generated media
+
+## Project Structure
+
+```text
+.
+|-- backend/
+|   |-- apps/
+|   |   |-- comments/      # Reviews, ratings, and likes
+|   |   |-- movies/        # Catalog APIs, provider adapters, watchlist, history
+|   |   |-- streaming/     # Torrent resolution, HLS streaming, subtitles
+|   |   `-- users/         # Auth, profile, language, OAuth providers
+|   |-- config/            # Django settings, URLs, ASGI/WSGI, Celery config
+|   |-- Dockerfile
+|   `-- manage.py
+|-- frontend/
+|   |-- app/               # Next.js routes and layouts
+|   |-- components/        # UI, sections, player/detail/profile components
+|   |-- hooks/             # Client-side data and interaction hooks
+|   |-- lib/               # API helpers, auth, movie utilities, fonts
+|   |-- messages/          # en/fr/es translation dictionaries
+|   |-- public/            # Static assets and bundled subtitle examples
+|   `-- package.json
+|-- docker-compose.yml
+|-- Makefile
+|-- requirements.txt
+`-- README.md
 ```
 
-3. Create a `.env` file in `backend/` (example):
+## Getting Started
+
+### Prerequisites
+
+- Docker and Docker Compose
+- Node.js 20+ for local frontend development
+- Python 3.12+ for local backend development
+- A TMDB API bearer token
+- FFmpeg if running the backend outside Docker
+
+### Recommended: Docker Compose
+
+Create a `.env` file at the repository root:
 
 ```env
-# backend/.env
-TMDB_KEY="tmdb key"
-TMDB_TOKEN="tmdb token"
-# Add any other keys your `backend/config/settings.py` expects
+POSTGRES_DB=hypertube
+POSTGRES_USER=hypertube
+POSTGRES_PASSWORD=hypertube
+POSTGRES_HOST=db
+POSTGRES_PORT=5432
+
+TMDB_TOKEN=your_tmdb_bearer_token
+
+NEXT_PUBLIC_API_URL=http://localhost:8000
+BACKEND_INTERNAL_URL=http://backend:8000
+
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+INTRA_CLIENT_ID=
+INTRA_CLIENT_SECRET=
+INTRA_CALLBACK=
+
+OPENSUBTITLES_API_KEY=
+OPENSUBTITLES_USERNAME=
+OPENSUBTITLES_PASSWORD=
+OPENSUBTITLES_USER_AGENT=Hypertube v1
+OPENSUBTITLES_TOKEN=
+
+STREAMING_CLEANUP_AFTER_DAYS=30
 ```
 
-4. Run migrations and create a superuser:
+Start the full stack:
+
+```bash
+docker compose up --build
+```
+
+Or use the Makefile shortcut:
+
+```bash
+make
+```
+
+The default make target starts the full stack in detached mode. Use `make build` when you want to rebuild images first, and `make help` to see the available shortcuts.
+
+Services:
+
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8000
+- Django admin: http://localhost:8000/admin/
+- Adminer: http://localhost:8080
+- PostgreSQL: available inside Docker as `db:5432`
+- Redis: available inside Docker as `redis:6379`
+
+The backend container runs migrations, configures OAuth applications from environment variables, and starts the Django development server.
+
+### Manual Development
+
+Run infrastructure services first, or provide your own PostgreSQL and Redis instances.
+
+Backend:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+cd backend
+python manage.py migrate
+python manage.py setup_oauth
+python manage.py runserver 0.0.0.0:8000
+```
+
+Celery worker:
+
+```bash
+cd backend
+celery -A config worker --pool=gevent --concurrency=100 --loglevel=info
+```
+
+Celery beat:
+
+```bash
+cd backend
+celery -A config beat --loglevel=info
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+## Environment Variables
+
+| Variable | Purpose |
+| --- | --- |
+| `POSTGRES_DB` | PostgreSQL database name |
+| `POSTGRES_USER` | PostgreSQL username |
+| `POSTGRES_PASSWORD` | PostgreSQL password |
+| `POSTGRES_HOST` | PostgreSQL host, usually `db` in Docker |
+| `POSTGRES_PORT` | PostgreSQL port, usually `5432` |
+| `TMDB_TOKEN` | TMDB bearer token for movie metadata |
+| `NEXT_PUBLIC_API_URL` | Public browser-facing backend URL |
+| `BACKEND_INTERNAL_URL` | Internal backend URL used by the frontend container |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth credentials |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | GitHub OAuth credentials |
+| `INTRA_CLIENT_ID` / `INTRA_CLIENT_SECRET` | 42 Intra OAuth credentials |
+| `INTRA_CALLBACK` | 42 Intra OAuth callback URL |
+| `OPENSUBTITLES_*` | Optional OpenSubtitles integration credentials |
+| `TORRENT_DOWNLOAD_ROOT` | Optional override for torrent download directory |
+| `HLS_ROOT` | Optional override for generated HLS directory |
+| `STREAMING_CLEANUP_AFTER_DAYS` | Age threshold for cleaning unused media |
+
+Do not commit real secrets or production credentials.
+
+## Useful Commands
+
+```bash
+make               # Start the Docker Compose stack in detached mode
+make build         # Rebuild images and start the stack
+make logs          # Follow logs for all services
+make ps            # Show running services
+make restart       # Restart the stack
+make down          # Stop services
+make clean         # Stop services and remove volumes/images created by the stack
+make fclean        # Clean compose resources and prune Docker
+make re            # Recreate everything from scratch
+make migrate       # Run Django migrations inside the backend container
+make makemigrations # Create new Django migrations inside the backend container
+make test          # Run Django tests inside the backend container
+make lint          # Run frontend linting inside the frontend container
+make help          # Show all available make shortcuts
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm run dev
+npm run build
+npm run start
+npm run lint
+```
+
+Backend:
 
 ```bash
 cd backend
 python manage.py migrate
 python manage.py createsuperuser
+python manage.py test
 ```
 
-5. Start the development server:
+## API Overview
+
+### Movies
+
+- `GET /movies/` - list curated movies by type or genre.
+- `GET /movies/runtime/` - batch runtime lookup.
+- `GET /movies/<movie_id>/` - movie detail.
+- `GET /movies/<movie_id>/trailer/` - movie trailer.
+- `GET /movies/collection/<collection_id>/` - related collection movies.
+- `GET /search/` - movie search and filtered discovery.
+- `GET /proxy-image/` - backend image proxy.
+
+### Watchlist and History
+
+- `GET /watchlist/` - current user's saved movies.
+- `POST /watchlist/toggle/` - add or remove a movie from the watchlist.
+- `GET /history/` - current user's watch history.
+- `DELETE /history/<movie_id>/` - remove a history entry.
+- `POST /history/<movie_id>/progress/` - update playback progress.
+
+### Streaming
+
+- `GET /streaming/resolve/<movie_ref>/` - resolve a frontend movie reference to a streamable backend movie.
+- `GET /streaming/<movie_id>/stream/` - get stream status and stream URL.
+- `GET /streaming/<movie_id>/hls/<filename>` - serve generated HLS files.
+- `GET /streaming/<movie_id>/subtitles/` - list subtitles.
+- `GET /streaming/<movie_id>/subtitles/<subtitle_id>/file/` - serve subtitle file.
+
+### Auth and Users
+
+- `POST /auth/register`
+- `POST /auth/login`
+- `POST /auth/logout`
+- `POST /auth/password-reset`
+- `POST /auth/password-confirm`
+- `POST /auth/settings/change-password`
+- `GET /auth/profile`
+- `GET /users/`
+- `GET /users/<id>/`
+- `POST /users/profile/avatar`
+- `POST /users/profile/language`
+- `POST /oauth/token`
+- `POST /oauth/token/refresh`
+
+### Comments
+
+- `GET /comments/?movie_id=<id>` - comments for a movie.
+- `POST /comments/` - create a comment or review.
+- `GET /comments/<id>/` - get a single comment.
+- `PATCH /comments/<id>/` - edit a comment.
+- `DELETE /comments/<id>/` - delete a comment.
+- `POST /comments/<id>/like` - toggle like.
+
+## Key Implementation Details
+
+- **Provider abstraction:** movie data is normalized from multiple sources so the frontend can render TMDB and public-domain Archive.org results consistently.
+- **Language-aware requests:** the frontend API helper appends the selected language and sends `Accept-Language`, allowing localized metadata and UI updates.
+- **Streaming pipeline:** when a stream is requested, the backend creates or reuses a movie/torrent record, downloads with libtorrent, probes media with FFprobe, and uses FFmpeg to generate HLS output.
+- **Stream-while-downloading:** the download task can begin segmentation once enough sequential video data is available, reducing wait time before playback.
+- **Subtitle pipeline:** subtitles are represented as first-class records with source, status, language, labels, file references, and uniqueness constraints for ready subtitles per movie/language.
+- **User state model:** watchlist, watch status, progress, and last watched timestamps are stored per user and movie.
+- **Async maintenance:** Celery handles long-running streaming/subtitle work and Celery Beat schedules cleanup of unused downloaded media.
+
+## Testing and Quality
+
+The repository includes Django test modules for backend apps and an ESLint setup for the frontend.
 
 ```bash
-python manage.py runserver 0.0.0.0:8000
-```
+cd backend
+python manage.py test
 
-The backend will be available at http://localhost:8000
-
-If you use Docker Compose, you can also run `docker-compose up` from the repository root (ensure the compose file matches env config).
-
----
-
-## Frontend (Next.js)
-
-Path: [frontend](frontend)
-
-1. Install node dependencies (from repository root or `frontend`):
-
-```bash
 cd frontend
-npm install
-# or `yarn` or `pnpm install`
+npm run lint
 ```
 
-2. Create an environment file for Next.js. Example: `frontend/.env.local`
-
-```env
-# frontend/.env.local
-NEXT_PUBLIC_TMDB_KEY="tmdb key"
-# Add any NEXT_PUBLIC keys required by the app (API keys, feature flags)
-```
-
-3. Run the frontend in development:
-
-```bash
-npm run dev
-# or `yarn dev` / `pnpm dev`
-```
-
-Open http://localhost:3000 in your browser.
-
----
-
-## Notes & Tips
-
-- The backend in this repo uses SQLite by default (`backend/db.sqlite3`) for local development. If you switch to another database, update `DATABASE_URL` and install the appropriate DB driver.
-- Keep secrets out of the repository — never commit real API keys or `SECRET_KEY` values.
-- If CORS issues appear, ensure the backend `ALLOWED_HOSTS`/CORS settings allow `localhost:3000`.
-- To run both services together, start the backend first (port 8000), then the frontend (port 3000).
-
----
-
-## Where to look
-
-- Backend Django app: [backend/apps/movies](backend/apps/movies)
-- Frontend app entry: [frontend/app](frontend/app)
-
-If you'd like, I can also add a sample `.env` templates file or a simplified docker-compose setup for running both services together.
-
-## Getting Started
-
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
+For streaming-related changes, also verify that FFmpeg is installed, Redis and Celery are running, a stream can transition to `ready`, and the generated HLS playlist loads correctly in the watch page.

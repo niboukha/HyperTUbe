@@ -192,7 +192,7 @@ export default function TopBar() {
           </AnimatePresence>
 
           {/* logout */}
-          <AnimatePresence>
+          {/* <AnimatePresence>
               <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -204,7 +204,7 @@ export default function TopBar() {
               >
                 <LogOut className={`h-5.5 w-5.5`} />
               </motion.div>
-          </AnimatePresence>
+          </AnimatePresence> */}
 
 
           <MobileToggle
