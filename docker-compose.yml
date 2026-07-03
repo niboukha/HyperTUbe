@@ -112,4 +112,4 @@ services:
       - .env
 
 volumes:
-  media_data:                    # removed orphaned backend_data & postgres_data
+  media_data:                    # removed orphaned backend_data & postgres_data 
