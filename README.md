@@ -211,7 +211,7 @@ Or use the Makefile shortcut:
 make
 ```
 
-The default make target starts the full stack in detached mode. Use `make build` when you want to rebuild images first, and `make help` to see the available shortcuts.
+The default make target starts the full stack in detached mode after checking that `.env` exists. Use `make build` when you want to rebuild images first, `make status` to see running services and local URLs, and `make help` to view every shortcut.
 
 Services:
 
@@ -289,23 +289,68 @@ Do not commit real secrets or production credentials.
 ## Useful Commands
 
 ```bash
-make               # Start the Docker Compose stack in detached mode
-make build         # Rebuild images and start the stack
-make logs          # Follow logs for all services
-make ps            # Show running services
-make restart       # Restart the stack
-make down          # Stop services
-make clean         # Stop services and remove volumes/images created by the stack
-make fclean        # Clean compose resources and prune Docker
-make re            # Recreate everything from scratch
-make migrate       # Run Django migrations inside the backend container
-make makemigrations # Create new Django migrations inside the backend container
-make test          # Run Django tests inside the backend container
-make lint          # Run frontend linting inside the frontend container
-make help          # Show all available make shortcuts
+make                  # Start the Docker Compose stack in detached mode
+make build            # Rebuild images and start the stack
+make up               # Start existing containers in detached mode
+make stop             # Stop containers without removing them
+make down             # Stop and remove containers
+make restart          # Restart the stack
+make ps               # Show running services
+make status           # Show running services and local URLs
+make urls             # Print local service URLs
+make check-env        # Verify that .env exists
+make help             # Show all available make shortcuts
+```
+
+Logs:
+
+```bash
+make logs             # Follow logs for all services
+make logs-backend     # Follow backend logs
+make logs-frontend    # Follow frontend logs
+make logs-celery      # Follow Celery worker and beat logs
+make logs-db          # Follow PostgreSQL logs
+```
+
+Shells:
+
+```bash
+make backend-shell    # Open a shell in the backend container
+make frontend-shell   # Open a shell in the frontend container
+make db-shell         # Open psql in the PostgreSQL container
+make redis-shell      # Open redis-cli in the Redis container
+make django-shell     # Open Django's interactive shell
+```
+
+Backend:
+
+```bash
+make migrate          # Run Django migrations inside the backend container
+make makemigrations   # Create Django migrations inside the backend container
+make createsuperuser  # Create a Django superuser
+make test             # Run Django tests inside the backend container
+make manage CMD='check'
+make manage CMD='showmigrations'
 ```
 
 Frontend:
+
+```bash
+make install-frontend # Install frontend dependencies inside the container
+make lint             # Run frontend linting inside the frontend container
+make build-frontend   # Build the Next.js app inside the frontend container
+make npm CMD='run lint'
+```
+
+Maintenance:
+
+```bash
+make clean            # Stop services and remove stack volumes/images
+make fclean           # Clean compose resources and prune Docker
+make re               # Recreate everything from scratch
+```
+
+Manual frontend commands:
 
 ```bash
 cd frontend
@@ -315,7 +360,7 @@ npm run start
 npm run lint
 ```
 
-Backend:
+Manual backend commands:
 
 ```bash
 cd backend
